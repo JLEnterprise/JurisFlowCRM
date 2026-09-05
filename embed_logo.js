@@ -1,0 +1,10 @@
+import fs from 'fs';
+const imgBuffer = fs.readFileSync('E:/JurisFlow-ADV/Logo.png');
+const base64 = 'data:image/png;base64,' + imgBuffer.toString('base64');
+console.log('Logo.png Base64 length:', base64.length);
+fs.writeFileSync('C:/JurisFlow-ADV/src/data/defaultLogo.js', 'export const DEFAULT_LOGO_BASE64 = ' + base64 + ';\n', 'utf8');
+fs.writeFileSync('E:/JurisFlow-ADV/src/data/defaultLogo.js', 'export const DEFAULT_LOGO_BASE64 = ' + base64 + ';\n', 'utf8');
+fs.copyFileSync('E:/JurisFlow-ADV/Logo.png', 'C:/JurisFlow-ADV/public/logo.png');
+fs.copyFileSync('E:/JurisFlow-ADV/Logo.png', 'C:/JurisFlow-ADV/public/Logo.png');
+fs.copyFileSync('E:/JurisFlow-ADV/Logo.png', 'E:/JurisFlow-ADV/public/logo.png');
+console.log('Sucesso ao injetar Logo.png oficial de E:/JurisFlow-ADV/Logo.png!');
