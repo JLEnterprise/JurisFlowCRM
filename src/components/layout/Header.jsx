@@ -10,6 +10,8 @@ import {
   Shield,
   Calendar,
   Building2,
+  Sparkles,
+  MessageSquare,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -20,6 +22,8 @@ import { Avatar } from '../common/Avatar';
 
 export function Header({
   onOpenSearch,
+  onOpenCopilot,
+  onOpenWhatsApp,
   onToggleSidebar,
   onToggleMobileSidebar,
   currentTab,
@@ -109,12 +113,36 @@ export function Header({
         </div>
       </div>
 
-      {/* Right Section: Ações Globais e Perfil */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      {/* Right Section: Ações Globais, Copiloto IA, WhatsApp e Perfil */}
+      <div className="flex items-center gap-2 sm:gap-2.5">
+        {/* BOTÃO COPILOTO IA JURÍDICA */}
+        {onOpenCopilot && (
+          <button
+            onClick={() => onOpenCopilot('intimacoes')}
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-amber-600/20 border border-amber-400/40 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 hover:from-amber-500/25 hover:to-amber-600/30 transition-all shadow-xs btn-tactile"
+            title="Copiloto de IA: Leitor de Intimações, Prazos e Minutas"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
+            <span className="hidden sm:inline">IA Jurídica</span>
+          </button>
+        )}
+
+        {/* BOTÃO WHATSAPP RÁPIDO */}
+        {onOpenWhatsApp && (
+          <button
+            onClick={() => onOpenWhatsApp()}
+            className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-400/30 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 transition-all shadow-xs btn-tactile"
+            title="Disparo Rápido de WhatsApp com Templates"
+          >
+            <MessageSquare className="h-3.5 w-3.5 text-emerald-500" />
+            <span className="hidden md:inline">WhatsApp</span>
+          </button>
+        )}
+
         {/* Global Spotlight Search Button */}
         <button
           onClick={onOpenSearch}
-          className="hidden sm:flex items-center gap-2 rounded-xl bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] px-3.5 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:border-gold-500/50 hover:bg-gold-500/5 transition-all shadow-xs btn-tactile"
+          className="hidden lg:flex items-center gap-2 rounded-xl bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:border-gold-500/50 transition-all shadow-xs btn-tactile"
         >
           <Search className="h-3.5 w-3.5 text-slate-400" />
           <span>Busca global...</span>
@@ -124,7 +152,7 @@ export function Header({
         </button>
 
         {/* Period Filter */}
-        <div className="hidden md:flex items-center gap-1.5 bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] rounded-xl px-2.5 py-1 text-xs">
+        <div className="hidden xl:flex items-center gap-1.5 bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] rounded-xl px-2.5 py-1 text-xs">
           <Calendar className="h-3.5 w-3.5 text-gold-500" />
           <select
             value={periodFilter || '30d'}

@@ -23,6 +23,7 @@ import { ContractList } from './components/contracts/ContractList';
 import { ContractDetail } from './components/contracts/ContractDetail';
 import { ContractModal } from './components/contracts/ContractModal';
 import { CloseContractModal } from './components/contracts/CloseContractModal';
+import { SignatureModal } from './components/contracts/SignatureModal';
 
 import { ProposalList } from './components/proposals/ProposalList';
 import { ProposalModal } from './components/proposals/ProposalModal';
@@ -45,6 +46,10 @@ import { ReportsView } from './components/reports/ReportsView';
 import { TeamView } from './components/team/TeamView';
 import { ActivityLogsView } from './components/security/ActivityLogsView';
 import { SettingsView } from './components/settings/SettingsView';
+
+// Enterprise Power-Ups
+import { LegalCopilotModal } from './components/ai/LegalCopilotModal';
+import { WhatsAppModal } from './components/whatsapp/WhatsAppModal';
 
 export function App() {
   const { isAuthenticated, currentUser, permissions } = useAuth();
@@ -93,6 +98,16 @@ export function App() {
 
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [attendancePrefill, setAttendancePrefill] = useState(null);
+
+  // Power-Ups Modals
+  const [copilotModalOpen, setCopilotModalOpen] = useState(false);
+  const [copilotInitialTab, setCopilotInitialTab] = useState('intimacoes');
+
+  const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
+  const [whatsAppData, setWhatsAppData] = useState({});
+
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  const [contractForSignature, setContractForSignature] = useState(null);
 
   // If not logged in, render Login View
   if (!isAuthenticated) {
@@ -160,6 +175,21 @@ export function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleOpenSignatureModal = (contract) => {
+    setContractForSignature(contract);
+    setSignatureModalOpen(true);
+  };
+
+  const handleOpenWhatsAppModal = (data = {}) => {
+    setWhatsAppData(data);
+    setWhatsAppModalOpen(true);
+  };
+
+  const handleOpenCopilotModal = (tab = 'intimacoes') => {
+    setCopilotInitialTab(tab);
+    setCopilotModalOpen(true);
+  };
+
   const handleOpenNewProposal = (prefill) => {
     setProposalToEdit(null);
     setProposalPrefill(prefill || null);
@@ -218,31 +248,51 @@ export function App() {
   };
 
   const renderAccessRestricted = (moduleName, allowedRolesDesc) => (
-    <div className="flex flex-col items-center justify-center min-h-[400px] p-6 text-center animate-fade-in">
-      <div className="rounded-3xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-8 shadow-sm max-w-md w-full space-y-4">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500">
-          <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-        </div>
-        <h3 className="text-base font-bold text-slate-900 dark:text-white">Acesso Restrito ao Módulo</h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          O módulo <strong>{moduleName}</strong> está configurado exclusivamente para: <em>{allowedRolesDesc}</em>.
-        </p>
-        <div className="pt-2">
-          <button
-            onClick={() => handleNavigate('dashboard')}
-            className="rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition-colors"
-          >
-            Voltar ao Dashboard
-          </button>
-        </div>
+    <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white dark:bg-navy-900 rounded-3xl border border-slate-200 dark:border-white/[0.08] shadow-sm">
+      <div className="h-16 w-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4">
+        🔒
+      </div>
+      <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+        Acesso Restrito ao Módulo: {moduleName}
+      </h2>
+      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mt-2">
+        Seu cargo atual (<strong className="text-brand-600 dark:text-gold-400">{currentUser?.role || 'Usuário'}</strong>) não possui permissão para acessar este módulo.
+      </p>
+      <div className="mt-4 p-3 bg-slate-50 dark:bg-navy-950 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
+        Perfis com autorização: <strong>{allowedRolesDesc}</strong>
       </div>
     </div>
   );
 
-  // Render content based on currentTab
+  // Router for Main Content
   const renderContent = () => {
+    // Detail Views have priority
+    if (selectedClientId && currentTab === 'clients') {
+      return (
+        <ClientDetail
+          clientId={selectedClientId}
+          onBack={() => setSelectedClientId(null)}
+          onEditClient={handleEditClient}
+          onOpenNewContract={handleOpenNewContract}
+          onOpenNewProcess={handleOpenNewProcess}
+          onOpenNewTask={handleOpenNewTask}
+          onOpenNewAttendance={handleOpenNewAttendance}
+        />
+      );
+    }
+
+    if (selectedContractId && currentTab === 'contracts') {
+      return (
+        <ContractDetail
+          contractId={selectedContractId}
+          onBack={() => setSelectedContractId(null)}
+          onEditContract={handleEditContract}
+          onSignContract={handleOpenSignatureModal}
+          onSendWhatsApp={handleOpenWhatsAppModal}
+        />
+      );
+    }
+
     switch (currentTab) {
       case 'dashboard':
         return (
@@ -253,82 +303,30 @@ export function App() {
         );
 
       case 'kanban':
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                  Funil Comercial Jurídico (Kanban)
-                </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Arraste os cards entre os estágios para gerenciar as negociações do escritório.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleNavigate('leads')}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm"
-                >
-                  Visualização em Lista
-                </button>
-              </div>
-            </div>
-
-            <KanbanBoard
-              onOpenNewLead={handleOpenNewLead}
-              onEditLead={handleEditLead}
-              onCloseContract={handleCloseContractFromLead}
-            />
-          </div>
-        );
-
       case 'leads':
         return (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                  Lista de Leads & Oportunidades
-                </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Visão em tabela analítica de todos os potenciais clientes com filtros avançados.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleNavigate('kanban')}
-                  className="px-3 py-1.5 rounded-lg bg-brand-600 text-white shadow-sm transition-colors text-xs font-bold"
-                >
-                  Visualização em Funil (Kanban)
-                </button>
-              </div>
-            </div>
-
-            <LeadList
-              onOpenNewLead={handleOpenNewLead}
-              onEditLead={handleEditLead}
-              onCloseContract={handleCloseContractFromLead}
-              onOpenTask={(lead) => handleOpenNewTask({ title: `Follow-up com ${lead.name}`, leadId: lead.id })}
-              onOpenAttendance={(lead) => handleOpenNewAttendance({ clientId: lead.id, clientName: lead.name })}
-            />
+            {leadViewMode === 'kanban' ? (
+              <KanbanBoard
+                onOpenNewLead={handleOpenNewLead}
+                onEditLead={handleEditLead}
+                onCloseContract={handleCloseContractFromLead}
+                onToggleView={() => setLeadViewMode('list')}
+                leadViewMode={leadViewMode}
+              />
+            ) : (
+              <LeadList
+                onOpenNewLead={handleOpenNewLead}
+                onEditLead={handleEditLead}
+                onCloseContract={handleCloseContractFromLead}
+                onToggleView={() => setLeadViewMode('kanban')}
+                leadViewMode={leadViewMode}
+              />
+            )}
           </div>
         );
 
       case 'clients':
-        if (selectedClientId) {
-          return (
-            <ClientDetail
-              clientId={selectedClientId}
-              onBack={() => setSelectedClientId(null)}
-              onEditClient={handleEditClient}
-              onOpenNewContract={handleOpenNewContract}
-              onOpenNewProcess={(client) => handleOpenNewProcess({ clientId: client.id, clientName: client.name })}
-              onOpenNewTask={(client) => handleOpenNewTask({ title: `Contato com ${client.name}`, clientId: client.id })}
-              onOpenNewAttendance={(client) => handleOpenNewAttendance({ clientId: client.id, clientName: client.name })}
-              onOpenNewProposal={(client) => handleOpenNewProposal({ clientId: client.id, clientName: client.name })}
-            />
-          );
-        }
         return (
           <ClientList
             onOpenNewClient={handleOpenNewClient}
@@ -338,20 +336,12 @@ export function App() {
         );
 
       case 'contracts':
-        if (selectedContractId) {
-          return (
-            <ContractDetail
-              contractId={selectedContractId}
-              onBack={() => setSelectedContractId(null)}
-              onEditContract={handleEditContract}
-            />
-          );
-        }
         return (
           <ContractList
             onOpenNewContract={handleOpenNewContract}
             onSelectContract={handleViewContractDetail}
             onEditContract={handleEditContract}
+            onSignContract={handleOpenSignatureModal}
           />
         );
 
@@ -373,6 +363,8 @@ export function App() {
             onOpenNewProcess={() => handleOpenNewProcess()}
             onEditProcess={handleEditProcess}
             onNavigate={handleNavigate}
+            onOpenCopilot={handleOpenCopilotModal}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
           />
         );
 
@@ -387,6 +379,7 @@ export function App() {
         return (
           <CalendarView
             onOpenNewEvent={handleOpenNewEvent}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
           />
         );
 
@@ -395,6 +388,7 @@ export function App() {
           <TaskList
             onOpenNewTask={handleOpenNewTask}
             onEditTask={handleEditTask}
+            onOpenCopilot={() => handleOpenCopilotModal('intimacoes')}
           />
         );
 
@@ -405,7 +399,7 @@ export function App() {
         if (!permissions?.canAccessFinancial) {
           return renderAccessRestricted('Financeiro & Honorários Globais', 'Sócia Administradora, Controller Financeiro e Dev');
         }
-        return <FinancialOverview />;
+        return <FinancialOverview onOpenWhatsApp={handleOpenWhatsAppModal} />;
 
       case 'reports':
         return <ReportsView />;
@@ -446,6 +440,7 @@ export function App() {
         setCurrentTab={handleNavigate}
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
+        onOpenCopilot={() => handleOpenCopilotModal('intimacoes')}
       />
 
       {/* Main Workspace */}
@@ -454,6 +449,8 @@ export function App() {
         <Header
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           onOpenSearch={() => setIsSearchOpen(true)}
+          onOpenCopilot={handleOpenCopilotModal}
+          onOpenWhatsApp={handleOpenWhatsAppModal}
           currentTab={currentTab}
           onNavigate={handleNavigate}
         />
@@ -479,12 +476,9 @@ export function App() {
       <GlobalSearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        onNavigate={(tab, id) => {
-          handleNavigate(tab);
-          if (tab === 'clients') setSelectedClientId(id);
-          if (tab === 'contracts') setSelectedContractId(id);
-          setIsSearchOpen(false);
-        }}
+        onNavigate={handleNavigate}
+        onSelectClient={handleViewClientDetail}
+        onSelectContract={handleViewContractDetail}
       />
 
       {/* Lead Modal */}
@@ -552,6 +546,28 @@ export function App() {
         isOpen={attendanceModalOpen}
         onClose={() => setAttendanceModalOpen(false)}
         prefillData={attendancePrefill}
+      />
+
+      {/* POWER-UPS MODALS */}
+      {/* 1. Copiloto IA Jurídica Modal */}
+      <LegalCopilotModal
+        isOpen={copilotModalOpen}
+        onClose={() => setCopilotModalOpen(false)}
+        initialTab={copilotInitialTab}
+      />
+
+      {/* 2. WhatsApp Engine Modal */}
+      <WhatsAppModal
+        isOpen={whatsAppModalOpen}
+        onClose={() => setWhatsAppModalOpen(false)}
+        initialData={whatsAppData}
+      />
+
+      {/* 3. Assinatura Eletrônica ICP Modal */}
+      <SignatureModal
+        isOpen={signatureModalOpen}
+        onClose={() => setSignatureModalOpen(false)}
+        contract={contractForSignature}
       />
 
       {/* Toast Notification Container */}

@@ -28,7 +28,7 @@ import { CONTRACT_STATUSES } from '../../data/legalAreas';
 import { QuickAttachModal } from './QuickAttachModal';
 import { formatFileSize, getFileTypeInfo, downloadAttachment, openAttachment } from '../../utils/fileHelper';
 
-export function ContractList({ onOpenNewContract, onEditContract, onSelectContract, onOpenContractDetail, onNavigate }) {
+export function ContractList({ onOpenNewContract, onEditContract, onSelectContract, onOpenContractDetail, onNavigate, onSignContract }) {
   const { contracts = [], deleteContract, clients = [], legalAreas = [], officeSettings = {}, addContract, showToast, logActivity } = useCRM();
   const { users = [] } = useAuth();
 
@@ -336,6 +336,16 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
                       {/* Ações */}
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {onSignContract && (
+                            <button
+                              onClick={() => onSignContract(contract)}
+                              className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+                              title="Assinatura Eletrônica com Validade Jurídica (ICP)"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+
                           <button
                             onClick={() => selectContractFn(contract.id || contract)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

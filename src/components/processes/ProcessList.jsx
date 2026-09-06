@@ -29,7 +29,7 @@ import { Badge } from '../common/Badge';
 import { EmptyState } from '../common/EmptyState';
 import { ConfirmModal } from '../common/ConfirmModal';
 
-export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate }) {
+export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate, onOpenCopilot, onOpenWhatsApp }) {
   const { processes, deleteProcess, legalAreas, showToast, logActivity } = useCRM();
   const { users } = useAuth();
 
@@ -338,6 +338,31 @@ export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate }) {
                   </button>
 
                   <div className="flex items-center gap-1">
+                    {onOpenCopilot && (
+                      <button
+                        onClick={() => onOpenCopilot('explicador')}
+                        className="p-1.5 rounded-xl text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors btn-tactile"
+                        title="Resumir com IA para o Cliente"
+                      >
+                        <Flame className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+
+                    {onOpenWhatsApp && (
+                      <button
+                        onClick={() => onOpenWhatsApp({
+                          clientName: proc.clientName,
+                          processNumber: proc.processNumber,
+                          updateSummary: proc.lastMovement || 'Movimentação processual registrada nos autos.',
+                          templateId: 'andamento_processual',
+                        })}
+                        className="p-1.5 rounded-xl text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors btn-tactile"
+                        title="Notificar Cliente no WhatsApp"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+
                     <button
                       onClick={() => onEditProcess(proc)}
                       className="p-1.5 rounded-xl text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors btn-tactile"
@@ -404,6 +429,29 @@ export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate }) {
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {onOpenCopilot && (
+                          <button
+                            onClick={() => onOpenCopilot('explicador')}
+                            className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
+                            title="Resumir com IA para o Cliente"
+                          >
+                            <Flame className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {onOpenWhatsApp && (
+                          <button
+                            onClick={() => onOpenWhatsApp({
+                              clientName: proc.clientName,
+                              processNumber: proc.processNumber,
+                              updateSummary: proc.lastMovement || 'Movimentação processual registrada nos autos.',
+                              templateId: 'andamento_processual',
+                            })}
+                            className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+                            title="Notificar Cliente no WhatsApp"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => onEditProcess(proc)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"

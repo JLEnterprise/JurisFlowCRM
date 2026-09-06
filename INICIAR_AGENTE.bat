@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul
 title JurisFlow CRM - Sistema Juridico Comercial
 color 0b
@@ -10,7 +10,7 @@ echo                   Conectado ao Supabase Cloud Database
 echo ===================================================================
 echo.
 
-cd /d "C:\JurisFlow-ADV"
+cd /d "%~dp0"
 
 echo [*] Abrindo o JurisFlow CRM no seu navegador...
 start http://localhost:3000/

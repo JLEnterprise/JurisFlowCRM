@@ -1,93 +1,76 @@
 import React, { useState } from 'react';
 import {
-  Calendar,
-  Headphones,
-  UserCheck,
-  Settings,
-  FileText,
   LayoutDashboard,
-  FolderLock,
-  UserCog,
-  DollarSign,
-  Kanban,
   Users,
-  Briefcase,
-  FileCheck2,
-  BarChart3,
-  ShieldAlert,
+  UserCheck,
+  FileText,
+  FileCheck,
   CheckSquare,
-  Scale,
+  DollarSign,
+  BarChart3,
+  UserCog,
+  Shield,
+  Settings,
   X,
   ChevronLeft,
   ChevronRight,
+  FolderLock,
+  Gavel,
+  PhoneCall,
+  Calendar,
   Sparkles,
 } from 'lucide-react';
-import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
-import { BrandLogo } from '../common/BrandLogo';
+import { useCRM } from '../../context/CRMContext';
 import { Avatar } from '../common/Avatar';
+import { BrandLogo } from '../common/BrandLogo';
 
 export function Sidebar({
   currentTab,
   setCurrentTab,
-  currentView,
-  onChangeView,
-  isOpen,
-  setIsOpen,
-  isMobileOpen,
-  onCloseMobile,
+  isOpen: mobileOpen,
+  setIsOpen: setMobileOpen,
+  onOpenCopilot,
 }) {
-  const { leads, tasks, appointments } = useCRM();
   const { currentUser, permissions } = useAuth();
+  const { tasks = [], appointments = [], leads = [] } = useCRM();
   const [collapsed, setCollapsed] = useState(false);
 
-  const activeTabId = currentTab || currentView || 'dashboard';
-  const handleSelectTab = setCurrentTab || onChangeView || (() => {});
-  const handleCloseMobile = onCloseMobile || (setIsOpen ? () => setIsOpen(false) : () => {});
-  const mobileVisible = isMobileOpen !== undefined ? isMobileOpen : isOpen;
+  const pendingTasksCount = (tasks || []).filter(t => t && t.status !== 'completed').length;
+  const newLeadsCount = (leads || []).filter(l => l && (l.stage === 'novo_lead' || l.stage === 'novo')).length;
 
-  const hotLeadsCount = leads.filter(
-    l => l.temperature === 'hot' && l.stage !== 'contrato_fechado' && l.stage !== 'perdido'
-  ).length;
-  const pendingTasksCount = tasks.filter(t => t.status === 'pending').length;
-
-  // Lista de abas rigorosamente organizada em ORDEM ALFABÉTICA
   const navItems = [
-    { id: 'agenda', label: 'Agenda & Audiências', icon: Calendar, badge: appointments.length > 0 ? appointments.length : null },
-    { id: 'attendance', label: 'Atendimentos & Contatos', icon: Headphones },
-    { id: 'clients', label: 'Base de Clientes', icon: UserCheck },
-    { id: 'settings', label: 'Configurações', icon: Settings },
-    { id: 'contracts', label: 'Contratos & Minutas', icon: FileText },
-    { id: 'dashboard', label: 'Dashboard Executivo', icon: LayoutDashboard },
-    { id: 'documents', label: 'Documentos & GED', icon: FolderLock },
-    { id: 'team', label: 'Equipe & Advogados', icon: UserCog },
-    { id: 'financial', label: 'Financeiro & Honorários', icon: DollarSign },
-    { id: 'kanban', label: 'Funil Comercial (Kanban)', icon: Kanban, badge: hotLeadsCount > 0 ? `${hotLeadsCount} 🔥` : null, badgeColor: 'bg-rose-500/90 text-white shadow-xs' },
-    { id: 'leads', label: 'Lista de Leads', icon: Users },
-    { id: 'processes', label: 'Processos & Dossiês', icon: Briefcase },
-    { id: 'proposals', label: 'Propostas Comerciais', icon: FileCheck2 },
-    { id: 'reports', label: 'Relatórios & BI', icon: BarChart3 },
-    { id: 'security', label: 'Segurança & LGPD', icon: ShieldAlert },
-    { id: 'tasks', label: 'Tarefas & Prazos', icon: CheckSquare, badge: pendingTasksCount > 0 ? pendingTasksCount : null, badgeColor: 'bg-amber-500/90 text-white shadow-xs' },
+    { id: 'dashboard', label: 'Dashboard Executivo', icon: LayoutDashboard, category: 'Geral', show: true },
+    { id: 'kanban', label: 'Funil Comercial', icon: Users, category: 'Comercial', badge: newLeadsCount > 0 ? `${newLeadsCount}` : null, badgeColor: 'bg-brand-500 text-white', show: true },
+    { id: 'clients', label: 'Clientes & Contatos', icon: UserCheck, category: 'Comercial', show: true },
+    { id: 'proposals', label: 'Propostas de Honorários', icon: FileText, category: 'Comercial', show: true },
+    { id: 'contracts', label: 'Contratos & Minutas', icon: FileCheck, category: 'Comercial', show: true },
+    { id: 'processes', label: 'Processos Judiciais (CNJ)', icon: Gavel, category: 'Jurídico', show: permissions?.canAccessProcesses },
+    { id: 'agenda', label: 'Agenda & Audiências', icon: Calendar, category: 'Jurídico', show: true },
+    { id: 'tasks', label: 'Prazos Fatais & Tarefas', icon: CheckSquare, category: 'Jurídico', badge: pendingTasksCount > 0 ? `${pendingTasksCount}` : null, badgeColor: 'bg-rose-500 text-white', show: true },
+    { id: 'attendance', label: 'Atendimentos & WhatsApp', icon: PhoneCall, category: 'Atendimento', show: true },
+    { id: 'documents', label: 'Documentos & GED', icon: FolderLock, category: 'Documentos', show: true },
+    { id: 'financial', label: 'Financeiro & Honorários', icon: DollarSign, category: 'Financeiro', show: permissions?.canAccessFinancial },
+    { id: 'reports', label: 'Relatórios & Inteligência', icon: BarChart3, category: 'Gestão', show: true },
+    { id: 'team', label: 'Equipe & Performance', icon: UserCog, category: 'Gestão', show: permissions?.canAccessTeam },
+    { id: 'security', label: 'Auditoria & LGPD', icon: Shield, category: 'Configuração', show: permissions?.canAccessSecurity },
+    { id: 'settings', label: 'Configurações', icon: Settings, category: 'Configuração', show: permissions?.canAccessSettings },
   ];
 
-  // Filtragem de permissões
-  const allowedNavItems = navItems.filter(item => {
-    if (item.id === 'security') return permissions?.canAccessSecurity;
-    if (item.id === 'settings') return permissions?.canAccessSettings;
-    if (item.id === 'financial') return permissions?.canAccessFinancial;
-    if (item.id === 'reports') return permissions?.canAccessReports;
-    if (item.id === 'team') return permissions?.canAccessTeam;
-    if (item.id === 'processes') return permissions?.canAccessProcesses;
-    if (item.id === 'contracts') return permissions?.canAccessContracts;
-    if (item.id === 'documents') return permissions?.canAccessDocuments;
-    return true;
-  });
+  const allowedNavItems = navItems.filter(item => item.show);
 
-  const handleNavClick = (viewId) => {
-    handleSelectTab(viewId);
-    if (handleCloseMobile) handleCloseMobile();
+  const activeTabId = currentTab === 'leads' ? 'kanban' : currentTab;
+
+  const handleCloseMobile = () => {
+    if (setMobileOpen) setMobileOpen(false);
   };
+
+  const handleNavClick = (tabId) => {
+    setCurrentTab(tabId);
+    handleCloseMobile();
+  };
+
+  const mobileVisible = !!mobileOpen;
 
   return (
     <>
@@ -95,7 +78,7 @@ export function Sidebar({
       {mobileVisible && (
         <div
           onClick={handleCloseMobile}
-          className="fixed inset-0 z-40 bg-obsidian-950/80 backdrop-blur-md lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs transition-opacity lg:hidden"
         />
       )}
 
@@ -172,6 +155,27 @@ export function Sidebar({
               </button>
             );
           })}
+
+          {/* BANNER COPILOTO IA NA SIDEBAR */}
+          {!collapsed && onOpenCopilot && (
+            <div className="pt-2">
+              <button
+                onClick={() => {
+                  onOpenCopilot('intimacoes');
+                  handleCloseMobile();
+                }}
+                className="w-full p-3 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-600/15 to-brand-600/10 border border-amber-400/30 text-left transition-all hover:border-amber-400 hover:shadow-sm group"
+              >
+                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-bold text-xs mb-1">
+                  <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
+                  <span>Copiloto de IA Jurídica</span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Leitor de publicações do Diário Oficial & Cálculo de Prazos CPC/CLT.
+                </p>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Collapse button (Desktop only) */}
