@@ -44,9 +44,10 @@ import {
 } from '../../services/aiService';
 import { useCRM } from '../../context/CRMContext';
 
-export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = null }) {
+export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = null, initialTab = null }) {
   const { 
     showToast, 
+    addTask,
     clients = [], 
     processes = [], 
     tasks = [], 
@@ -55,7 +56,15 @@ export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = nu
     officeSettings = {} 
   } = useCRM();
 
-  const [activeTab, setActiveTab] = useState(initialData?.tab || 'chat');
+  const normalizeTab = (t) => {
+    if (!t) return 'chat';
+    if (t === 'intimacoes' || t === 'publicacao' || t === 'publicacoes' || t === 'prazos') return 'publicacoes';
+    if (t === 'minuta' || t === 'minutas' || t === 'pecas' || t === 'peticoes') return 'minutas';
+    if (t === 'whatsapp' || t === 'cliente') return 'whatsapp';
+    return 'chat';
+  };
+
+  const [activeTab, setActiveTab] = useState(() => normalizeTab(initialTab || initialData?.tab));
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const chatEndRef = useRef(null);
@@ -69,10 +78,15 @@ export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = nu
   const [testingKey, setTestingKey] = useState(false);
 
   useEffect(() => {
-    setCurrentProvider(getAiProvider());
-    setGeminiKeyInput(getGeminiApiKey());
-    setOpenAiKeyInput(getOpenAiApiKey());
-  }, [isOpen]);
+    if (isOpen) {
+      setCurrentProvider(getAiProvider());
+      setGeminiKeyInput(getGeminiApiKey());
+      setOpenAiKeyInput(getOpenAiApiKey());
+      if (initialTab || initialData?.tab) {
+        setActiveTab(normalizeTab(initialTab || initialData?.tab));
+      }
+    }
+  }, [isOpen, initialTab, initialData]);
 
   const handleProviderChange = (prov) => {
     setCurrentProvider(prov);
@@ -196,19 +210,27 @@ Como posso auxiliá-lo(a) agora?
 
   // 4. Criar Tarefa a partir da Publicação
   const handleCreateTaskFromPub = () => {
-    if (!pubResult || !onAddTask) return;
+    if (!pubResult) return;
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + (pubResult.days || 15));
 
-    onAddTask({
+    const taskPayload = {
       title: `Prazo Fatal: ${pubResult.action || 'Manifestação nos autos'}`,
       processNumber: pubResult.processNumber,
       dueDate: dueDate.toISOString().split('T')[0],
       priority: pubResult.days <= 5 ? 'alta' : 'media',
+      status: 'pending',
       legalArea: pubResult.type === 'trabalhista' ? 'Direito do Trabalho' : pubResult.type === 'penal' ? 'Direito Penal' : 'Direito Civil',
       description: pubResult.text
-    });
-    showToast('Prazo adicionado com sucesso ao painel de Tarefas!', 'success');
+    };
+
+    if (typeof onAddTask === 'function') {
+      onAddTask(taskPayload);
+    } else if (typeof addTask === 'function') {
+      addTask(taskPayload);
+    }
+
+    showToast('Prazo vinculado ao CRM e salvo com sucesso!', 'success');
     onClose();
   };
 

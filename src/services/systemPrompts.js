@@ -4,7 +4,7 @@
  * Alimentado pela especificação mestre ADVJURIS.
  */
 
-import { ADVJURIS_SYSTEM_PROMPT, ADVJURIS_PROMPTS } from '../agents/advJurisPrompt';
+import { ADVJURIS_SYSTEM_PROMPT, ADVJURIS_PROMPTS } from '../agents/advJurisPrompt.js';
 
 export { ADVJURIS_SYSTEM_PROMPT, ADVJURIS_PROMPTS };
 
@@ -21,3 +21,4 @@ Sua missão é analisar novos leads, identificar a área do direito demandada (C
   OPERATIONAL_ASSISTANT: `Você é o Agente de Operações e Prazos do JurisFlow CRM.
 Sua missão é monitorar compromissos, alertar sobre audiências iminentes, organizar tarefas no quadro de prazos e garantir que nenhuma intimação fatal passe despercebida.`
 };
+

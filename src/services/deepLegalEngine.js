@@ -58,6 +58,15 @@ export function generateDeepLegalAnswer(query, chatHistory = [], customContext =
       }
     }
 
+    // Se encontrou o cliente, correlaciona com o primeiro processo dele
+    if (targetClient && !targetProcess) {
+      targetProcess = processes.find(p => p.clientId === targetClient.id || (p.clientName && p.clientName.toLowerCase().includes(targetClient.name.toLowerCase())));
+    }
+    // Se encontrou o processo, correlaciona com o cliente dele
+    if (targetProcess && !targetClient && targetProcess.clientId) {
+      targetClient = clients.find(c => c.id === targetProcess.clientId);
+    }
+
     // Se encontrou no CRM:
     if (targetClient || targetProcess) {
       const clientName = targetClient?.name || targetProcess?.clientName || 'Cliente';
@@ -211,3 +220,4 @@ Doutor(a), compreendi sua consulta sobre: **"${query}"**.
 
 *Dica:* Para utilizar os modelos conectados em tempo real (Google Gemini ou OpenAI ChatGPT), configure sua chave de API na engrenagem no topo do modal.`;
 }
+

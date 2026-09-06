@@ -3,8 +3,8 @@
  * Integração completa com Google Gemini API, OpenAI ChatGPT API e Motor Cognitivo AdvJuris Local.
  */
 
-import { ADVJURIS_SYSTEM_PROMPT, ADVJURIS_PROMPTS } from '../agents/advJurisPrompt';
-import { generateDeepLegalAnswer } from './deepLegalEngine';
+import { ADVJURIS_SYSTEM_PROMPT, ADVJURIS_PROMPTS } from '../agents/advJurisPrompt.js';
+import { generateDeepLegalAnswer } from './deepLegalEngine.js';
 
 const GEMINI_STORAGE_KEY = 'jurisflow_gemini_api_key';
 const OPENAI_STORAGE_KEY = 'jurisflow_openai_api_key';
@@ -15,44 +15,54 @@ const SELECTED_MODEL_KEY = 'jurisflow_ai_model';
 // CONFIGURAÇÃO E PERSISTÊNCIA DE CHAVES & PROVEDORES
 // ============================================================================
 
+const isBrowser = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+
 export function getGeminiApiKey() {
-  return localStorage.getItem(GEMINI_STORAGE_KEY) || '';
+  if (!isBrowser) return '';
+  return window.localStorage.getItem(GEMINI_STORAGE_KEY) || '';
 }
 
 export function setGeminiApiKey(key) {
+  if (!isBrowser) return;
   if (!key) {
-    localStorage.removeItem(GEMINI_STORAGE_KEY);
+    window.localStorage.removeItem(GEMINI_STORAGE_KEY);
   } else {
-    localStorage.setItem(GEMINI_STORAGE_KEY, key.trim());
+    window.localStorage.setItem(GEMINI_STORAGE_KEY, key.trim());
   }
 }
 
 export function getOpenAiApiKey() {
-  return localStorage.getItem(OPENAI_STORAGE_KEY) || '';
+  if (!isBrowser) return '';
+  return window.localStorage.getItem(OPENAI_STORAGE_KEY) || '';
 }
 
 export function setOpenAiApiKey(key) {
+  if (!isBrowser) return;
   if (!key) {
-    localStorage.removeItem(OPENAI_STORAGE_KEY);
+    window.localStorage.removeItem(OPENAI_STORAGE_KEY);
   } else {
-    localStorage.setItem(OPENAI_STORAGE_KEY, key.trim());
+    window.localStorage.setItem(OPENAI_STORAGE_KEY, key.trim());
   }
 }
 
 export function getAiProvider() {
-  return localStorage.getItem(AI_PROVIDER_KEY) || 'gemini';
+  if (!isBrowser) return 'local';
+  return window.localStorage.getItem(AI_PROVIDER_KEY) || 'gemini';
 }
 
 export function setAiProvider(provider) {
-  localStorage.setItem(AI_PROVIDER_KEY, provider);
+  if (!isBrowser) return;
+  window.localStorage.setItem(AI_PROVIDER_KEY, provider);
 }
 
 export function getSelectedModel() {
-  return localStorage.getItem(SELECTED_MODEL_KEY) || '';
+  if (!isBrowser) return '';
+  return window.localStorage.getItem(SELECTED_MODEL_KEY) || '';
 }
 
 export function setSelectedModel(model) {
-  localStorage.setItem(SELECTED_MODEL_KEY, model);
+  if (!isBrowser) return;
+  window.localStorage.setItem(SELECTED_MODEL_KEY, model);
 }
 
 // ============================================================================
@@ -537,3 +547,5 @@ CLÁUSULA 1ª - DO OBJETO: Prestação de serviços jurídicos em favor do CONTR
 CLÁUSULA 2ª - DOS HONORÁRIOS: Pelos serviços prestados, o CONTRATANTE pagará o valor de R$ ${data.value || '5.000,00'}.
 CLÁUSULA 3ª - DO FORO: Fica eleito o foro da Comarca local.`;
 }
+
+
