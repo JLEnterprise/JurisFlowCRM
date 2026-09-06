@@ -23,7 +23,8 @@ import {
   ExternalLink,
   Lightbulb,
   User,
-  Briefcase
+  Briefcase,
+  Settings
 } from 'lucide-react';
 import {
   analyzeLegalPublication,
@@ -76,7 +77,8 @@ export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = nu
   const handleProviderChange = (prov) => {
     setCurrentProvider(prov);
     setAiProvider(prov);
-    showToast(`Provedor de IA alterado para: ${prov === 'gemini' ? 'Google Gemini ⚡' : prov === 'openai' ? 'OpenAI ChatGPT 🟢' : 'AdvJuris Local 🛡️'}`, 'info');
+    const provName = prov === 'gemini' ? 'Google Gemini ⚡' : prov === 'openai' ? 'OpenAI ChatGPT 🤖' : 'AdvJuris Local 🛡️';
+    showToast(`Provedor de IA alterado para: ${provName}`, 'info');
   };
 
   // Tab 1: Publicações
@@ -106,9 +108,10 @@ export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = nu
 Tenho acesso em tempo real à base de dados do seu escritório (clientes, processos cadastrados, prazos e contratos).
 
 Como posso auxiliá-lo(a) agora?
-- 🔍 *Consultar processo ou cliente (ex: "Processo do Bruno Alexssander")*
+- 📋 *Consultar processo ou cliente (ex: "Processo do Bruno Alexssander")*
+- ⏱️ *Calcular prazos de publicações e intimações (CPC/CLT)*
 - ⚖️ *Dúvidas sobre artigos, súmulas e teses (CPC, CLT, CPP, CC, CDC)*
-- ✍️ *Estruturar ou redigir petições, recursos e notificações*`
+- 📑 *Auditar contratos e redigir petições, procurações ou notificações*`
     }
   ]);
 
@@ -119,6 +122,7 @@ Como posso auxiliá-lo(a) agora?
   if (!isOpen) return null;
 
   const handleCopy = (text) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
     setCopied(true);
     showToast('Copiado para a área de transferência!', 'success');
@@ -137,10 +141,10 @@ Como posso auxiliá-lo(a) agora?
     setTestingKey(false);
     if (test.success) {
       setGeminiApiKey(geminiKeyInput.trim());
-      showToast('Chave Google Gemini salva e validada com sucesso!', 'success');
+      showToast(test.message, 'success');
       setShowKeyConfig(false);
     } else {
-      showToast(`Falha na validação: ${test.message}`, 'error');
+      showToast(test.message, 'error');
     }
   };
 
@@ -156,11 +160,20 @@ Como posso auxiliá-lo(a) agora?
     setTestingKey(false);
     if (test.success) {
       setOpenAiApiKey(openAiKeyInput.trim());
-      showToast('Chave OpenAI (ChatGPT) salva e validada com sucesso!', 'success');
+      showToast(test.message, 'success');
       setShowKeyConfig(false);
     } else {
-      showToast(`Falha na validação: ${test.message}`, 'error');
+      showToast(test.message, 'error');
     }
+  };
+
+  const crmContext = {
+    clients,
+    processes,
+    tasks,
+    contracts,
+    leads,
+    officeSettings
   };
 
   // 3. Analisar Publicação
@@ -171,7 +184,7 @@ Como posso auxiliá-lo(a) agora?
     }
     setLoading(true);
     try {
-      const res = await analyzeLegalPublication(pubText);
+      const res = await analyzeLegalPublication(pubText, crmContext);
       setPubResult(res);
       showToast('Publicação analisada com sucesso!', 'success');
     } catch (e) {
@@ -191,7 +204,7 @@ Como posso auxiliá-lo(a) agora?
       title: `Prazo Fatal: ${pubResult.action || 'Manifestação nos autos'}`,
       processNumber: pubResult.processNumber,
       dueDate: dueDate.toISOString().split('T')[0],
-      priority: pubResult.days <= 5 ? 'high' : 'medium',
+      priority: pubResult.days <= 5 ? 'alta' : 'media',
       legalArea: pubResult.type === 'trabalhista' ? 'Direito do Trabalho' : pubResult.type === 'penal' ? 'Direito Penal' : 'Direito Civil',
       description: pubResult.text
     });
@@ -206,14 +219,14 @@ Como posso auxiliá-lo(a) agora?
       clientName: client ? client.name : (draftClientName || 'Cliente Outorgante'),
       cpf: client?.cpf || '000.000.000-00',
       address: client?.address || 'Endereço completo',
-      lawyerName: officeSettings.officeName || 'JurisFlow Advocacia Estratégica',
+      lawyerName: officeSettings.officeName || 'JurisFlow Advocacia',
       subject: draftSubject || 'Inadimplemento contratual',
       value: draftValue || '5.000,00'
     };
 
     setLoading(true);
     try {
-      const res = await generateLegalDraft(draftType, payload);
+      const res = await generateLegalDraft(draftType, payload, crmContext);
       setDraftResult(res.draft);
       showToast('Minuta gerada com sucesso!', 'success');
     } catch (e) {
@@ -231,7 +244,7 @@ Como posso auxiliá-lo(a) agora?
     }
     setLoading(true);
     try {
-      const res = await explainToClient(explainerInput, explainerClient || 'Cliente');
+      const res = await explainToClient(explainerInput, explainerClient || 'Cliente', crmContext);
       setExplainerResult(res.text);
       showToast('Mensagem traduzida com sucesso!', 'success');
     } catch (e) {
@@ -251,22 +264,14 @@ Como posso auxiliá-lo(a) agora?
     setChatHistory(updatedHistory);
     setLoading(true);
 
-    const crmContext = {
-      clients,
-      processes,
-      tasks,
-      contracts,
-      leads,
-      officeSettings
-    };
-
     try {
-      const res = await consultAdvJuris(q.trim(), '', '', updatedHistory, crmContext);
-      setChatHistory(prev => [...prev, { role: 'assistant', content: res.answer }]);
+      const res = await consultAdvJuris(q.trim(), updatedHistory, crmContext);
+      const answerContent = res.text || res.answer || 'Resposta gerada com sucesso.';
+      setChatHistory(prev => [...prev, { role: 'assistant', content: answerContent }]);
     } catch (err) {
       setChatHistory(prev => [
         ...prev,
-        { role: 'assistant', content: 'Ocorreu um erro ao processar a consulta. Detalhes: ' + err.message }
+        { role: 'assistant', content: 'Ocorreu um erro ao processar a consulta: ' + err.message }
       ]);
     } finally {
       setLoading(false);
@@ -315,7 +320,7 @@ Como posso auxiliá-lo(a) agora?
                     ? 'bg-amber-500 text-slate-950 shadow-sm font-semibold'
                     : 'text-slate-300 hover:text-white'
                 }`}
-                title="Google Gemini (Gemini 2.0 / 1.5 Flash)"
+                title="Google Gemini (Gemini 2.5 / 2.0 / 1.5 Flash)"
               >
                 <span>⚡</span> Gemini
               </button>
@@ -323,12 +328,12 @@ Como posso auxiliá-lo(a) agora?
                 onClick={() => handleProviderChange('openai')}
                 className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
                   currentProvider === 'openai'
-                    ? 'bg-emerald-500 text-slate-950 shadow-sm font-semibold'
+                    ? 'bg-emerald-500 text-white shadow-sm font-semibold'
                     : 'text-slate-300 hover:text-white'
                 }`}
                 title="OpenAI ChatGPT (GPT-4o / GPT-4o-mini)"
               >
-                <span>🟢</span> ChatGPT
+                <span>🤖</span> OpenAI
               </button>
               <button
                 onClick={() => handleProviderChange('local')}
@@ -337,54 +342,55 @@ Como posso auxiliá-lo(a) agora?
                     ? 'bg-indigo-500 text-white shadow-sm font-semibold'
                     : 'text-slate-300 hover:text-white'
                 }`}
-                title="AdvJuris Local (Offline / CRM Native)"
+                title="Motor Cognitivo AdvJuris Local"
               >
-                <span>🛡️</span> AdvJuris
+                <span>🛡️</span> Local
               </button>
             </div>
 
-            {/* Botão de Chaves */}
+            {/* Botão Config de Chaves */}
             <button
               onClick={() => setShowKeyConfig(!showKeyConfig)}
-              className={`rounded-lg p-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors ${
-                (currentProvider === 'gemini' && !getGeminiApiKey()) || (currentProvider === 'openai' && !getOpenAiApiKey())
-                  ? 'text-amber-400 ring-1 ring-amber-400/50'
-                  : ''
-              }`}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition-all border border-slate-700"
               title="Configurar Chaves de API (Gemini / OpenAI)"
             >
-              <Key className="h-4 w-4" />
+              <Settings className="h-4 w-4" />
             </button>
 
+            {/* Fechar */}
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800/80 text-slate-400 hover:bg-rose-500/20 hover:text-rose-400 transition-all border border-slate-700"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Banner de Configuração de Chaves (se aberto) */}
+        {/* Modal de Configuração de Chaves de API */}
         {showKeyConfig && (
-          <div className="border-b border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/30">
-            <div className="flex items-center justify-between mb-2">
+          <div className="border-b border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+            <div className="flex items-center justify-between pb-3">
               <div className="flex items-center gap-2">
-                <Key className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                <span className="font-semibold text-xs text-amber-900 dark:text-amber-300 uppercase tracking-wider">
-                  Configuração de Chaves de API
-                </span>
+                <Key className="h-4 w-4 text-amber-500" />
+                <h4 className="font-semibold text-sm text-slate-800 dark:text-slate-200">
+                  Configuração de Chaves de API de Inteligência Artificial
+                </h4>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setActiveKeyTab('gemini')}
-                  className={`px-2 py-0.5 text-xs rounded ${activeKeyTab === 'gemini' ? 'bg-amber-600 text-white font-medium' : 'text-slate-600 dark:text-slate-400'}`}
+                  className={`px-3 py-1 rounded text-xs font-medium ${
+                    activeKeyTab === 'gemini' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
                 >
                   Google Gemini
                 </button>
                 <button
                   onClick={() => setActiveKeyTab('openai')}
-                  className={`px-2 py-0.5 text-xs rounded ${activeKeyTab === 'openai' ? 'bg-emerald-600 text-white font-medium' : 'text-slate-600 dark:text-slate-400'}`}
+                  className={`px-3 py-1 rounded text-xs font-medium ${
+                    activeKeyTab === 'openai' ? 'bg-emerald-500 text-white font-bold' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
                 >
                   OpenAI (ChatGPT)
                 </button>
@@ -392,146 +398,131 @@ Como posso auxiliá-lo(a) agora?
             </div>
 
             {activeKeyTab === 'gemini' ? (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="password"
-                  placeholder="Cole sua chave Google Gemini (AIzaSy...)"
                   value={geminiKeyInput}
                   onChange={(e) => setGeminiKeyInput(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  placeholder="Cole sua Gemini API Key (ex: AIzaSy...)"
+                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
                 <button
                   onClick={handleSaveGeminiKey}
                   disabled={testingKey}
-                  className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-50"
+                  className="flex items-center justify-center gap-1 rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-all shadow-sm"
                 >
-                  {testingKey ? 'Validando...' : 'Salvar & Testar'}
+                  {testingKey ? <RefreshCw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                  Testar & Salvar Gemini
                 </button>
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="password"
-                  placeholder="Cole sua chave OpenAI API (sk-...)"
                   value={openAiKeyInput}
                   onChange={(e) => setOpenAiKeyInput(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  placeholder="Cole sua OpenAI API Key (ex: sk-proj-...)"
+                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
                 <button
                   onClick={handleSaveOpenAiKey}
                   disabled={testingKey}
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  className="flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-sm"
                 >
-                  {testingKey ? 'Validando...' : 'Salvar & Testar'}
+                  {testingKey ? <RefreshCw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                  Testar & Salvar OpenAI
                 </button>
               </div>
             )}
+            <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+              * Suas chaves são armazenadas localmente no seu navegador com segurança e nunca são compartilhadas. Se preferir não usar chave, o motor cognitivo local AdvJuris responderá automaticamente.
+            </p>
           </div>
         )}
 
-        {/* Tab Selector */}
-        <div className="flex border-b border-slate-200 bg-slate-50 px-6 py-2 dark:border-slate-800 dark:bg-slate-900/50">
-          <div className="flex gap-2 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('chat')}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                activeTab === 'chat'
-                  ? 'bg-amber-500 text-slate-950 font-semibold shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              Consultor Jurídico AdvJuris
-            </button>
-            <button
-              onClick={() => setActiveTab('publication')}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                activeTab === 'publication'
-                  ? 'bg-amber-500 text-slate-950 font-semibold shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <FileCheck className="h-3.5 w-3.5" />
-              Leitor de Intimações & Prazos
-            </button>
-            <button
-              onClick={() => setActiveTab('draft')}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                activeTab === 'draft'
-                  ? 'bg-amber-500 text-slate-950 font-semibold shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Gerador de Minutas & Peças
-            </button>
-            <button
-              onClick={() => setActiveTab('explainer')}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                activeTab === 'explainer'
-                  ? 'bg-amber-500 text-slate-950 font-semibold shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Explicador para o Cliente (WhatsApp)
-            </button>
-          </div>
+        {/* Navegação de Abas */}
+        <div className="flex border-b border-slate-200 bg-slate-100/70 px-6 dark:border-slate-800 dark:bg-slate-800/40">
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-all ${
+              activeTab === 'chat'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Chat Estratégico & Dossiê
+          </button>
+
+          <button
+            onClick={() => setActiveTab('publicacoes')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-all ${
+              activeTab === 'publicacoes'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Calendar className="h-4 w-4" />
+            Análise de Publicações & Prazos
+          </button>
+
+          <button
+            onClick={() => setActiveTab('minutas')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-all ${
+              activeTab === 'minutas'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            Gerador de Peças & Minutas
+          </button>
+
+          <button
+            onClick={() => setActiveTab('whatsapp')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-all ${
+              activeTab === 'whatsapp'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+            Explicador WhatsApp
+          </button>
         </div>
 
-        {/* Modal Content */}
+        {/* Corpo Principal das Abas */}
         <div className="flex-1 overflow-y-auto p-6">
-          
-          {/* TAB 1: CHAT CONSULTOR */}
+          {/* ABA 1: CHAT CONSULTIVO */}
           {activeTab === 'chat' && (
-            <div className="flex h-[520px] flex-col">
-              {/* Sugestões Rápidas */}
-              <div className="mb-3 flex flex-wrap gap-1.5 border-b border-slate-100 pb-3 dark:border-slate-800">
-                <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  <Lightbulb className="h-3 w-3 text-amber-500" /> Consultas Rápidas:
-                </span>
-                {suggestedQuestions.map((sq, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSendMessage(sq)}
-                    className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] text-slate-700 transition-colors hover:border-amber-400 hover:bg-amber-50 hover:text-amber-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-amber-500/50 dark:hover:bg-amber-950/30 dark:hover:text-amber-300"
-                  >
-                    {sq.length > 45 ? sq.substring(0, 45) + '...' : sq}
-                  </button>
-                ))}
-              </div>
-
-              {/* Mensagens do Chat */}
-              <div className="flex-1 space-y-4 overflow-y-auto pr-2">
+            <div className="flex flex-col h-[52vh] justify-between gap-4">
+              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
                 {chatHistory.map((msg, idx) => (
                   <div
                     key={idx}
                     className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {msg.role === 'assistant' && (
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400">
-                        <Scale className="h-4 w-4" />
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 ring-1 ring-amber-500/30">
+                        <Bot className="h-4 w-4" />
                       </div>
                     )}
                     <div
-                      className={`relative max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed ${
+                      className={`max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed ${
                         msg.role === 'user'
-                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-medium shadow-md'
-                          : 'border border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-200'
+                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-medium rounded-tr-none shadow-md'
+                          : 'bg-slate-100 dark:bg-slate-800/80 text-slate-800 dark:text-slate-200 rounded-tl-none border border-slate-200 dark:border-slate-700 shadow-sm whitespace-pre-wrap'
                       }`}
                     >
-                      <div className="whitespace-pre-wrap font-sans">
-                        {msg.content}
-                      </div>
-
-                      {msg.role === 'assistant' && (
-                        <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-200/60 pt-2 dark:border-slate-700/60">
+                      {msg.content}
+                      {msg.role === 'assistant' && idx > 0 && (
+                        <div className="mt-2 flex justify-end border-t border-slate-200/50 pt-2 dark:border-slate-700/50">
                           <button
                             onClick={() => handleCopy(msg.content)}
-                            className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 transition-colors"
+                            className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-amber-500 dark:text-slate-400"
                           >
-                            <Copy className="h-3 w-3" />
-                            {copied ? 'Copiado!' : 'Copiar Parecer'}
+                            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            Copiar Parecer
                           </button>
                         </div>
                       )}
@@ -539,32 +530,41 @@ Como posso auxiliá-lo(a) agora?
                   </div>
                 ))}
                 {loading && (
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-500">
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-400">
-                      Analisando legislação, jurisprudência e dados do CRM...
-                    </div>
+                  <div className="flex gap-3 items-center text-xs text-slate-500 dark:text-slate-400">
+                    <RefreshCw className="h-4 w-4 animate-spin text-amber-500" />
+                    <span>AdvJuris está analisando os autos e fundamentando a tese...</span>
                   </div>
                 )}
                 <div ref={chatEndRef} />
               </div>
 
+              {/* Sugestões Rápidas */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {suggestedQuestions.map((sug, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSendMessage(sug)}
+                    className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] text-slate-600 hover:border-amber-500 hover:bg-amber-500/10 hover:text-amber-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-amber-400 dark:hover:text-amber-400 transition-all"
+                  >
+                    {sug}
+                  </button>
+                ))}
+              </div>
+
               {/* Input do Chat */}
-              <div className="mt-4 flex gap-2">
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Pergunte sobre um cliente do CRM (ex: 'Bruno Alexssander'), prazos, artigos do CPC/CLT ou teses..."
                   value={chatQuestion}
                   onChange={(e) => setChatQuestion(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                  className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  placeholder="Pergunte ao AdvJuris (ex: 'Quais os processos do cliente Bruno?' ou 'Elabore tese de usucapião')..."
+                  className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
                 <button
                   onClick={() => handleSendMessage()}
                   disabled={loading || !chatQuestion.trim()}
-                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-xs font-semibold text-slate-950 shadow-md hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 transition-all"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-all shadow-md"
                 >
                   <Send className="h-3.5 w-3.5" />
                   Enviar
@@ -573,88 +573,88 @@ Como posso auxiliá-lo(a) agora?
             </div>
           )}
 
-          {/* TAB 2: PUBLICAÇÕES */}
-          {activeTab === 'publication' && (
+          {/* ABA 2: ANÁLISE DE PUBLICAÇÕES */}
+          {activeTab === 'publicacoes' && (
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Cole o texto do Diário Oficial / DJE / Intimação Judicial:
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Cole o Texto da Publicação Judicial / Intimação:
                 </label>
                 <textarea
-                  rows={6}
-                  placeholder="Ex: 'Fica a parte autora intimada para, no prazo de 15 (quinze) dias úteis, manifestar-se acerca da contestação apresentada...'"
+                  rows={5}
                   value={pubText}
                   onChange={(e) => setPubText(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white font-mono"
+                  placeholder="Ex: 'Fica intimado o patrono do autor para que, no prazo legal de 15 (quinze) dias, manifeste-se sobre a contestação e documentos juntados...'"
+                  className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
               </div>
 
               <div className="flex justify-end">
                 <button
                   onClick={handleAnalyzePublication}
-                  disabled={loading || !pubText.trim()}
-                  className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-md hover:bg-amber-400 disabled:opacity-50"
+                  disabled={loading}
+                  className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-all shadow-md"
                 >
-                  {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                  Analisar com IA & Calcular Prazo
+                  {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                  Analisar Publicação & Extrair Prazos
                 </button>
               </div>
 
               {pubResult && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/80">
-                  <div className="mb-3 flex items-center justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
-                    <span className="font-semibold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <FileCheck className="h-4 w-4 text-amber-500" /> Parecer de Análise de Publicação
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/80 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                      Resultado da Análise Jurídica
                     </span>
-                    <button
-                      onClick={() => handleCopy(pubResult.text)}
-                      className="text-xs text-slate-500 hover:text-amber-600 dark:text-slate-400 flex items-center gap-1"
-                    >
-                      <Copy className="h-3.5 w-3.5" /> Copiar
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleCopy(pubResult.text)}
+                        className="flex items-center gap-1 text-xs text-slate-600 hover:text-amber-500 dark:text-slate-300"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copiar
+                      </button>
+                      <button
+                        onClick={handleCreateTaskFromPub}
+                        className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500 transition-all shadow-sm"
+                      >
+                        <PlusCircle className="h-3.5 w-3.5" />
+                        Criar Prazo no CRM
+                      </button>
+                    </div>
                   </div>
-                  <div className="whitespace-pre-wrap text-xs text-slate-800 dark:text-slate-200 mb-4 font-sans leading-relaxed">
+                  <div className="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
                     {pubResult.text}
                   </div>
-                  {onAddTask && (
-                    <button
-                      onClick={handleCreateTaskFromPub}
-                      className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-500 transition-colors shadow-sm"
-                    >
-                      <PlusCircle className="h-3.5 w-3.5" />
-                      Criar Tarefa Fatal no CRM (+{pubResult.days} dias)
-                    </button>
-                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* TAB 3: GERADOR DE MINUTAS */}
-          {activeTab === 'draft' && (
+          {/* ABA 3: GERADOR DE MINUTAS */}
+          {activeTab === 'minutas' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
-                    Tipo da Peça:
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Tipo de Peça / Minuta:
                   </label>
                   <select
                     value={draftType}
                     onChange={(e) => setDraftType(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   >
-                    <option value="procuracao">Procuração Ad Judicia</option>
+                    <option value="procuracao">Procuração Ad Judicia et Extra</option>
                     <option value="notificacao">Notificação Extrajudicial</option>
-                    <option value="inicial_cobranca">Petição Inicial - Cobrança</option>
-                    <option value="inicial_indenizacao">Petição Inicial - Danos Morais</option>
-                    <option value="contestacao">Contestação Cível</option>
-                    <option value="recurso_apelacao">Recurso de Apelação</option>
-                    <option value="agravo_instrumento">Agravo de Instrumento</option>
+                    <option value="contrato">Contrato de Honorários Advocatícios</option>
+                    <option value="inicial">Petição Inicial (Ação de Cobrança / Obrigação)</option>
+                    <option value="contestacao">Contestação com Preliminares</option>
+                    <option value="agravo">Agravo de Instrumento (Art. 1.015 CPC)</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Vincular Cliente do CRM:
                   </label>
                   <select
@@ -664,54 +664,39 @@ Como posso auxiliá-lo(a) agora?
                       const c = clients.find(cl => String(cl.id) === String(e.target.value));
                       if (c) setDraftClientName(c.name);
                     }}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   >
-                    <option value="">-- Digitar Nome Manualmente --</option>
+                    <option value="">Selecione um cliente cadastrado ou digite avulso</option>
                     {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.cpf || 'Sem CPF'})</option>
+                      <option key={c.id} value={c.id}>{c.name} (CPF: {c.cpf || 'N/I'})</option>
                     ))}
                   </select>
                 </div>
-
-                {!draftClientId && (
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
-                      Nome do Cliente:
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Nome completo..."
-                      value={draftClientName}
-                      onChange={(e) => setDraftClientName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    />
-                  </div>
-                )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
-                    Assunto / Fatos Principais:
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Objeto / Causa / Resumo:
                   </label>
                   <input
                     type="text"
-                    placeholder="Ex: Quebra contratual por atraso de entrega de imóvel..."
                     value={draftSubject}
                     onChange={(e) => setDraftSubject(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    placeholder="Ex: Cobrança de duplicata mercantil / Prestação de serviços"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
-                    Valor da Causa / Débito (R$):
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Valor da Causa / Honorários (R$):
                   </label>
                   <input
                     type="text"
-                    placeholder="Ex: 25.000,00"
                     value={draftValue}
                     onChange={(e) => setDraftValue(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    placeholder="Ex: 15.000,00"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </div>
               </div>
@@ -720,27 +705,28 @@ Como posso auxiliá-lo(a) agora?
                 <button
                   onClick={handleGenerateDraft}
                   disabled={loading}
-                  className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-md hover:bg-amber-400 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-all shadow-md"
                 >
-                  {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-                  Gerar Peça Completa
+                  {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FileCheck className="h-3.5 w-3.5" />}
+                  Gerar Minuta Profissional
                 </button>
               </div>
 
               {draftResult && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/80">
-                  <div className="mb-3 flex items-center justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
-                    <span className="font-semibold text-xs text-slate-900 dark:text-white">
-                      Minuta Gerada (Pronta para Edição e Protocolo)
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/80 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                      Minuta Redigida pelo AdvJuris
                     </span>
                     <button
                       onClick={() => handleCopy(draftResult)}
-                      className="text-xs text-slate-500 hover:text-amber-600 dark:text-slate-400 flex items-center gap-1"
+                      className="flex items-center gap-1 text-xs text-slate-600 hover:text-amber-500 dark:text-slate-300 font-medium"
                     >
-                      <Copy className="h-3.5 w-3.5" /> Copiar Minuta
+                      <Copy className="h-3.5 w-3.5" />
+                      Copiar Minuta Completa
                     </button>
                   </div>
-                  <pre className="whitespace-pre-wrap text-xs text-slate-800 dark:text-slate-200 font-serif leading-relaxed max-h-72 overflow-y-auto">
+                  <pre className="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
                     {draftResult}
                   </pre>
                 </div>
@@ -748,85 +734,69 @@ Como posso auxiliá-lo(a) agora?
             </div>
           )}
 
-          {/* TAB 4: EXPLICADOR CLIENTE */}
-          {activeTab === 'explainer' && (
+          {/* ABA 4: EXPLICADOR WHATSAPP */}
+          {activeTab === 'whatsapp' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Nome do Cliente:
                   </label>
                   <input
                     type="text"
-                    placeholder="Ex: Bruno Alexssander"
                     value={explainerClient}
                     onChange={(e) => setExplainerClient(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    placeholder="Ex: João Silva"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
-                  Cole a Decisão, Despacho ou Movimentação Complexa:
-                </label>
-                <textarea
-                  rows={4}
-                  placeholder="Ex: 'Vistos. Defiro o pedido de penhora de ativos financeiros via SISBAJUD pelo sistema teimosinha...'"
-                  value={explainerInput}
-                  onChange={(e) => setExplainerInput(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                />
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Texto do Despacho / Andamento Judicial:
+                  </label>
+                  <input
+                    type="text"
+                    value={explainerInput}
+                    onChange={(e) => setExplainerInput(e.target.value)}
+                    placeholder="Ex: 'Vistos. Especifiquem as partes as provas que pretendem produzir, justificando a pertinência.'"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end">
                 <button
                   onClick={handleExplainClient}
-                  disabled={loading || !explainerInput.trim()}
-                  className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-md hover:bg-amber-400 disabled:opacity-50"
+                  disabled={loading}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-md"
                 >
                   {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                  Traduzir para WhatsApp
+                  Traduzir para Linguagem Simples (WhatsApp)
                 </button>
               </div>
 
               {explainerResult && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-300">
-                      Mensagem Pronta para o WhatsApp:
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20 space-y-3">
+                  <div className="flex items-center justify-between border-b border-emerald-200/50 pb-2 dark:border-emerald-800/50">
+                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      Mensagem Pronta para Envio
                     </span>
                     <button
                       onClick={() => handleCopy(explainerResult)}
-                      className="text-xs text-emerald-700 hover:text-emerald-900 dark:text-emerald-400 flex items-center gap-1 font-medium"
+                      className="flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 font-medium"
                     >
-                      <Copy className="h-3.5 w-3.5" /> Copiar Mensagem
+                      <Copy className="h-3.5 w-3.5" />
+                      Copiar Mensagem
                     </button>
                   </div>
-                  <div className="whitespace-pre-wrap text-xs text-slate-800 dark:text-slate-200 font-sans leading-relaxed">
+                  <div className="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
                     {explainerResult}
                   </div>
                 </div>
               )}
             </div>
           )}
-
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-3 dark:border-slate-800 dark:bg-slate-900/80">
-          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <ShieldCheck className="h-4 w-4 text-emerald-500" />
-            <span>AdvJuris Legal Engine ativo | Total conformidade com o Estatuto da OAB e LGPD</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-          >
-            Fechar Copiloto
-          </button>
-        </div>
-
       </div>
     </div>
   );

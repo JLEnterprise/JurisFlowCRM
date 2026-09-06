@@ -1,9 +1,9 @@
-/**
+﻿/**
  * JurisFlow Multi-Provider AI Service
  * Integração completa com Google Gemini API, OpenAI ChatGPT API e Motor Cognitivo AdvJuris Local.
  */
 
-import { ADVJURIS_SYSTEM_PROMPT } from '../agents/advJurisPrompt';
+import { ADVJURIS_SYSTEM_PROMPT, ADVJURIS_PROMPTS } from '../agents/advJurisPrompt';
 import { generateDeepLegalAnswer } from './deepLegalEngine';
 
 const GEMINI_STORAGE_KEY = 'jurisflow_gemini_api_key';
@@ -60,28 +60,32 @@ export function setSelectedModel(model) {
 // ============================================================================
 
 export async function testGeminiApiKey(key) {
-  if (!key) return { success: false, message: 'Chave Gemini não informada' };
-  try {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key.trim()}`;
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Olá! Responda apenas "OK".' }] }]
-      })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return { success: false, message: err.error?.message || `Erro ${res.status}: ${res.statusText}` };
+  if (!key || !key.trim()) return { success: false, message: 'Chave Gemini não informada' };
+  const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  
+  for (const model of candidateModels) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key.trim()}`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'Responda apenas OK.' }] }]
+        })
+      });
+      if (res.ok) {
+        return { success: true, message: `Google Gemini conectado com sucesso! (Modelo: ${model})` };
+      }
+    } catch (err) {
+      // continua para próximo modelo
     }
-    return { success: true, message: 'Google Gemini conectado com sucesso!' };
-  } catch (err) {
-    return { success: false, message: err.message || 'Falha de conexão com a Google API' };
   }
+
+  return { success: false, message: 'Não foi possível validar a chave com a Google API. Verifique a chave ou sua conexão.' };
 }
 
 export async function testOpenAiApiKey(key) {
-  if (!key) return { success: false, message: 'Chave OpenAI não informada' };
+  if (!key || !key.trim()) return { success: false, message: 'Chave OpenAI não informada' };
   try {
     const endpoint = 'https://api.openai.com/v1/chat/completions';
     const res = await fetch(endpoint, {
@@ -92,7 +96,7 @@ export async function testOpenAiApiKey(key) {
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: 'Olá! Responda apenas "OK".' }],
+        messages: [{ role: 'user', content: 'Responda apenas OK.' }],
         max_tokens: 5
       })
     });
@@ -100,7 +104,7 @@ export async function testOpenAiApiKey(key) {
       const err = await res.json().catch(() => ({}));
       return { success: false, message: err.error?.message || `Erro ${res.status}: ${res.statusText}` };
     }
-    return { success: true, message: 'OpenAI ChatGPT conectado com sucesso!' };
+    return { success: true, message: 'OpenAI ChatGPT conectado com sucesso! (Modelo: gpt-4o-mini)' };
   } catch (err) {
     return { success: false, message: err.message || 'Falha de conexão com a OpenAI API' };
   }
@@ -110,20 +114,20 @@ export async function testOpenAiApiKey(key) {
 // FORMATAÇÃO DO CONTEXTO DO CRM PARA A IA
 // ============================================================================
 
-function buildCrmContextPrompt(crmContext) {
+export function buildCrmContextPrompt(crmContext) {
   if (!crmContext) return '';
 
   const { clients = [], processes = [], tasks = [], contracts = [], officeSettings = {} } = crmContext;
 
-  const clientList = clients.slice(0, 15).map(c => 
+  const clientList = clients.slice(0, 20).map(c => 
     `- Cliente: ${c.name} | CPF: ${c.cpf || 'N/I'} | Status: ${c.status || 'Ativo'} | Tel: ${c.phone || c.whatsapp || 'N/I'}`
   ).join('\n');
 
-  const processList = processes.slice(0, 15).map(p =>
+  const processList = processes.slice(0, 20).map(p =>
     `- Processo: ${p.processNumber || 'Sem número'} | Cliente: ${p.clientName || 'N/I'} | Vara: ${p.court || p.vara || 'N/I'} | Área: ${p.legalArea || 'Cível'} | Fase: ${p.phase || p.status || 'Em andamento'}`
   ).join('\n');
 
-  const taskList = tasks.filter(t => t.status !== 'completed').slice(0, 10).map(t =>
+  const taskList = tasks.filter(t => t.status !== 'completed').slice(0, 15).map(t =>
     `- Tarefa/Prazo: ${t.title} | Data Limite: ${t.dueDate || 'Pendente'} | Prioridade: ${t.priority || 'Normal'}`
   ).join('\n');
 
@@ -132,7 +136,7 @@ function buildCrmContextPrompt(crmContext) {
 [BASE DE DADOS EM TEMPO REAL DO CRM JURISFLOW]:
 Escritório: ${officeSettings.officeName || 'JurisFlow Advocacia'}
 
-CLIENTES ATIVOS CADASTRADOS NO CRM:
+CLIENTES CADASTRADOS NO CRM:
 ${clientList || 'Nenhum cliente cadastrado no momento.'}
 
 PROCESSOS JUDICIAIS NO CRM:
@@ -141,8 +145,7 @@ ${processList || 'Nenhum processo cadastrado no momento.'}
 PRAZOS E TAREFAS PENDENTES:
 ${taskList || 'Nenhum prazo pendente registrado.'}
 ---
-Quando o advogado perguntar sobre um cliente (ex: "Bruno Alexssander Souza Silva", "Maria", etc.), sobre um processo, prazo ou contrato, utilize esses dados do CRM para responder com precisão cirúrgica. Se o cliente pesquisado NÃO constar nessa lista, informe claramente que ele não está cadastrado ainda e pergunte se deseja cadastrá-lo ou elaborar a tese jurídica para ele.
-`;
+Instrução: Quando o advogado perguntar sobre um cliente, processo, prazo ou caso do escritório, utilize esses dados do CRM com máxima precisão. Se o cliente ou caso não estiver na lista, informe com clareza e pergunte se deseja cadastrá-lo.`;
 }
 
 // ============================================================================
@@ -154,7 +157,7 @@ export async function callMultiProviderAi(prompt, systemInstruction = ADVJURIS_S
   const crmSnippet = buildCrmContextPrompt(crmContext);
   const fullSystemPrompt = crmSnippet ? `${systemInstruction}\n\n${crmSnippet}` : systemInstruction;
 
-  // 1. OpenAI ChatGPT
+  // 1. Se provedor selecionado for OpenAI
   if (provider === 'openai') {
     const openAiKey = getOpenAiApiKey();
     if (openAiKey) {
@@ -163,7 +166,7 @@ export async function callMultiProviderAi(prompt, systemInstruction = ADVJURIS_S
     }
   }
 
-  // 2. Google Gemini
+  // 2. Se provedor selecionado for Gemini ou fallback de OpenAI
   if (provider === 'gemini' || provider === 'openai') {
     const geminiKey = getGeminiApiKey();
     if (geminiKey) {
@@ -172,7 +175,7 @@ export async function callMultiProviderAi(prompt, systemInstruction = ADVJURIS_S
     }
   }
 
-  // 3. Fallback ou Modo Local AdvJuris
+  // 3. Fallback ou Modo Local AdvJuris Engine
   return null;
 }
 
@@ -190,7 +193,7 @@ export async function callOpenAiApi(prompt, systemInstruction, key, conversation
         const m = historyToProcess[i];
         if (!m.content || typeof m.content !== 'string') continue;
         if (i === historyToProcess.length - 1 && m.role === 'user' && m.content.trim() === prompt.trim()) {
-          continue; // Evita duplicar a última mensagem
+          continue;
         }
         messages.push({
           role: m.role === 'assistant' ? 'assistant' : 'user',
@@ -233,7 +236,7 @@ export async function callGeminiApi(prompt, systemInstruction = ADVJURIS_SYSTEM_
   const currentKey = key || getGeminiApiKey();
   if (!currentKey) return null;
 
-  const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
 
   const contents = [];
   if (Array.isArray(conversationHistory) && conversationHistory.length > 0) {
@@ -248,32 +251,23 @@ export async function callGeminiApi(prompt, systemInstruction = ADVJURIS_SYSTEM_
       if (contents.length > 0 && contents[contents.length - 1].role === role) {
         contents[contents.length - 1].parts[0].text += `\n\n${m.content}`;
       } else {
-        contents.push({
-          role: role,
-          parts: [{ text: m.content }]
-        });
+        contents.push({ role: role, parts: [{ text: m.content }] });
       }
     }
   }
 
-  if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
-    contents[contents.length - 1].parts[0].text += `\n\n${prompt}`;
-  } else {
-    contents.push({
-      role: 'user',
-      parts: [{ text: prompt }]
-    });
-  }
+  contents.push({ role: 'user', parts: [{ text: prompt }] });
 
-  for (const m of models) {
+  for (const model of modelsToTry) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${currentKey}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${currentKey.trim()}`;
       const payload = {
         contents: contents,
         systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 3500,
+          topP: 0.95,
+          maxOutputTokens: 3500
         }
       };
 
@@ -285,13 +279,14 @@ export async function callGeminiApi(prompt, systemInstruction = ADVJURIS_SYSTEM_
 
       if (response.ok) {
         const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const candidate = data.candidates?.[0];
+        const text = candidate?.content?.parts?.[0]?.text;
         if (text && text.trim().length > 0) {
           return text.trim();
         }
       }
     } catch (err) {
-      console.warn(`Tentativa Gemini (${m}) falhou:`, err.message);
+      console.warn(`Erro no modelo Gemini ${model}:`, err.message);
     }
   }
 
@@ -299,51 +294,63 @@ export async function callGeminiApi(prompt, systemInstruction = ADVJURIS_SYSTEM_
 }
 
 // ============================================================================
-// CONSULTORIA JURÍDICA ADVJURIS (MULTI-TURN & CRM INTEGRADO)
+// CONSULTORIA ESTRATÉGICA ADVJURIS (CHAT)
 // ============================================================================
 
-export async function consultAdvJuris(question, context = '', customApiKey = '', chatHistory = [], crmContext = null) {
+export async function consultAdvJuris(question, chatHistory = [], crmContext = null) {
   if (!question || question.trim().length === 0) {
-    return { success: false, answer: 'Por favor, digite sua consulta jurídica.' };
+    throw new Error('Pergunta não informada.');
   }
 
+  // 1. Tenta Provedor Online (Gemini ou OpenAI)
   const externalResult = await callMultiProviderAi(question, ADVJURIS_SYSTEM_PROMPT, chatHistory, crmContext);
   if (externalResult) {
-    return { success: true, answer: externalResult };
+    return {
+      text: externalResult,
+      provider: getAiProvider() === 'openai' ? 'OpenAI ChatGPT' : 'Google Gemini',
+      timestamp: new Date().toISOString()
+    };
   }
 
-  // Motor Contextual Profundo AdvJuris Local
-  await new Promise(r => setTimeout(r, 400));
+  // 2. Motor Cognitivo Local AdvJuris
+  await new Promise(r => setTimeout(r, 200));
   const localAnswer = generateDeepLegalAnswer(question, chatHistory, crmContext);
-  return { success: true, answer: localAnswer };
+
+  return {
+    text: localAnswer,
+    provider: 'AdvJuris Cognitivo Local',
+    timestamp: new Date().toISOString()
+  };
 }
 
 // ============================================================================
-// GERADOR DE PEÇAS PROCESSUAIS E MINUTAS
+// GERAÇÃO DE MINUTAS & PEÇAS JURÍDICAS
 // ============================================================================
 
-export async function generateLegalDraft(draftType, data = {}) {
-  const prompt = `Elabore uma peça jurídica profissional de ${draftType} com os seguintes dados:
+export async function generateLegalDraft(draftType, data = {}, crmContext = null) {
+  const prompt = `Elabore uma minuta jurídica profissional de ${draftType} com os seguintes dados:
 ${JSON.stringify(data, null, 2)}`;
 
-  const externalResult = await callMultiProviderAi(prompt, ADVJURIS_SYSTEM_PROMPT);
+  const systemPrompt = `${ADVJURIS_SYSTEM_PROMPT}\n\n${ADVJURIS_PROMPTS.CONTRACT_GENERATOR}`;
+  const externalResult = await callMultiProviderAi(prompt, systemPrompt, [], crmContext);
   if (externalResult) {
     return { success: true, draft: externalResult };
   }
 
-  await new Promise(r => setTimeout(r, 450));
-  const dateStr = new Date().toLocaleDateString('pt-BR');
+  await new Promise(r => setTimeout(r, 400));
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('pt-BR');
 
   if (draftType === 'procuracao') {
     return {
       success: true,
-      draft: `PROCURAÇÃO "AD JUDICIA ET EXTRA"
+      draft: `PROCURAÇÃO AD JUDICIA ET EXTRA
 
-OUTORGANTE: ${data.clientName || '[NOME COMPLETO DO CLIENTE]'}, brasileiro(a), inscrito(a) no CPF sob o nº ${data.cpf || '[000.000.000-00]'}, residente e domiciliado(a) em ${data.address || '[ENDEREÇO COMPLETO]'};
+OUTORGANTE: ${data.clientName || '[NOME DO CLIENTE]'}, brasileiro(a), inscrito(a) no CPF sob o nº ${data.cpf || '[CPF]'}, residente e domiciliado(a) em [ENDEREÇO COMPLETO].
 
-OUTORGADOS: Os advogados integrantes da sociedade de advogados ${data.lawyerName || 'JURISFLOW ADVOCACIA'}, inscritos na OAB/SP sob o nº ${data.oab || '[OAB/SP 123.456]'}, com escritório profissional na sede do escritório;
+OUTORGADOS: [NOME DO ADVOGADO], brasileiro(a), advogado(a) inscrito(a) na OAB/SP sob o nº [NÚMERO DA OAB], com escritório profissional situado em [ENDEREÇO DO ESCRITÓRIO].
 
-PODERES ESPECIAIS: Pelo presente instrumento particular, o(a) OUTORGANTE confere aos OUTORGADOS amplos poderes para o foro em geral, consubstanciados na cláusula "ad judicia et extra", para representá-lo(a) perante qualquer Juízo, Tribunal, Cartório ou Repartição Pública, podendo propor ações, apresentar defesas e recursos, transigir, firmar compromissos, desistir, receber e dar quitação, substabelecer com ou sem reserva de poderes, praticando todos os atos necessários ao fiel cumprimento do mandato.
+PODERES: Pelo presente instrumento particular de mandato, o(a) OUTORGANTE confere aos OUTORGADOS amplos poderes para o foro em geral, com a cláusula "ad judicia et extra", em qualquer Juízo, Tribunal ou Órgão Público, podendo propor ações, contestar, transigir, firmar compromisso, dar e receber quitação, substabelecer com ou sem reserva, e praticar todos os atos necessários ao fiel cumprimento deste mandato, especialmente para atuação em: ${data.subject || 'demanda cível e consultoria'}.
 
 [Cidade/UF], ${dateStr}.
 
@@ -355,19 +362,20 @@ ${data.clientName || 'Assinatura do Outorgante'}`
   if (draftType === 'notificacao') {
     return {
       success: true,
-      draft: `NOTIFICAÇÃO EXTRAJUDICIAL COM AVISO DE RECEBIMENTO
+      draft: `NOTIFICAÇÃO EXTRAJUDICIAL
 
-A: [NOME DO NOTIFICADO / EMPRESA]
-Endereço: [ENDEREÇO DO NOTIFICADO]
+A(O) NOTIFICADO(A):
+[NOME DO NOTIFICADO]
+[ENDEREÇO DO NOTIFICADO]
 
-DE: ${data.clientName || '[NOME DO NOTIFICANTE]'}
-Por seu procurador que esta subscreve: ${data.lawyerName || 'JURISFLOW ADVOCACIA (OAB/SP 123.456)'}
+NOTIFICANTE:
+${data.clientName || '[NOME DO NOTIFICANTE]'}, por intermédio de seus procuradores infra-assinados.
 
-ASSUNTO: Notificação para regularização de pendência e constituição em mora.
+OBJETO: Cumprimento de obrigação referente a ${data.subject || 'regularização contratual/débito'}.
 
 Prezados Senhores,
 
-Servimo-nos da presente para NOTIFICAR formalmente Vossa Senhoria acerca do descumprimento das obrigações assumidas referente a: ${data.subject || 'prestação de serviços/inadimplemento contratual'}.
+Servimo-nos da presente para NOTIFICAR V. Sas. quanto à necessidade de cumprimento imediato da obrigação em referência, no valor correspondente a R$ ${data.value || '0,00'}.
 
 Diante do exposto, concedemos o prazo improrrogável de 5 (cinco) dias úteis, contados do recebimento desta, para que proceda à regularização da pendência apontada.
 
@@ -410,7 +418,7 @@ Nestes termos, pede deferimento.
 // ANÁLISE DE PUBLICAÇÕES JUDICIAIS
 // ============================================================================
 
-export async function analyzeLegalPublication(pubText) {
+export async function analyzeLegalPublication(pubText, crmContext = null) {
   if (!pubText || pubText.trim().length === 0) {
     throw new Error('Texto da publicação não informado.');
   }
@@ -424,7 +432,7 @@ export async function analyzeLegalPublication(pubText) {
 Publicação:
 ${pubText}`;
 
-  const externalResult = await callMultiProviderAi(prompt, ADVJURIS_SYSTEM_PROMPT);
+  const externalResult = await callMultiProviderAi(prompt, ADVJURIS_PROMPTS.PUBLICATION_ANALYSIS, [], crmContext);
   if (externalResult) {
     return {
       text: externalResult,
@@ -435,13 +443,13 @@ ${pubText}`;
     };
   }
 
-  await new Promise(r => setTimeout(r, 400));
+  await new Promise(r => setTimeout(r, 300));
   const isPenal = pubText.toLowerCase().includes('crime') || pubText.toLowerCase().includes('penal') || pubText.toLowerCase().includes('réu preso');
   const isTrabalhista = pubText.toLowerCase().includes('trabalh') || pubText.toLowerCase().includes('vara do trabalho') || pubText.toLowerCase().includes('clt');
   const days = pubText.includes('15') ? 15 : pubText.includes('5') ? 5 : pubText.includes('8') ? 8 : 15;
 
   return {
-    text: `### 📋 PARECER TÉCNICO DE ANÁLISE DE PUBLICAÇÃO — ADVJURIS
+    text: `### ⚖️ PARECER TÉCNICO DE ANÁLISE DE PUBLICAÇÃO — ADVJURIS
 
 ## 1. Identificação Processual
 * **Número do Processo:** ${pubText.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/)?.[0] || 'Processo sob segredo de justiça ou número não informado'}
@@ -465,7 +473,7 @@ ${pubText}`;
 // EXPLICADOR AO CLIENTE (WHATSAPP)
 // ============================================================================
 
-export async function explainToClient(legalText, clientName = 'Cliente') {
+export async function explainToClient(legalText, clientName = 'Cliente', crmContext = null) {
   if (!legalText) throw new Error('Texto jurídico não informado.');
 
   const prompt = `Traduza o seguinte despacho ou decisão jurídica para uma mensagem de WhatsApp extremamente clara, educada e tranquilizadora para o cliente ${clientName}. Evite "juridiquês", use emojis e seja direto.
@@ -473,18 +481,18 @@ export async function explainToClient(legalText, clientName = 'Cliente') {
 Texto Jurídico:
 ${legalText}`;
 
-  const externalResult = await callMultiProviderAi(prompt, ADVJURIS_SYSTEM_PROMPT);
+  const externalResult = await callMultiProviderAi(prompt, ADVJURIS_PROMPTS.CLIENT_EXPLAINER, [], crmContext);
   if (externalResult) {
     return { text: externalResult };
   }
 
-  await new Promise(r => setTimeout(r, 300));
+  await new Promise(r => setTimeout(r, 200));
   return {
     text: `Olá, ${clientName}! Tudo bem? 😊
 
 Passando para te dar uma atualização sobre o seu processo:
 
-O juiz deu um novo andamento no caso e nos solicitou uma manifestação sobre os documentos. Nossa equipe já está cuidando disso para responder tudo dentro do prazo com máxima atenção.
+O juiz deu um novo andamento no caso e nos solicitou uma manifestação sobre os documentos. Nossa equipe já está cuidando de tudo para responder dentro do prazo com máxima atenção.
 
 Você não precisa se preocupar com nada no momento! Qualquer novidade importante te aviso por aqui.
 
@@ -497,15 +505,15 @@ Sua equipe jurídica ⚖️`
 // CONTRATOS & ADVJURIS ESPECIALIZADO
 // ============================================================================
 
-export async function analyzeContractWithAdvJuris(contractText, contractType = 'Honorários') {
+export async function analyzeContractWithAdvJuris(contractText, contractType = 'Honorários', crmContext = null) {
   const prompt = `Faça uma auditoria minuciosa deste contrato de ${contractType} com base nas normas do Código de Defesa do Consumidor, Código Civil e Estatuto da OAB (Art. 50 do CED):
 ${contractText}`;
 
-  const externalResult = await callMultiProviderAi(prompt, ADVJURIS_SYSTEM_PROMPT);
+  const externalResult = await callMultiProviderAi(prompt, ADVJURIS_PROMPTS.CONTRACT_REVIEW, [], crmContext);
   if (externalResult) return externalResult;
 
-  await new Promise(r => setTimeout(r, 450));
-  return `### 🔍 AUDITORIA CONTRATUAL — ADVJURIS
+  await new Promise(r => setTimeout(r, 300));
+  return `### 📑 AUDITORIA CONTRATUAL — ADVJURIS
 
 1. **Objeto e Escopo:** Cláusula clara, porém recomenda-se especificar expressamente se a atuação engloba fase recursal aos Tribunais Superiores.
 2. **Honorários e Quota Litis (Art. 50 do CED da OAB):** A soma dos honorários contratuais e sucumbenciais não pode exceder o proveito econômico do cliente.
@@ -513,11 +521,11 @@ ${contractText}`;
 4. **Foro de Eleição:** Válido para pessoas jurídicas; em contratos de consumo, prevalece o domicílio do consumidor.`;
 }
 
-export async function generateContractWithAdvJuris(type, data = {}) {
+export async function generateContractWithAdvJuris(type, data = {}, crmContext = null) {
   const prompt = `Elabore um contrato completo e profissional de ${type} com as seguintes especificações:
 ${JSON.stringify(data, null, 2)}`;
 
-  const externalResult = await callMultiProviderAi(prompt, ADVJURIS_SYSTEM_PROMPT);
+  const externalResult = await callMultiProviderAi(prompt, ADVJURIS_PROMPTS.CONTRACT_GENERATOR, [], crmContext);
   if (externalResult) return externalResult;
 
   return `CONTRATO DE PRESTAÇÃO DE SERVIÇOS ADVOCATÍCIOS E HONORÁRIOS

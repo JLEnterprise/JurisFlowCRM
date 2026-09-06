@@ -1,10 +1,10 @@
-/**
+﻿/**
  * JurisFlow AI Agent Engine - System Prompts
  * Personas e diretrizes de comportamento para os agentes inteligentes.
- * Alimentado pela especificação mestre ADVJURIS (AdvJuris.md).
+ * Alimentado pela especificação mestre ADVJURIS.
  */
 
-import { ADVJURIS_SYSTEM_PROMPT, ADVJURIS_PROMPTS } from './advJurisPrompt';
+import { ADVJURIS_SYSTEM_PROMPT, ADVJURIS_PROMPTS } from '../agents/advJurisPrompt';
 
 export { ADVJURIS_SYSTEM_PROMPT, ADVJURIS_PROMPTS };
 
