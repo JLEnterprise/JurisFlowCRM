@@ -21,15 +21,19 @@ import {
   Filter,
   Check,
   Tag,
-  Users
+  Users,
+  Link as LinkIcon,
+  Copy
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCRM } from '../../context/CRMContext';
+import { storageService } from '../../services/storageService';
 import { formatCurrency } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { Modal } from '../common/Modal';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { Avatar } from '../common/Avatar';
+import { compressAvatarImage } from '../../utils/imageUtils';
 
 // Lista de Cargos e Especialidades Jurídicas Sugeridas
 export const PREDEFINED_JOB_TITLES = [
@@ -134,10 +138,16 @@ export function TeamView() {
     }
     if (memberRoles.length === 0) memberRoles = ['lawyer'];
 
+    const primaryRole = memberRoles.includes('dev')
+      ? 'dev'
+      : memberRoles.includes('admin')
+      ? 'admin'
+      : (memberRoles[0] || 'lawyer');
+
     setFormData({
       name: member.name || '',
       email: member.email || '',
-      role: memberRoles[0] || 'lawyer',
+      role: primaryRole,
       roles: memberRoles,
       title: memberTitles.join(' • '),
       titles: memberTitles,
@@ -191,40 +201,68 @@ export function TeamView() {
       nextRoles.push(roleId);
     }
 
+    const primaryRole = nextRoles.includes('dev')
+      ? 'dev'
+      : nextRoles.includes('admin')
+      ? 'admin'
+      : (nextRoles[0] || 'lawyer');
+
     setFormData(prev => ({
       ...prev,
       roles: nextRoles,
-      role: nextRoles[0] || 'lawyer',
+      role: primaryRole,
     }));
   };
 
   const handleSaveUser = (e) => {
-    e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim()) {
-      showToast('Por favor, preencha o nome e o e-mail do colaborador.', 'danger');
-      return;
-    }
+    try {
+      if (e) {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+      }
+
+    const targetId = editingUserId;
+    const editingMember = targetId ? users.find(u => u.id === targetId) : null;
+    const cleanName = (formData.name || '').trim() || editingMember?.name || 'Colaborador';
+    const cleanEmail = (formData.email || '').trim() || editingMember?.email || `colaborador_${Date.now()}@jurisflow.adv.br`;
+
+    const assignedRoles = Array.isArray(formData.roles) && formData.roles.length > 0 ? formData.roles : ['lawyer'];
+    const primaryRole = assignedRoles.includes('dev')
+      ? 'dev'
+      : assignedRoles.includes('admin')
+      ? 'admin'
+      : (formData.role || assignedRoles[0] || 'lawyer');
+
+    const assignedTitles = Array.isArray(formData.titles) && formData.titles.length > 0 ? formData.titles : ['Colaborador'];
 
     const finalData = {
       ...formData,
-      titles: formData.titles.length > 0 ? formData.titles : ['Colaborador'],
-      title: formData.titles.length > 0 ? formData.titles.join(' • ') : 'Colaborador',
-      roles: formData.roles.length > 0 ? formData.roles : ['lawyer'],
-      role: formData.roles[0] || 'lawyer',
+      name: cleanName,
+      email: cleanEmail,
+      titles: assignedTitles,
+      title: assignedTitles.join(' • '),
+      roles: assignedRoles,
+      role: primaryRole,
     };
 
-    if (editingUserId) {
-      updateUser(editingUserId, finalData);
-      logActivity('Alteração de Colaborador', formData.name, `Cargos atualizados: ${finalData.title}`);
-      showToast(`Colaborador "${formData.name}" atualizado com sucesso!`);
-    } else {
-      createUser(finalData);
-      logActivity('Cadastro de Colaborador', formData.name, `Novo membro com cargos: ${finalData.title}`);
-      showToast(`Novo colaborador "${formData.name}" adicionado à equipe!`);
-    }
-
+    // 1. FECHA O MODAL IMEDIATAMENTE (Zero lag / Zero espera)
     setIsModalOpen(false);
     setEditingUserId(null);
+
+      // 2. Salva e sincroniza de forma segura
+      if (targetId) {
+        updateUser(targetId, finalData);
+        if (logActivity) logActivity('Alteração de Colaborador', cleanName, `Cargos atualizados: ${finalData.title}`);
+        showToast(`Colaborador "${cleanName}" atualizado com sucesso!`, 'success');
+      } else {
+        createUser(finalData);
+        if (logActivity) logActivity('Cadastro de Colaborador', cleanName, `Novo membro com cargos: ${finalData.title}`);
+        showToast(`Novo colaborador "${cleanName}" adicionado à equipe!`, 'success');
+      }
+    } catch (err) {
+      console.error('Erro geral ao salvar colaborador:', err);
+      showToast('Ocorreu um erro, mas a janela será fechada.', 'info');
+    }
   };
 
   const handleRequestDelete = (member) => {
@@ -232,15 +270,15 @@ export function TeamView() {
     setDeleteConfirmOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (userToDelete) {
       const userId = userToDelete.id;
       const userName = userToDelete.name;
       setDeleteConfirmOpen(false);
       setUserToDelete(null);
-      deleteUser(userId);
+      await deleteUser(userId);
       logActivity('Exclusão de Colaborador', userName, 'Membro da equipe removido do sistema.');
-      showToast(`Colaborador "${userName}" removido com sucesso.`);
+      showToast(`Colaborador "${userName}" removido com sucesso.`, 'success');
     }
   };
 
@@ -288,12 +326,28 @@ export function TeamView() {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenCreateModal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/25 hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile"
-        >
-          <Plus className="h-4 w-4" /> Novo Membro da Equipe
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const currentEscritorio = storageService.getCurrentEscritorioId();
+              const baseUrl = window.location.origin;
+              const inviteLink = `${baseUrl}/?invite=${currentEscritorio}`;
+              navigator.clipboard.writeText(inviteLink);
+              showToast('Link de convite copiado para a área de transferência!', 'success');
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-navy-800 border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-navy-700 transition-all btn-tactile"
+            title="Copiar link para convidar membros para este escritório"
+          >
+            <LinkIcon className="h-4 w-4" /> Convite
+          </button>
+          
+          <button
+            onClick={handleOpenCreateModal}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/25 hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile"
+          >
+            <Plus className="h-4 w-4" /> Novo Membro
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -512,7 +566,7 @@ export function TeamView() {
         subtitle="Atribua múltiplos cargos, especialidades advocatícias e permissões do sistema"
         maxWidth="max-w-2xl"
       >
-        <form onSubmit={handleSaveUser} className="space-y-5">
+        <form noValidate onSubmit={handleSaveUser} className="space-y-5">
           {/* Nome Completo & E-mail */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -727,17 +781,19 @@ export function TeamView() {
                       type="file"
                       accept="image/png,image/jpeg,image/jpg,image/webp"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            const base64Data = ev.target?.result;
-                            if (base64Data) {
-                              setFormData(prev => ({ ...prev, avatar: String(base64Data) }));
+                          try {
+                            const compressed = await compressAvatarImage(file, 256, 0.85);
+                            if (compressed) {
+                              setFormData(prev => ({ ...prev, avatar: compressed }));
+                              showToast('Foto do colaborador processada!', 'success');
                             }
-                          };
-                          reader.readAsDataURL(file);
+                          } catch (err) {
+                            console.error('Erro na foto:', err);
+                            showToast('Erro ao processar imagem.', 'danger');
+                          }
                         }
                       }}
                     />
@@ -764,14 +820,22 @@ export function TeamView() {
                 setIsModalOpen(false);
                 setEditingUserId(null);
               }}
-              className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Cancelar
             </button>
             <button
-              type="submit"
-              className="rounded-xl bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-brand-700 transition-colors"
+              type="button"
+              onClick={() => {
+                try {
+                  handleSaveUser();
+                } catch (e) {
+                  console.error('Erro ao salvar usuário:', e);
+                }
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-lg shadow-brand-600/25 transition-all btn-tactile"
             >
+              <CheckCircle2 className="h-4 w-4" />
               {editingUserId ? 'Salvar Alterações de Cargos' : 'Adicionar Membro à Equipe'}
             </button>
           </div>

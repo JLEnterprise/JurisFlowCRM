@@ -101,7 +101,7 @@ export function App() {
 
   // Power-Ups Modals
   const [copilotModalOpen, setCopilotModalOpen] = useState(false);
-  const [copilotInitialTab, setCopilotInitialTab] = useState('intimacoes');
+  const [copilotInitialTab, setCopilotInitialTab] = useState('chat');
 
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
   const [whatsAppData, setWhatsAppData] = useState({});
@@ -185,7 +185,7 @@ export function App() {
     setWhatsAppModalOpen(true);
   };
 
-  const handleOpenCopilotModal = (tab = 'intimacoes') => {
+  const handleOpenCopilotModal = (tab = 'chat') => {
     setCopilotInitialTab(tab);
     setCopilotModalOpen(true);
   };

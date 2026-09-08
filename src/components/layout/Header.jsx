@@ -12,6 +12,7 @@ import {
   Building2,
   Sparkles,
   MessageSquare,
+  User,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -19,6 +20,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useCRM } from '../../context/CRMContext';
 import { NotificationCenter } from './NotificationCenter';
 import { Avatar } from '../common/Avatar';
+import { UserProfileModal } from '../common/UserProfileModal';
 
 export function Header({
   onOpenSearch,
@@ -34,6 +36,7 @@ export function Header({
   const { isDark, toggleTheme } = useTheme();
   const { periodFilter, setPeriodFilter, currentEscritorio, escritorios = [], switchEscritorio, currentEscritorioId } = useCRM();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const userMenuRef = useRef(null);
 
   const toggleSidebarFn = onToggleSidebar || onToggleMobileSidebar || (() => {});
@@ -118,9 +121,9 @@ export function Header({
         {/* BOTÃO COPILOTO IA JURÍDICA */}
         {onOpenCopilot && (
           <button
-            onClick={() => onOpenCopilot('intimacoes')}
+            onClick={() => onOpenCopilot('chat')}
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-amber-600/20 border border-amber-400/40 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 hover:from-amber-500/25 hover:to-amber-600/30 transition-all shadow-xs btn-tactile"
-            title="Copiloto de IA: Leitor de Intimações, Prazos e Minutas"
+            title="Copiloto Jurídico & Chatbot de IA para Dúvidas e Rotinas do Dia a Dia"
           >
             <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
             <span className="hidden sm:inline">IA Jurídica</span>
@@ -193,7 +196,7 @@ export function Header({
             <div className="hidden text-left xl:block">
               <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
                 {currentUser?.name?.split(' ')[0]}
-                {currentUser?.role === 'admin' && <Shield className="h-3 w-3 text-gold-500" />}
+                {(currentUser?.role === 'admin' || currentUser?.roles?.includes('admin')) && <Shield className="h-3 w-3 text-gold-500" />}
               </div>
               <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[140px]">
                 {currentUser?.title || roleLabels[currentUser?.role] || 'Usuário'}
@@ -250,6 +253,18 @@ export function Header({
                   </div>
                 )}
 
+                {/* Botão Meu Perfil Pessoal & Foto */}
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setProfileModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-xl transition-colors font-semibold btn-tactile"
+                >
+                  <User className="h-4 w-4 text-brand-600 dark:text-gold-400" />
+                  <span>Meu Perfil & Foto</span>
+                </button>
+
                 {onNavigate && (
                   <button
                     onClick={() => {
@@ -279,6 +294,12 @@ export function Header({
           )}
         </div>
       </div>
+
+      {/* Modal de Perfil Pessoal & Foto */}
+      <UserProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+      />
     </header>
   );
 }

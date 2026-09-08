@@ -25,6 +25,10 @@ export function LoginView() {
   // Modo: false = Login ("Entrar"), true = Cadastro ("Criar Conta")
   const [isRegisterMode, setIsRegisterMode] = useState(false);
 
+  // Captura código de convite da URL (ex: ?invite=escritorio_Tatiane)
+  const urlParams = new URLSearchParams(window.location.search);
+  const inviteCode = urlParams.get('invite');
+
   // Campos de Login
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -79,7 +83,8 @@ export function LoginView() {
       roles: [regRole],
       title: chosenTitle,
       titles: [chosenTitle],
-      firmName: regFirmName || 'JurisFlow Advocacia'
+      firmName: regFirmName || 'JurisFlow Advocacia',
+      escritorio_id: inviteCode || null // Atribui ao escritório que convidou, se houver
     });
 
     if (success) {
@@ -246,6 +251,15 @@ export function LoginView() {
           ) : (
             /* FORMULARIO DE REGISTRO / CADASTRO */
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5 animate-fade-in">
+              {inviteCode && (
+                <div className="rounded-xl bg-brand-500/10 border border-brand-500/20 p-3 text-xs text-brand-300 font-medium flex items-start gap-2 mb-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    Você foi convidado(a) para ingressar em um escritório. Complete seu cadastro abaixo.
+                  </div>
+                </div>
+              )}
+              
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Nome Completo

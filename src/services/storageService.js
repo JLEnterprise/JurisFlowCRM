@@ -40,20 +40,170 @@ function normalizeRow(table, row, activeEscritorio) {
   const base = {
     ...row,
     ...raw,
-    id: row.id || raw.id,
+    id: String(row.id || raw.id || `id_${Date.now()}`),
     escritorio_id: row.escritorio_id || raw.escritorio_id || activeEscritorio
   };
+
+  if (table === 'clients') {
+    const name = base.name || base.client_name || base.nome || 'Cliente';
+    const cpf = base.cpf || base.document || base.cpf_cnpj || '';
+    const cnpj = base.cnpj || (cpf.length === 14 || cpf.length === 18 ? cpf : '');
+    const rg = base.rg || '';
+    const birthDate = base.birthDate || base.birth_date || '';
+    const maritalStatus = base.maritalStatus || base.marital_status || 'Casado(a)';
+    const profession = base.profession || '';
+    const email = base.email || '';
+    const phone = base.phone || base.telefone || '';
+    const whatsapp = base.whatsapp || phone || '';
+    const address = base.address || base.endereco || '';
+    const neighborhood = base.neighborhood || base.bairro || '';
+    const city = base.city || base.cidade || 'São Paulo';
+    const state = base.state || base.estado || 'SP';
+    const zipCode = base.zipCode || base.zip_code || base.cep || '';
+    const legalArea = base.legalArea || base.legal_area || 'civil';
+    const responsibleLawyerId = base.responsibleLawyerId || base.responsible_lawyer_id || 'usr_2';
+    const status = base.status || 'active';
+    const totalContracted = Number(base.totalContracted || base.total_contracted) || 0;
+    const totalPaid = Number(base.totalPaid || base.total_paid) || 0;
+    const notes = base.notes || base.observacoes || '';
+    const createdAt = base.createdAt || base.created_at || new Date().toISOString().split('T')[0];
+
+    return {
+      ...base,
+      name,
+      cpf,
+      cnpj,
+      rg,
+      birthDate,
+      birth_date: birthDate,
+      maritalStatus,
+      marital_status: maritalStatus,
+      profession,
+      email,
+      phone,
+      whatsapp,
+      address,
+      neighborhood,
+      city,
+      state,
+      zipCode,
+      zip_code: zipCode,
+      legalArea,
+      legal_area: legalArea,
+      responsibleLawyerId,
+      responsible_lawyer_id: responsibleLawyerId,
+      status,
+      totalContracted,
+      total_contracted: totalContracted,
+      totalPaid,
+      total_paid: totalPaid,
+      notes,
+      createdAt,
+    };
+  }
+
+  if (table === 'leads') {
+    const name = base.name || base.nome || 'Lead';
+    const email = base.email || '';
+    const phone = base.phone || base.telefone || '';
+    const whatsapp = base.whatsapp || phone || '';
+    const source = base.source || base.origem || 'google';
+    const legalArea = base.legalArea || base.legal_area || 'trabalhista';
+    const assignedTo = base.assignedTo || base.assigned_to || 'usr_4';
+    const lawyerId = base.lawyerId || base.lawyer_id || 'usr_2';
+    const stage = base.stage || base.etapa || 'novo_lead';
+    const temperature = base.temperature || 'warm';
+    const estimatedValue = Number(base.estimatedValue || base.estimated_value || base.value) || 0;
+    const notes = base.notes || base.observacoes || '';
+    const firstContactDate = base.firstContactDate || base.first_contact_date || new Date().toISOString().slice(0, 16);
+    const nextActionDate = base.nextActionDate || base.next_action_date || '';
+    const lossReason = base.lossReason || base.loss_reason || '';
+    const createdAt = base.createdAt || base.created_at || new Date().toISOString().split('T')[0];
+
+    return {
+      ...base,
+      name,
+      email,
+      phone,
+      whatsapp,
+      source,
+      legalArea,
+      legal_area: legalArea,
+      assignedTo,
+      assigned_to: assignedTo,
+      lawyerId,
+      lawyer_id: lawyerId,
+      stage,
+      temperature,
+      estimatedValue,
+      estimated_value: estimatedValue,
+      notes,
+      firstContactDate,
+      first_contact_date: firstContactDate,
+      nextActionDate,
+      next_action_date: nextActionDate,
+      lossReason,
+      loss_reason: lossReason,
+      createdAt,
+    };
+  }
+
+  if (table === 'processes') {
+    const processNumber = base.processNumber || base.process_number || base.cnj_number || '0000000-00.2026.8.26.0000';
+    const title = base.title || `Processo ${processNumber}`;
+    const clientId = base.clientId || base.client_id || null;
+    const clientName = base.clientName || base.client_name || 'Cliente';
+    const tribunal = base.tribunal || base.court_system || 'TJSP';
+    const court = base.court || base.vara || '1ª Vara Cível';
+    const legalArea = base.legalArea || base.legal_area || 'civil';
+    const responsibleLawyerId = base.responsibleLawyerId || base.responsible_lawyer_id || base.assigned_to || 'usr_2';
+    const responsibleLawyerName = base.responsibleLawyerName || base.responsible_lawyer_name || 'Advogado Responsável';
+    const status = base.status || 'active';
+    const phase = base.phase || 'Em andamento';
+    const value = Number(base.value) || 0;
+    const distributionDate = base.distributionDate || base.distribution_date || (base.created_at ? base.created_at.split('T')[0] : new Date().toISOString().split('T')[0]);
+    const lastUpdateDate = base.lastUpdateDate || base.last_update_date || new Date().toISOString().split('T')[0];
+    const notes = base.notes || '';
+
+    return {
+      ...base,
+      processNumber,
+      process_number: processNumber,
+      title,
+      clientId,
+      client_id: clientId,
+      clientName,
+      client_name: clientName,
+      tribunal,
+      court,
+      legalArea,
+      legal_area: legalArea,
+      responsibleLawyerId,
+      responsible_lawyer_id: responsibleLawyerId,
+      responsibleLawyerName,
+      responsible_lawyer_name: responsibleLawyerName,
+      status,
+      phase,
+      value,
+      distributionDate,
+      distribution_date: distributionDate,
+      lastUpdateDate,
+      last_update_date: lastUpdateDate,
+      notes,
+    };
+  }
 
   if (table === 'contracts') {
     const contractNumber = base.contractNumber || base.contract_number || (base.id ? `CTR-2026/${String(base.id).slice(-3)}` : 'CTR-2026/001');
     const clientName = base.clientName || base.client_name || 'Cliente';
     const clientId = base.clientId || base.client_id || null;
     const title = base.title || 'Contrato de Prestação de Serviços';
-    const legalArea = base.legalArea || base.legal_area || 'Direito Civil';
+    const legalArea = base.legalArea || base.legal_area || 'civil';
     const status = base.status || 'draft';
     const value = Number(base.value) || 0;
     const paymentMethod = base.paymentMethod || base.payment_method || 'A combinar';
     const installmentsCount = Number(base.installmentsCount || base.installments_count) || 1;
+    const installmentValue = Number(base.installmentValue || base.installment_value) || (value / (installmentsCount || 1));
     const createdDate = base.createdDate || base.created_date || (row.created_at ? row.created_at.split('T')[0] : new Date().toISOString().split('T')[0]);
     const signedDate = base.signedDate || base.signed_date || '';
     const sentDate = base.sentDate || base.sent_date || '';
@@ -61,6 +211,7 @@ function normalizeRow(table, row, activeEscritorio) {
     const responsibleLawyerId = base.responsibleLawyerId || base.responsible_lawyer_id || null;
     const responsibleLawyerName = base.responsibleLawyerName || base.responsible_lawyer_name || '';
     const attachments = Array.isArray(base.attachments) ? base.attachments : (base.attachment ? [base.attachment] : []);
+    const observations = base.observations || base.notes || '';
 
     return {
       ...base,
@@ -79,6 +230,8 @@ function normalizeRow(table, row, activeEscritorio) {
       payment_method: paymentMethod,
       installmentsCount,
       installments_count: installmentsCount,
+      installmentValue,
+      installment_value: installmentValue,
       createdDate,
       created_date: createdDate,
       signedDate,
@@ -92,16 +245,24 @@ function normalizeRow(table, row, activeEscritorio) {
       responsibleLawyerName,
       responsible_lawyer_name: responsibleLawyerName,
       attachments,
+      observations,
     };
   }
 
   if (table === 'proposals') {
     const proposalNumber = base.proposalNumber || base.proposal_number || (base.id ? `PROP-2026/${String(base.id).slice(-3)}` : 'PROP-2026/001');
     const clientName = base.clientName || base.client_name || base.leadName || base.lead_name || 'Cliente';
+    const leadId = base.leadId || base.lead_id || null;
     const serviceName = base.serviceName || base.service_name || base.title || 'Proposta de Honorários';
     const status = base.status || 'rascunho';
-    const value = Number(base.value) || 0;
-    const legalArea = base.legalArea || base.legal_area || 'Direito Geral';
+    const value = Number(base.value || base.feeValue || base.fee_value) || 0;
+    const feeValue = value;
+    const legalArea = base.legalArea || base.legal_area || 'empresarial';
+    const responsibleId = base.responsibleId || base.responsible_id || 'usr_1';
+    const responsibleName = base.responsibleName || base.responsible_name || 'Equipe Comercial';
+    const paymentTerms = base.paymentTerms || base.payment_terms || '';
+    const validityDate = base.validityDate || base.validity_date || '';
+    const sentDate = base.sentDate || base.sent_date || new Date().toISOString().split('T')[0];
     const attachments = Array.isArray(base.attachments) ? base.attachments : [];
 
     return {
@@ -110,12 +271,26 @@ function normalizeRow(table, row, activeEscritorio) {
       proposal_number: proposalNumber,
       clientName,
       client_name: clientName,
+      leadId,
+      lead_id: leadId,
       serviceName,
       service_name: serviceName,
+      title: serviceName,
       status,
       value,
+      feeValue,
       legalArea,
       legal_area: legalArea,
+      responsibleId,
+      responsible_id: responsibleId,
+      responsibleName,
+      responsible_name: responsibleName,
+      paymentTerms,
+      payment_terms: paymentTerms,
+      validityDate,
+      validity_date: validityDate,
+      sentDate,
+      sent_date: sentDate,
       attachments,
     };
   }
@@ -134,14 +309,41 @@ function normalizeRow(table, row, activeEscritorio) {
   }
 
   if (table === 'tasks') {
+    const title = base.title || 'Tarefa';
+    const description = base.description || '';
+    const priority = base.priority || 'media';
+    const status = base.status || 'pending';
+    const taskType = base.taskType || base.task_type || 'peticao';
+    const customType = base.customType || base.custom_type || '';
+    const dueDate = base.dueDate || base.due_date || new Date().toISOString().split('T')[0];
+    const dueTime = base.dueTime || base.due_time || '14:00';
+    const assignedTo = base.assignedTo || base.assigned_to || null;
+    const clientId = base.clientId || base.client_id || null;
+    const leadId = base.leadId || base.lead_id || null;
+    const processId = base.processId || base.process_id || null;
+
     return {
       ...base,
-      title: base.title || 'Tarefa',
-      description: base.description || '',
-      priority: base.priority || 'media',
-      status: base.status || 'pending',
-      dueDate: base.dueDate || base.due_date || new Date().toISOString().split('T')[0],
-      assignedTo: base.assignedTo || base.assigned_to || null,
+      title,
+      description,
+      priority,
+      status,
+      taskType,
+      task_type: taskType,
+      customType,
+      custom_type: customType,
+      dueDate,
+      due_date: dueDate,
+      dueTime,
+      due_time: dueTime,
+      assignedTo,
+      assigned_to: assignedTo,
+      clientId,
+      client_id: clientId,
+      leadId,
+      lead_id: leadId,
+      processId,
+      process_id: processId,
     };
   }
 
@@ -150,21 +352,46 @@ function normalizeRow(table, row, activeEscritorio) {
       ...base,
       title: base.title || 'Compromisso',
       date: base.date || new Date().toISOString().split('T')[0],
-      time: base.time || base.startTime || '09:00',
+      startTime: base.startTime || base.time || '10:00',
+      endTime: base.endTime || '11:00',
+      time: base.time || base.startTime || '10:00',
       type: base.type || 'reuniao',
       location: base.location || 'Escritório',
+      clientId: base.clientId || base.client_id || null,
       clientName: base.clientName || base.client_name || '',
+      responsibleId: base.responsibleId || base.responsible_id || 'usr_1',
+      responsibleName: base.responsibleName || base.responsible_name || 'Advogado',
+      notes: base.notes || '',
     };
   }
 
   if (table === 'attendances') {
     return {
       ...base,
+      clientId: base.clientId || base.client_id || null,
       clientName: base.clientName || base.client_name || 'Cliente',
       subject: base.subject || 'Atendimento Geral',
       description: base.description || '',
       channel: base.channel || 'whatsapp',
+      result: base.result || '',
+      nextAction: base.nextAction || base.next_action || '',
       date: base.date || new Date().toISOString().split('T')[0],
+    };
+  }
+
+  if (table === 'installments') {
+    return {
+      ...base,
+      contractId: base.contractId || base.contract_id || null,
+      clientId: base.clientId || base.client_id || null,
+      clientName: base.clientName || base.client_name || 'Cliente',
+      installmentNumber: Number(base.installmentNumber || base.installment_number) || 1,
+      totalInstallments: Number(base.totalInstallments || base.total_installments) || 1,
+      value: Number(base.value) || 0,
+      dueDate: base.dueDate || base.due_date || new Date().toISOString().split('T')[0],
+      paidDate: base.paidDate || base.paid_date || null,
+      status: base.status || 'pending',
+      paymentMethod: base.paymentMethod || base.payment_method || 'PIX',
     };
   }
 
@@ -172,6 +399,12 @@ function normalizeRow(table, row, activeEscritorio) {
     const roles = Array.isArray(base.roles) && base.roles.length > 0
       ? base.roles
       : (base.role ? [base.role] : ['lawyer']);
+    const primaryRole = roles.includes('dev')
+      ? 'dev'
+      : roles.includes('admin')
+      ? 'admin'
+      : (base.role || roles[0] || 'lawyer');
+
     const titles = Array.isArray(base.titles) && base.titles.length > 0
       ? base.titles
       : (base.title ? [base.title] : ['Advogado(a) Associado(a)']);
@@ -180,7 +413,7 @@ function normalizeRow(table, row, activeEscritorio) {
       ...base,
       name: base.name || 'Colaborador',
       email: base.email || '',
-      role: base.role || roles[0] || 'lawyer',
+      role: primaryRole,
       roles: roles,
       title: base.title || titles.join(' • '),
       titles: titles,
@@ -207,23 +440,23 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
       name: item.name || item.client_name || null,
       cpf: item.cpf || null,
       rg: item.rg || null,
-      birth_date: item.birthDate || null,
-      marital_status: item.maritalStatus || null,
+      birth_date: item.birthDate || item.birth_date || null,
+      marital_status: item.maritalStatus || item.marital_status || null,
       profession: item.profession || null,
       email: item.email || null,
       phone: item.phone || null,
       whatsapp: item.whatsapp || null,
-      zip_code: item.zipCode || null,
+      zip_code: item.zipCode || item.zip_code || null,
       address: item.address || null,
       neighborhood: item.neighborhood || null,
       city: item.city || null,
       state: item.state || null,
-      legal_area: item.legalArea || null,
-      responsible_lawyer_id: item.responsibleLawyerId || null,
+      legal_area: item.legalArea || item.legal_area || null,
+      responsible_lawyer_id: item.responsibleLawyerId || item.responsible_lawyer_id || null,
       status: item.status || 'active',
       notes: item.notes || null,
-      first_contact_date: item.firstContactDate || null,
-      converted_date: item.convertedDate || null,
+      first_contact_date: item.firstContactDate || item.first_contact_date || null,
+      converted_date: item.convertedDate || item.converted_date || null,
     };
   }
 
@@ -235,17 +468,35 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
       phone: item.phone || null,
       whatsapp: item.whatsapp || null,
       source: item.source || null,
-      legal_area: item.legalArea || null,
-      assigned_to: item.assignedTo || null,
-      lawyer_id: item.lawyerId || null,
+      legal_area: item.legalArea || item.legal_area || null,
+      assigned_to: item.assignedTo || item.assigned_to || null,
+      lawyer_id: item.lawyerId || item.lawyer_id || null,
       stage: item.stage || 'novo_lead',
       temperature: item.temperature || 'warm',
-      estimated_value: Number(item.estimatedValue) || 0,
+      estimated_value: Number(item.estimatedValue || item.estimated_value) || 0,
       notes: item.notes || null,
-      first_contact_date: item.firstContactDate || null,
-      last_contact_date: item.lastContactDate || null,
-      next_action_date: item.nextActionDate || null,
-      loss_reason: item.lossReason || null,
+      first_contact_date: item.firstContactDate || item.first_contact_date || null,
+      last_contact_date: item.lastContactDate || item.last_contact_date || null,
+      next_action_date: item.nextActionDate || item.next_action_date || null,
+      loss_reason: item.lossReason || item.loss_reason || null,
+    };
+  }
+
+  if (table === 'processes') {
+    return {
+      ...base,
+      process_number: item.processNumber || item.process_number || null,
+      title: item.title || null,
+      client_id: item.clientId || item.client_id || null,
+      client_name: item.clientName || item.client_name || null,
+      court: item.court || null,
+      tribunal: item.tribunal || null,
+      legal_area: item.legalArea || item.legal_area || null,
+      responsible_lawyer_id: item.responsibleLawyerId || item.responsible_lawyer_id || null,
+      responsible_lawyer_name: item.responsibleLawyerName || item.responsible_lawyer_name || null,
+      status: item.status || 'active',
+      distribution_date: item.distributionDate || item.distribution_date || null,
+      notes: item.notes || null,
     };
   }
 
@@ -277,10 +528,11 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
       ...base,
       proposal_number: item.proposalNumber || item.proposal_number || null,
       client_name: item.clientName || item.client_name || null,
-      service_name: item.serviceName || item.service_name || null,
+      lead_id: item.leadId || item.lead_id || null,
+      service_name: item.serviceName || item.service_name || item.title || null,
       legal_area: item.legalArea || item.legal_area || null,
       status: item.status || 'rascunho',
-      value: Number(item.value) || 0,
+      value: Number(item.value || item.feeValue) || 0,
     };
   }
 
@@ -289,8 +541,11 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
       ...base,
       title: item.title || null,
       description: item.description || null,
+      task_type: item.taskType || item.task_type || 'peticao',
+      custom_type: item.customType || item.custom_type || null,
       due_date: item.dueDate || item.due_date || null,
-      priority: item.priority || 'medium',
+      due_time: item.dueTime || item.due_time || '14:00',
+      priority: item.priority || 'media',
       status: item.status || 'pending',
       assigned_to: item.assignedTo || item.assigned_to || null,
       client_id: item.clientId || item.client_id || null,
@@ -311,6 +566,48 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
       client_name: item.clientName || item.client_name || null,
       lawyer_id: item.responsibleId || item.responsibleLawyerId || item.lawyer_id || null,
       notes: item.notes || null,
+    };
+  }
+
+  if (table === 'attendances') {
+    return {
+      ...base,
+      client_id: item.clientId || item.client_id || null,
+      client_name: item.clientName || item.client_name || null,
+      subject: item.subject || null,
+      description: item.description || null,
+      channel: item.channel || 'whatsapp',
+      result: item.result || null,
+      next_action: item.nextAction || item.next_action || null,
+      date: item.date || null,
+    };
+  }
+
+  if (table === 'installments') {
+    return {
+      ...base,
+      contract_id: item.contractId || item.contract_id || null,
+      client_id: item.clientId || item.client_id || null,
+      client_name: item.clientName || item.client_name || null,
+      installment_number: Number(item.installmentNumber || item.installment_number) || 1,
+      value: Number(item.value) || 0,
+      due_date: item.dueDate || item.due_date || null,
+      paid_date: item.paidDate || item.paid_date || null,
+      status: item.status || 'pending',
+      payment_method: item.paymentMethod || item.payment_method || 'PIX',
+    };
+  }
+
+  if (table === 'documents') {
+    return {
+      ...base,
+      title: item.title || 'Documento',
+      client_name: item.clientName || item.client_name || null,
+      file_name: item.fileName || item.file_name || null,
+      category: item.category || 'Outros',
+      file_size: item.fileSize || item.file_size || '1.0 MB',
+      uploaded_at: item.uploadedAt || item.uploaded_at || new Date().toISOString(),
+      file_data: item.fileData || item.file_data || item.dataUrl || null,
     };
   }
 
@@ -343,12 +640,26 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
   }
 
   if (table === 'users') {
+    const roles = Array.isArray(item.roles) && item.roles.length > 0
+      ? item.roles
+      : (item.role ? [item.role] : ['lawyer']);
+    const primaryRole = roles.includes('dev')
+      ? 'dev'
+      : roles.includes('admin')
+      ? 'admin'
+      : (item.role || roles[0] || 'lawyer');
+    const titles = Array.isArray(item.titles) && item.titles.length > 0
+      ? item.titles
+      : (item.title ? [item.title] : ['Advogado(a)']);
+
     return {
       ...base,
       name: item.name || null,
       email: item.email || null,
-      role: item.role || (Array.isArray(item.roles) ? item.roles[0] : 'lawyer'),
+      role: primaryRole,
+      roles: roles,
       title: item.title || (Array.isArray(item.titles) ? item.titles.join(' • ') : 'Advogado(a)'),
+      titles: titles,
       oab: item.oab || null,
       phone: item.phone || null,
       avatar: item.avatar || null,
@@ -431,6 +742,37 @@ export const storageService = {
     try {
       const activeEscritorio = this.getCurrentEscritorioId();
 
+      if (table === 'users') {
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+          if (!item?.email) continue;
+          const cleanEmail = item.email.toLowerCase().trim();
+          const cleanId = String(item.id || '');
+          const row = mapItemToSqlRow('users', item, activeEscritorio);
+
+          let { data: updated } = await supabase
+            .from('users')
+            .update(row)
+            .eq('email', cleanEmail)
+            .select();
+
+          if ((!updated || updated.length === 0) && cleanId) {
+            const { data: updatedById } = await supabase
+              .from('users')
+              .update(row)
+              .eq('id', cleanId)
+              .select();
+            updated = updatedById;
+          }
+
+          if (!updated || updated.length === 0) {
+            const insertRow = { ...row, id: cleanId || `usr_${Date.now()}` };
+            await supabase.from('users').insert(insertRow);
+          }
+        }
+        return;
+      }
+
       if (Array.isArray(data)) {
         if (data.length === 0) return;
         const rows = data.map(item => mapItemToSqlRow(table, item, activeEscritorio));
@@ -450,8 +792,19 @@ export const storageService = {
     return this.syncToSupabase(table, data);
   },
 
-  async deleteFromSupabase(table, id) {
+  async deleteFromSupabase(table, id, email = null) {
     try {
+      if (table === 'users') {
+        const cleanEmail = email ? String(email).toLowerCase().trim() : '';
+        const cleanId = String(id || '');
+        if (cleanEmail) {
+          await supabase.from('users').delete().eq('email', cleanEmail);
+        }
+        if (cleanId) {
+          await supabase.from('users').delete().eq('id', cleanId);
+        }
+        return;
+      }
       const { error } = await supabase.from(table).delete().eq('id', String(id));
       if (error) throw error;
     } catch (err) {

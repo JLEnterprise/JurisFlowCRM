@@ -24,6 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCRM } from '../../context/CRMContext';
 import { Avatar } from '../common/Avatar';
 import { BrandLogo } from '../common/BrandLogo';
+import { UserProfileModal } from '../common/UserProfileModal';
 
 export function Sidebar({
   currentTab,
@@ -35,6 +36,7 @@ export function Sidebar({
   const { currentUser, permissions } = useAuth();
   const { tasks = [], appointments = [], leads = [] } = useCRM();
   const [collapsed, setCollapsed] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const pendingTasksCount = (tasks || []).filter(t => t && t.status !== 'completed').length;
   const newLeadsCount = (leads || []).filter(l => l && (l.stage === 'novo_lead' || l.stage === 'novo')).length;
@@ -161,17 +163,17 @@ export function Sidebar({
             <div className="pt-2">
               <button
                 onClick={() => {
-                  onOpenCopilot('intimacoes');
+                  onOpenCopilot('chat');
                   handleCloseMobile();
                 }}
                 className="w-full p-3 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-600/15 to-brand-600/10 border border-amber-400/30 text-left transition-all hover:border-amber-400 hover:shadow-sm group"
               >
                 <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-bold text-xs mb-1">
                   <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
-                  <span>Copiloto de IA Jurídica</span>
+                  <span>Copiloto & Chatbot IA</span>
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                  Leitor de publicações do Diário Oficial & Cálculo de Prazos CPC/CLT.
+                  Tire dúvidas, consulte clientes e processos, calcule prazos e redija minutas.
                 </p>
               </button>
             </div>
@@ -198,9 +200,14 @@ export function Sidebar({
 
         {/* User profile footer */}
         <div className="border-t border-slate-200/80 dark:border-white/[0.08] p-3">
-          <div className={`flex items-center gap-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.05] p-2.5 transition-all ${
-            collapsed ? 'justify-center p-2' : ''
-          }`}>
+          <button
+            type="button"
+            onClick={() => setProfileModalOpen(true)}
+            className={`w-full flex items-center gap-3 rounded-2xl bg-slate-50 hover:bg-emerald-500/10 dark:bg-white/[0.03] dark:hover:bg-emerald-500/10 border border-slate-200/60 hover:border-emerald-500/30 dark:border-white/[0.05] dark:hover:border-emerald-500/30 p-2.5 transition-all text-left group cursor-pointer ${
+              collapsed ? 'justify-center p-2' : ''
+            }`}
+            title="Editar meu perfil, foto e informações pessoais"
+          >
             <Avatar
               src={currentUser?.avatar}
               name={currentUser?.name || 'Dra. Helena Prado'}
@@ -209,17 +216,23 @@ export function Sidebar({
             />
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <div className="truncate text-xs font-bold text-slate-900 dark:text-white">
+                <div className="truncate text-xs font-bold text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
                   {currentUser?.name || 'Dra. Helena Prado'}
                 </div>
-                <div className="truncate text-[10px] text-slate-500 dark:text-slate-400 capitalize">
-                  {currentUser?.role === 'admin' ? 'Sócia Administradora' : currentUser?.role === 'lawyer' ? 'Advogado(a)' : 'Comercial'}
+                <div className="truncate text-[10px] text-slate-500 dark:text-slate-400">
+                  {currentUser?.title || (currentUser?.role === 'admin' || currentUser?.roles?.includes('admin') ? 'Sócia Administradora' : currentUser?.role === 'lawyer' || currentUser?.roles?.includes('lawyer') ? 'Advogado(a)' : 'Comercial')}
                 </div>
               </div>
             )}
-          </div>
+          </button>
         </div>
       </aside>
+
+      {/* Modal de Perfil Pessoal */}
+      <UserProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+      />
     </>
   );
 }

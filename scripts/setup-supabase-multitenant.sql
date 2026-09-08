@@ -51,7 +51,7 @@ BEGIN
   FOREACH tbl IN ARRAY tables LOOP
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN
       IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = tbl AND column_name = 'escritorio_id') THEN
-        EXECUTE format('ALTER TABLE public.%I ADD COLUMN escritorio_id TEXT DEFAULT %L REFERENCES public.escritorios(id) ON DELETE CASCADE;', tbl, 'escritorio_principal');
+        EXECUTE format('ALTER TABLE public.%I ADD COLUMN escritorio_id TEXT DEFAULT %L REFERENCES public.escritorios(id) ON UPDATE CASCADE ON DELETE CASCADE;', tbl, 'escritorio_principal');
       END IF;
       EXECUTE format('UPDATE public.%I SET escritorio_id = %L WHERE escritorio_id IS NULL;', tbl, 'escritorio_principal');
     END IF;

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { storageService, INITIAL_ESCRITORIOS } from '../services/storageService';
+import { supabase } from '../lib/supabase';
 import {
   INITIAL_LEADS,
   INITIAL_CLIENTS,
@@ -157,6 +158,64 @@ export function CRMProvider({ children }) {
     loadCloudData();
   }, []);
 
+  // Live Sync em TEMPO REAL com Supabase para dados do CRM
+  useEffect(() => {
+    let mounted = true;
+
+    const tablesToWatch = [
+      'leads',
+      'clients',
+      'contracts',
+      'proposals',
+      'processes',
+      'tasks',
+      'appointments',
+      'attendances',
+      'installments',
+      'documents',
+      'office_settings',
+      'escritorios'
+    ];
+
+    const crmChannel = supabase.channel('realtime_crm_data_changes');
+
+    tablesToWatch.forEach(table => {
+      crmChannel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table },
+        async () => {
+          if (!mounted) return;
+          try {
+            const activeEscritorio = storageService.getCurrentEscritorioId();
+            const refreshed = await storageService.fetchFromSupabase(table, [], activeEscritorio);
+            if (!mounted) return;
+            if (table === 'leads') setLeads(refreshed);
+            else if (table === 'clients') setClients(refreshed);
+            else if (table === 'contracts') setContracts(refreshed);
+            else if (table === 'proposals') setProposals(refreshed);
+            else if (table === 'processes') setProcesses(refreshed);
+            else if (table === 'tasks') setTasks(refreshed);
+            else if (table === 'appointments') setAppointments(refreshed);
+            else if (table === 'attendances') setAttendances(refreshed);
+            else if (table === 'installments') setInstallments(refreshed);
+            else if (table === 'documents') setDocuments(refreshed);
+            else if (table === 'escritorios' && refreshed.length > 0) setEscritorios(refreshed);
+            else if (table === 'office_settings' && refreshed.length > 0) setOfficeSettings(refreshed[0]);
+          } catch (err) {
+            console.warn(`[Realtime Sync Warning ${table}]:`, err.message);
+          }
+        }
+      );
+    });
+
+    crmChannel.subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(crmChannel);
+    };
+  }, []);
+
   // Global filters & UI state
   const [periodFilter, setPeriodFilter] = useState('30d');
   const [toast, setToast] = useState(null);
@@ -190,6 +249,10 @@ export function CRMProvider({ children }) {
     setTimeout(() => {
       setToast(current => (current?.id === id ? null : current));
     }, duration);
+  }, []);
+
+  const hideToast = useCallback(() => {
+    setToast(null);
   }, []);
 
   const triggerConfetti = useCallback(() => {
@@ -840,6 +903,7 @@ export function CRMProvider({ children }) {
         setPeriodFilter,
         toast,
         showToast,
+        hideToast,
         triggerConfetti,
         supabaseConnected,
         initialSupabaseSyncDone,
