@@ -598,6 +598,7 @@ export function ClientDetail({
                   type="file"
                   ref={docFileInputRef}
                   onChange={handleClientDocUpload}
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
                   multiple
                   className="hidden"
                 />

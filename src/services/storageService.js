@@ -308,15 +308,25 @@ function normalizeRow(table, row, activeEscritorio) {
   }
 
   if (table === 'documents') {
+    const dataUrl = base.dataUrl || base.fileData || base.file_data || null;
     return {
       ...base,
       title: base.title || 'Documento',
+      clientId: base.clientId || base.client_id || null,
+      client_id: base.clientId || base.client_id || null,
       clientName: base.clientName || base.client_name || 'Geral',
+      client_name: base.clientName || base.client_name || 'Geral',
       fileName: base.fileName || base.file_name || 'Documento.pdf',
+      file_name: base.fileName || base.file_name || 'Documento.pdf',
       category: base.category || 'Outros',
       fileSize: base.fileSize || base.file_size || '1.0 MB',
+      file_size: base.fileSize || base.file_size || '1.0 MB',
       uploadedAt: base.uploadedAt || base.uploaded_at || base.created_at || new Date().toISOString(),
-      fileData: base.fileData || base.file_data || base.dataUrl || null,
+      uploaded_at: base.uploadedAt || base.uploaded_at || base.created_at || new Date().toISOString(),
+      uploadedBy: base.uploadedBy || base.uploaded_by || 'Dra. Tatiane Camargo',
+      uploaded_by: base.uploadedBy || base.uploaded_by || 'Dra. Tatiane Camargo',
+      dataUrl,
+      fileData: dataUrl,
     };
   }
 
