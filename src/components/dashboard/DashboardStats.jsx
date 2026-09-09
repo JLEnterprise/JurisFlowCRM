@@ -38,7 +38,7 @@ export function DashboardStats({ onNavigate }) {
 
   // Soma o valor de TODOS os contratos (assinados, ativos, draft, enviados, etc.)
   const totalContractedValue = contracts
-    .reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
+    .reduce((acc, curr) => acc + (typeof curr.value === 'number' ? curr.value : (Number(curr.value) || 0)), 0);
 
   const totalReceivedValue = installments
     .filter(i => i.status === 'paid')

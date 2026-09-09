@@ -1,11 +1,25 @@
 // Utilitários de formatação de dados em português do Brasil
 
 export function formatCurrency(value) {
-  if (value === undefined || value === null || isNaN(value)) return 'R$ 0,00';
+  const num = typeof value === 'number' ? value : parseCurrencyNumber(value);
+  if (num === undefined || num === null || isNaN(num)) return 'R$ 0,00';
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(value);
+  }).format(num);
+}
+
+export function parseCurrencyNumber(val) {
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (!val) return 0;
+  const str = String(val).trim().replace(/[R$\s]/g, '');
+  if (str.includes(',')) {
+    const normalized = str.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : num;
+  }
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
 }
 
 export function formatCPF(cpf) {

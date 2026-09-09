@@ -8,7 +8,7 @@ import { UploadCloud, FileText, X, Download, Eye, Paperclip, Sparkles, ShieldChe
 import { generateContractWithAdvJuris } from '../../services/aiService';
 
 export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillData = null }) {
-  const { addContract, updateContract, clients = [], legalAreas = [], showToast } = useCRM();
+  const { contracts = [], addContract, updateContract, clients = [], legalAreas = [], showToast } = useCRM();
   const { users = [] } = useAuth();
   const fileInputRef = useRef(null);
 
@@ -33,30 +33,41 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
     attachments: [],
   });
 
+  const isExistingContract = Boolean(
+    contractToEdit && contractToEdit.id && contracts.some(c => c.id === contractToEdit.id)
+  );
+  const effectivePrefill = prefillData || (!isExistingContract && contractToEdit ? contractToEdit : null);
+
   useEffect(() => {
-    if (contractToEdit) {
+    if (isExistingContract && contractToEdit) {
       setFormData({
         ...contractToEdit,
         attachments: Array.isArray(contractToEdit.attachments) ? contractToEdit.attachments : [],
       });
-    } else if (prefillData) {
+    } else if (effectivePrefill) {
+      const prefVal = effectivePrefill.value !== undefined && effectivePrefill.value !== ''
+        ? effectivePrefill.value
+        : (effectivePrefill.feeValue !== undefined ? effectivePrefill.feeValue : 20000);
+      const prefInstCount = Number(effectivePrefill.installmentsCount) || 3;
+      const numericVal = Number(prefVal) || 0;
+
       setFormData({
-        clientId: prefillData.clientId || '',
-        clientName: prefillData.clientName || '',
-        title: `Contrato de Prestação de Serviços Advocatícios`,
-        legalArea: 'civil',
-        responsibleLawyerId: 'usr_2',
-        serviceDescription: 'Patrocínio de causa e consultoria jurídica especializada.',
-        status: 'assinado',
-        value: 20000,
-        paymentMethod: 'Parcelado (Boleto / PIX)',
-        installmentsCount: 3,
-        installmentValue: 6666.66,
-        createdDate: new Date().toISOString().split('T')[0],
-        sentDate: new Date().toISOString().split('T')[0],
-        signedDate: new Date().toISOString().split('T')[0],
-        observations: '',
-        attachments: Array.isArray(prefillData.attachments) ? prefillData.attachments : [],
+        clientId: effectivePrefill.clientId || '',
+        clientName: effectivePrefill.clientName || effectivePrefill.leadName || '',
+        title: effectivePrefill.title || `Contrato de Prestação de Serviços Advocatícios`,
+        legalArea: effectivePrefill.legalArea || 'civil',
+        responsibleLawyerId: effectivePrefill.responsibleLawyerId || effectivePrefill.responsibleId || 'usr_2',
+        serviceDescription: effectivePrefill.serviceDescription || effectivePrefill.description || 'Patrocínio de causa e consultoria jurídica especializada.',
+        status: effectivePrefill.status || 'assinado',
+        value: prefVal,
+        paymentMethod: effectivePrefill.paymentMethod || 'Parcelado (Boleto / PIX)',
+        installmentsCount: prefInstCount,
+        installmentValue: numericVal > 0 ? (numericVal / prefInstCount).toFixed(2) : '',
+        createdDate: effectivePrefill.createdDate || new Date().toISOString().split('T')[0],
+        sentDate: effectivePrefill.sentDate || new Date().toISOString().split('T')[0],
+        signedDate: effectivePrefill.signedDate || new Date().toISOString().split('T')[0],
+        observations: effectivePrefill.observations || '',
+        attachments: Array.isArray(effectivePrefill.attachments) ? effectivePrefill.attachments : [],
       });
     } else {
       setFormData({
@@ -78,7 +89,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
         attachments: [],
       });
     }
-  }, [contractToEdit, prefillData, isOpen, clients]);
+  }, [contractToEdit, prefillData, isOpen, clients, isExistingContract]);
 
   const handleClientChange = (clientId) => {
     const selected = clients.find(c => c.id === clientId);
@@ -166,7 +177,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
       attachments: Array.isArray(formData.attachments) ? formData.attachments : [],
     };
 
-    if (contractToEdit) {
+    if (isExistingContract && contractToEdit?.id) {
       updateContract(contractToEdit.id, finalData);
     } else {
       addContract(finalData);
@@ -178,7 +189,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={contractToEdit ? 'Editar Contrato de Honorários' : 'Novo Contrato de Honorários'}
+      title={isExistingContract ? 'Editar Contrato de Honorários' : 'Novo Contrato de Honorários'}
       subtitle="Formalização contratual com valor, forma de pagamento, cláusulas e arquivos anexados"
       maxWidth="max-w-3xl"
     >

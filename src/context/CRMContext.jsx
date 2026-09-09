@@ -168,8 +168,54 @@ export function CRMProvider({ children }) {
 
         setSupabaseConnected(true);
 
-        // --- RECUPERAÇÃO: Gerar parcelas para contratos existentes sem installments ---
-        const allContracts = syncedContracts || storageService.loadData('contracts') || [];
+        // --- RECUPERAÇÃO 1: Converter propostas aceitas ou com título 'Contrato...' em contratos reais ---
+        const allProposals = syncedProposals || storageService.loadData('proposals') || [];
+        let allContracts = syncedContracts || storageService.loadData('contracts') || [];
+        const existingContractIds = new Set(allContracts.map(c => c.id));
+        const existingContractTitles = new Set(allContracts.map(c => (c.title || '').toLowerCase().trim()));
+        const newContractsFromProposals = [];
+
+        allProposals.forEach(prop => {
+          const val = Number(prop.value || prop.feeValue) || 0;
+          const isAccepted = prop.status === 'aceita' || prop.raw_data?.status === 'aceita';
+          const titleLower = (prop.title || prop.serviceName || '').toLowerCase();
+          const isContractTitle = titleLower.includes('contrato');
+          const contractId = `cnt_prop_${prop.id}`;
+
+          if ((isAccepted || isContractTitle) && val > 0 && !existingContractIds.has(contractId) && !existingContractTitles.has(titleLower)) {
+            const newCtr = {
+              id: contractId,
+              contractNumber: `CTR-2026/${String(prop.id).slice(-4)}`,
+              escritorio_id: prop.escritorio_id || targetEscritorioId || currentEscritorioId,
+              title: prop.title || prop.serviceName || 'Contrato de Prestação de Serviços',
+              clientId: prop.clientId || prop.client_id || null,
+              clientName: prop.clientName || prop.client_name || prop.leadName || 'Cliente',
+              legalArea: prop.legalArea || prop.legal_area || 'civil',
+              responsibleLawyerId: prop.responsibleLawyerId || prop.responsible_lawyer_id || prop.responsibleId || 'usr_2',
+              serviceDescription: prop.description || prop.notes || 'Contrato formalizado a partir de proposta comercial.',
+              status: 'assinado',
+              value: val,
+              paymentMethod: prop.paymentTerms || prop.payment_terms || 'Parcelado (Boleto / PIX)',
+              installmentsCount: 1,
+              installmentValue: val,
+              createdDate: prop.sentDate || (prop.created_at ? prop.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+              signedDate: prop.sentDate || (prop.created_at ? prop.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+            };
+            newContractsFromProposals.push(newCtr);
+            existingContractIds.add(contractId);
+            existingContractTitles.add(titleLower);
+          }
+        });
+
+        if (newContractsFromProposals.length > 0) {
+          allContracts = [...newContractsFromProposals, ...allContracts];
+          setContracts(allContracts);
+          storageService.saveData('contracts', allContracts);
+          storageService.saveToSupabase('contracts', newContractsFromProposals);
+          console.log(`[Recovery] ${newContractsFromProposals.length} contrato(s) gerado(s) a partir de propostas.`);
+        }
+
+        // --- RECUPERAÇÃO 2: Gerar parcelas para contratos existentes sem installments ---
         const allInstallments = syncedInstallments || storageService.loadData('installments') || [];
         const contractIdsWithInstallments = new Set(allInstallments.map(i => i.contractId));
         const contractsWithoutInstallments = allContracts.filter(c =>
@@ -747,49 +793,87 @@ export function CRMProvider({ children }) {
     showToast('Contrato excluído.');
   };
 
-  const closeContractWorkflow = (leadId, contractData, installmentsList = []) => {
+  const closeContractWorkflow = (leadIdOrPayload, maybeContractData, maybeInstallmentsList = []) => {
     triggerConfetti();
 
+    let leadId = null;
+    let contractData = {};
+    let clientData = null;
+    let customInstallments = [];
+
+    if (leadIdOrPayload && typeof leadIdOrPayload === 'object') {
+      leadId = leadIdOrPayload.leadId;
+      clientData = leadIdOrPayload.clientData || {};
+      const val = Number(leadIdOrPayload.contractValue || leadIdOrPayload.value) || 0;
+      const instCount = Number(leadIdOrPayload.installmentsCount) || 1;
+      contractData = {
+        title: leadIdOrPayload.serviceDescription ? `Contrato - ${leadIdOrPayload.serviceDescription.substring(0, 35)}...` : 'Contrato de Prestação de Serviços Advocatícios',
+        value: val,
+        serviceDescription: leadIdOrPayload.serviceDescription || '',
+        paymentMethod: leadIdOrPayload.paymentMethod || 'Parcelado (Boleto / PIX)',
+        installmentsCount: instCount,
+        installmentValue: val / instCount,
+        responsibleLawyerId: leadIdOrPayload.responsibleLawyerId || 'usr_2',
+        signedDate: leadIdOrPayload.signedDate || new Date().toISOString().split('T')[0],
+        observations: leadIdOrPayload.observations || '',
+        status: 'assinado',
+        clientId: clientData.id || null,
+        clientName: clientData.name || '',
+      };
+      customInstallments = Array.isArray(leadIdOrPayload.installments) ? leadIdOrPayload.installments : [];
+    } else {
+      leadId = leadIdOrPayload;
+      contractData = maybeContractData || {};
+      customInstallments = maybeInstallmentsList || [];
+    }
+
     // 1. Criar ou buscar cliente
-    let client = clients.find(c => c.id === contractData.clientId || (leadId && c.leadId === leadId));
-    if (!client && leadId) {
-      const lead = leads.find(l => l.id === leadId);
-      if (lead) {
-        client = {
-          id: `cli_${Date.now()}`,
-          escritorio_id: currentEscritorioId,
-          name: lead.name,
-          cpf: lead.cpf || '',
-          email: lead.email || '',
-          phone: lead.phone || '',
-          whatsapp: lead.whatsapp || lead.phone || '',
-          city: lead.city || '',
-          state: lead.state || '',
-          legalArea: lead.legalArea || contractData.legalArea || 'Geral',
-          status: 'active',
-          totalContracted: Number(contractData.value) || 0,
-          totalPaid: 0,
-          createdAt: new Date().toISOString().split('T')[0],
-        };
-        setClients(prev => {
-          const next = [client, ...prev];
-          storageService.saveData('clients', next);
-          return next;
-        });
-        storageService.saveToSupabase('clients', [client]);
-      }
+    let client = clients.find(c => (contractData.clientId && c.id === contractData.clientId) || (leadId && c.leadId === leadId) || (clientData?.name && c.name === clientData.name));
+    if (!client) {
+      const lead = leadId ? leads.find(l => l.id === leadId) : null;
+      const clientName = clientData?.name || lead?.name || contractData.clientName || 'Cliente';
+      client = {
+        id: clientData?.id || `cli_${Date.now()}`,
+        escritorio_id: currentEscritorioId,
+        name: clientName,
+        cpf: clientData?.cpf || lead?.cpf || '',
+        email: clientData?.email || lead?.email || '',
+        phone: clientData?.phone || lead?.phone || '',
+        whatsapp: clientData?.whatsapp || lead?.whatsapp || lead?.phone || '',
+        city: clientData?.city || lead?.city || '',
+        state: clientData?.state || lead?.state || '',
+        legalArea: clientData?.legalArea || lead?.legalArea || contractData.legalArea || 'civil',
+        status: 'active',
+        totalContracted: Number(contractData.value) || 0,
+        totalPaid: 0,
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      setClients(prev => {
+        const next = [client, ...prev];
+        storageService.saveData('clients', next);
+        return next;
+      });
+      storageService.saveToSupabase('clients', [client]);
     }
 
     // 2. Criar contrato
+    const now = Date.now();
+    const contractValue = Number(contractData.value) || 0;
+    const numInstallments = Number(contractData.installmentsCount) || 1;
+    const contractNumber = contractData.contractNumber || contractData.contract_number || `CTR-2026/${String(now).slice(-4)}`;
     const contract = {
       ...contractData,
-      id: `cnt_${Date.now()}`,
+      id: contractData.id || `cnt_${now}`,
       escritorio_id: currentEscritorioId,
-      clientId: client?.id || contractData.clientId,
-      clientName: client?.name || contractData.clientName,
-      status: 'active',
-      signedDate: new Date().toISOString().split('T')[0],
-      createdDate: new Date().toISOString().split('T')[0],
+      contractNumber,
+      clientId: client.id,
+      clientName: client.name,
+      status: 'assinado',
+      value: contractValue,
+      installmentsCount: numInstallments,
+      installmentValue: contractValue / numInstallments,
+      signedDate: contractData.signedDate || new Date().toISOString().split('T')[0],
+      createdDate: contractData.createdDate || new Date().toISOString().split('T')[0],
     };
     setContracts(prev => {
       const next = [contract, ...prev];
@@ -799,23 +883,55 @@ export function CRMProvider({ children }) {
     storageService.saveToSupabase('contracts', [contract]);
 
     // 3. Gerar parcelas no financeiro
-    if (installmentsList.length > 0) {
-      const mappedInsts = installmentsList.map(inst => ({ ...inst, escritorio_id: currentEscritorioId }));
+    let installmentsToSave = [];
+    if (customInstallments.length > 0) {
+      installmentsToSave = customInstallments.map((inst, i) => ({
+        ...inst,
+        id: inst.id || `inst_${now}_${i + 1}`,
+        contractId: contract.id,
+        clientId: client.id,
+        clientName: client.name,
+        escritorio_id: currentEscritorioId,
+      }));
+    } else if (contractValue > 0) {
+      const installmentValue = contractValue / numInstallments;
+      for (let i = 0; i < numInstallments; i++) {
+        const dueDate = new Date();
+        dueDate.setMonth(dueDate.getMonth() + i);
+        installmentsToSave.push({
+          id: `inst_${now}_${i + 1}`,
+          escritorio_id: currentEscritorioId,
+          contractId: contract.id,
+          clientId: client.id,
+          clientName: client.name,
+          installmentNumber: i + 1,
+          totalInstallments: numInstallments,
+          value: installmentValue,
+          amount: installmentValue,
+          dueDate: dueDate.toISOString().split('T')[0],
+          status: 'pending',
+          paymentMethod: contract.paymentMethod || 'PIX',
+        });
+      }
+    }
+
+    if (installmentsToSave.length > 0) {
       setInstallments(prev => {
-        const next = [...mappedInsts, ...prev];
+        const next = [...installmentsToSave, ...prev];
         storageService.saveData('installments', next);
         return next;
       });
-      storageService.saveToSupabase('installments', mappedInsts);
+      storageService.saveToSupabase('installments', installmentsToSave);
     }
 
-    // 4. Mover lead para contrato_assinado
+    // 4. Mover lead para contrato_assinado se leadId existir
     if (leadId) {
       moveLeadStage(leadId, 'contrato_assinado');
     }
 
-    logActivity('Fechamento de Negocio', contract.title, `Valor: R$ ${Number(contract.value || 0).toLocaleString('pt-BR')}`);
-    showToast('🎉 Negocio fechado com sucesso! Contrato, cliente e financeiro criados.');
+    logActivity('Fechamento de Negócio', contract.title, `Cliente: ${contract.clientName} | Valor: R$ ${contractValue.toLocaleString('pt-BR')}`);
+    showToast('🎉 Negócio fechado com sucesso! Contrato, cliente e financeiro criados.');
+    return contract;
   };
 
   // --- PROPOSALS ACTIONS ---
@@ -835,6 +951,20 @@ export function CRMProvider({ children }) {
     storageService.saveToSupabase('proposals', [newProp]);
     logActivity('Nova Proposta', newProp.title, `Para: ${newProp.clientName || newProp.leadName}`);
     showToast('Proposta criada e enviada!');
+
+    // Se proposta for criada com status 'aceita', gera automaticamente contrato e parcelas
+    if (newProp.status === 'aceita' && (Number(newProp.value || newProp.feeValue) || 0) > 0) {
+      addContract({
+        title: newProp.title || newProp.serviceName || 'Contrato de Prestação de Serviços',
+        clientId: newProp.clientId || null,
+        clientName: newProp.clientName || newProp.leadName || 'Cliente',
+        legalArea: newProp.legalArea || 'civil',
+        value: Number(newProp.value || newProp.feeValue) || 0,
+        installmentsCount: 1,
+        status: 'assinado',
+        serviceDescription: newProp.description || newProp.notes || 'Contrato formalizado a partir de proposta comercial aceita.',
+      });
+    }
     return newProp;
   };
 
@@ -853,6 +983,24 @@ export function CRMProvider({ children }) {
     });
     if (updatedProp) {
       storageService.saveToSupabase('proposals', [updatedProp]);
+
+      // Se a proposta foi marcada como aceita, converte para contrato caso ainda não exista
+      if (updatedProp.status === 'aceita') {
+        const val = Number(updatedProp.value || updatedProp.feeValue) || 0;
+        const existsContract = contracts.some(c => c.clientName === updatedProp.clientName || c.title === updatedProp.title);
+        if (val > 0 && !existsContract) {
+          addContract({
+            title: updatedProp.title || updatedProp.serviceName || 'Contrato de Prestação de Serviços',
+            clientId: updatedProp.clientId || null,
+            clientName: updatedProp.clientName || updatedProp.leadName || 'Cliente',
+            legalArea: updatedProp.legalArea || 'civil',
+            value: val,
+            installmentsCount: 1,
+            status: 'assinado',
+            serviceDescription: updatedProp.description || updatedProp.notes || 'Contrato formalizado a partir de proposta comercial aceita.',
+          });
+        }
+      }
     }
     logActivity('Proposta Atualizada', propData.title || id, `Status: ${propData.status}`);
     showToast('Proposta atualizada!');

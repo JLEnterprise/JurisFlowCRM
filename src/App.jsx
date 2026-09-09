@@ -76,6 +76,7 @@ export function App() {
 
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [contractToEdit, setContractToEdit] = useState(null);
+  const [contractPrefill, setContractPrefill] = useState(null);
 
   const [closeContractModalOpen, setCloseContractModalOpen] = useState(false);
   const [leadForContractClosing, setLeadForContractClosing] = useState(null);
@@ -160,11 +161,13 @@ export function App() {
   };
 
   const handleOpenNewContract = (prefill) => {
-    setContractToEdit(prefill || null);
+    setContractToEdit(null);
+    setContractPrefill(prefill || null);
     setContractModalOpen(true);
   };
 
   const handleEditContract = (contract) => {
+    setContractPrefill(null);
     setContractToEdit(contract);
     setContractModalOpen(true);
   };
@@ -203,12 +206,16 @@ export function App() {
   };
 
   const handleConvertProposalToContract = (proposal) => {
+    const val = Number(proposal.value || proposal.feeValue) || 0;
     handleOpenNewContract({
       title: `Contrato de Honorários - ${proposal.serviceName || proposal.title || 'Serviço Jurídico'}`,
-      clientId: proposal.clientId,
-      clientName: proposal.clientName || proposal.leadName,
-      value: proposal.value,
-      legalArea: proposal.legalArea,
+      clientId: proposal.clientId || proposal.client_id,
+      clientName: proposal.clientName || proposal.client_name || proposal.leadName || proposal.lead_name,
+      value: val,
+      feeValue: val,
+      legalArea: proposal.legalArea || proposal.legal_area || 'civil',
+      serviceDescription: proposal.description || proposal.serviceDescription || `Prestação de serviços jurídicos conforme proposta ${proposal.proposalNumber || ''}.`,
+      status: 'assinado',
     });
   };
 
@@ -498,8 +505,13 @@ export function App() {
       {/* Contract Modal */}
       <ContractModal
         isOpen={contractModalOpen}
-        onClose={() => setContractModalOpen(false)}
+        onClose={() => {
+          setContractModalOpen(false);
+          setContractToEdit(null);
+          setContractPrefill(null);
+        }}
         contractToEdit={contractToEdit}
+        prefillData={contractPrefill}
       />
 
       {/* Close Contract Modal (Workflow Lead -> Contract + Client) */}
