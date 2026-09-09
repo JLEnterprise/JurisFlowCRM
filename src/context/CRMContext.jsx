@@ -34,7 +34,14 @@ export function CRMProvider({ children }) {
   const [leads, setLeads] = useState(() => storageService.loadData('leads', INITIAL_LEADS));
   const [clients, setClients] = useState(() => storageService.loadData('clients', INITIAL_CLIENTS));
   const [contracts, setContracts] = useState(() => storageService.loadData('contracts', INITIAL_CONTRACTS));
-  const [proposals, setProposals] = useState(() => storageService.loadData('proposals', INITIAL_PROPOSALS));
+  const [proposals, setProposals] = useState(() => {
+    const loaded = storageService.loadData('proposals', INITIAL_PROPOSALS) || [];
+    return loaded.filter(p => {
+      const id = String(p?.id || '');
+      const num = String(p?.proposalNumber || p?.proposal_number || '');
+      return !storageService.isDeleted(id) && !storageService.isDeleted(num);
+    });
+  });
   const [processes, setProcesses] = useState(() => storageService.loadData('processes', INITIAL_PROCESSES));
   const [tasks, setTasks] = useState(() => storageService.loadData('tasks', INITIAL_TASKS));
   const [appointments, setAppointments] = useState(() => storageService.loadData('appointments', INITIAL_APPOINTMENTS));
@@ -1248,26 +1255,39 @@ export function CRMProvider({ children }) {
     if (strId) storageService.markAsDeleted(strId);
     if (strNumber) storageService.markAsDeleted(strNumber);
 
+    // Remove do estado React IMEDIATAMENTE de forma síncrona
     setProposals(prev => {
-      const next = prev.filter(p => 
-        String(p.id) !== strId && 
-        (strNumber ? String(p.proposalNumber) !== strNumber && String(p.proposal_number) !== strNumber : true) &&
-        String(p.proposalNumber) !== strId && 
-        String(p.proposal_number) !== strId
-      );
+      const next = prev.filter(p => {
+        const pId = String(p.id || '');
+        const pNum = String(p.proposalNumber || p.proposal_number || '');
+        if (strId && (pId === strId || pNum === strId)) return false;
+        if (strNumber && (pId === strNumber || pNum === strNumber)) return false;
+        return true;
+      });
       storageService.saveData('proposals', next);
       return next;
     });
 
+    // Expurgo assíncrono no Supabase (soft-delete seguro + tentativa de hard delete, com timeout não bloqueante)
     try {
-      if (strId) await storageService.deleteFromSupabase('proposals', strId);
-      if (strNumber && strNumber !== strId) {
-        await storageService.deleteFromSupabase('proposals', strNumber);
+      const ops = [];
+      if (strId) {
+        ops.push(supabase.from('proposals').update({ status: 'recusada', raw_data: { deleted: true, is_deleted: true } }).eq('id', strId));
+        ops.push(supabase.from('proposals').delete().eq('id', strId));
+        ops.push(storageService.deleteFromSupabase('proposals', strId));
       }
-      if (strId) await supabase.from('proposals').delete().eq('id', strId);
-      if (strNumber) await supabase.from('proposals').delete().eq('proposal_number', strNumber);
+      if (strNumber && strNumber !== strId) {
+        ops.push(supabase.from('proposals').update({ status: 'recusada', raw_data: { deleted: true, is_deleted: true } }).eq('proposal_number', strNumber));
+        ops.push(supabase.from('proposals').delete().eq('proposal_number', strNumber));
+        ops.push(storageService.deleteFromSupabase('proposals', strNumber));
+      }
+      // Timeout seguro de 3s para garantir que nunca congele a UI caso haja lock no Supabase
+      await Promise.race([
+        Promise.allSettled(ops),
+        new Promise(resolve => setTimeout(resolve, 3000))
+      ]);
     } catch (err) {
-      console.warn('Erro ao deletar proposta do Supabase:', err);
+      console.warn('Operação no Supabase (não bloqueante):', err);
     }
   };
 

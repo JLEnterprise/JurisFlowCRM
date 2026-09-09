@@ -19,6 +19,7 @@ import { EmptyState } from '../common/EmptyState';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { ProposalDetailModal } from './ProposalDetailModal';
 import { pdfService } from '../../services/pdfService';
+import { storageService } from '../../services/storageService';
 import { PROPOSAL_STATUSES } from '../../data/legalAreas';
 
 export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToContract }) {
@@ -38,8 +39,13 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
     return (proposals || [])
       .filter(p => {
         if (!p) return false;
+        const id = String(p.id || '');
+        const pNum = String(p.proposalNumber || p.proposal_number || '');
+        if (storageService.isDeleted(id) || (pNum && storageService.isDeleted(pNum))) return false;
+        if (p.deleted === true || p.is_deleted === true || (p.raw_data && (p.raw_data.deleted || p.raw_data.is_deleted))) return false;
+
         const term = (search || '').toLowerCase().trim();
-        const proposalNumber = String(p.proposalNumber || p.proposal_number || '').toLowerCase();
+        const proposalNumber = pNum.toLowerCase();
         const clientName = String(p.clientName || p.client_name || p.leadName || p.lead_name || '').toLowerCase();
         const serviceName = String(p.serviceName || p.service_name || p.title || '').toLowerCase();
         const legalArea = String(p.legalArea || p.legal_area || '').toLowerCase();

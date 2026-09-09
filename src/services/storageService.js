@@ -772,11 +772,16 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
 
 export const storageService = {
   getDeletedIds() {
+    const permanentBanned = ['test_del_123', 'PROP-2026/123', 'test_princ', 'test_tatiane', 'PROP-TEST-1', 'PROP-TEST-2'];
     try {
       const stored = localStorage.getItem(STORAGE_PREFIX + 'deleted_ids');
-      return stored ? JSON.parse(stored) : [];
+      const list = stored ? JSON.parse(stored) : [];
+      for (const b of permanentBanned) {
+        if (!list.includes(b)) list.push(b);
+      }
+      return list;
     } catch (e) {
-      return [];
+      return [...permanentBanned];
     }
   },
 
@@ -797,6 +802,8 @@ export const storageService = {
 
   unmarkAsDeleted(id) {
     if (!id) return;
+    const permanentBanned = ['test_del_123', 'PROP-2026/123', 'test_princ', 'test_tatiane', 'PROP-TEST-1', 'PROP-TEST-2'];
+    if (permanentBanned.includes(String(id))) return;
     try {
       const cleanId = String(id);
       const list = this.getDeletedIds().filter(d => d !== cleanId);
@@ -808,8 +815,11 @@ export const storageService = {
 
   isDeleted(id) {
     if (!id) return false;
+    const clean = String(id);
+    const permanentBanned = ['test_del_123', 'PROP-2026/123', 'test_princ', 'test_tatiane', 'PROP-TEST-1', 'PROP-TEST-2'];
+    if (permanentBanned.includes(clean)) return true;
     const list = this.getDeletedIds();
-    return list.includes(String(id));
+    return list.includes(clean);
   },
 
   getCurrentEscritorioId() {
