@@ -388,21 +388,14 @@ export function CRMProvider({ children }) {
   const [periodFilter, setPeriodFilter] = useState('30d');
   const [toast, setToast] = useState(null);
 
-  // Sync state to localStorage SOMENTE — o Supabase é atualizado diretamente pelas actions CRUD.
-  // Quando a atualização veio do realtime (isRealtimeUpdateRef.current === true), salva apenas no localStorage
-  // para manter o cache local atualizado, MAS NÃO faz syncToSupabase (evita loop infinito).
+  // Sync state to localStorage SOMENTE — o Supabase é atualizado diretamente e exclusivamente pelas actions CRUD.
+  // Isso impede loops infinitos e garante que registros excluídos nunca sejam ressuscitados por cache local.
   const persistToLocal = useCallback((key, data) => {
     if (!isSyncReadyRef.current) return;
     try {
       localStorage.setItem('jurisflow_' + key, JSON.stringify(data));
     } catch (e) {
       console.error('Erro ao salvar ' + key + ' no localStorage:', e);
-    }
-    // Só sincroniza com Supabase se a mudança NÃO veio de um evento realtime
-    if (!isRealtimeUpdateRef.current) {
-      storageService.syncToSupabase(key, data).catch(err => {
-        console.warn('[Persist Sync] Falha em ' + key + ':', err?.message || err);
-      });
     }
   }, []);
 
@@ -788,8 +781,13 @@ export function CRMProvider({ children }) {
 
   const deleteContract = (id) => {
     const strId = String(id);
+    storageService.markAsDeleted(strId);
     setContracts(prev => {
-      const next = prev.filter(c => String(c.id) !== strId);
+      const next = prev.filter(c => 
+        String(c.id) !== strId && 
+        String(c.contractNumber) !== strId && 
+        String(c.contract_number) !== strId
+      );
       storageService.saveData('contracts', next);
       return next;
     });
@@ -1029,8 +1027,13 @@ export function CRMProvider({ children }) {
 
   const deleteProposal = (id) => {
     const strId = String(id);
+    storageService.markAsDeleted(strId);
     setProposals(prev => {
-      const next = prev.filter(p => String(p.id) !== strId);
+      const next = prev.filter(p => 
+        String(p.id) !== strId && 
+        String(p.proposalNumber) !== strId && 
+        String(p.proposal_number) !== strId
+      );
       storageService.saveData('proposals', next);
       return next;
     });

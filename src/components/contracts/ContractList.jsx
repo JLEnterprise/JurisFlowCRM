@@ -65,6 +65,15 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
     const matchesLawyer = !selectedLawyer || (c.responsibleLawyerId || c.responsible_lawyer_id) === selectedLawyer;
 
     return matchesSearch && matchesStatus && matchesArea && matchesLawyer;
+  }).sort((a, b) => {
+    // 1. Mais recente primeiro por data de criação / assinatura
+    const dateA = new Date(a.createdDate || a.created_date || a.signedDate || a.createdAt || a.created_at || 0).getTime();
+    const dateB = new Date(b.createdDate || b.created_date || b.signedDate || b.createdAt || b.created_at || 0).getTime();
+    if (dateB !== dateA) return dateB - dateA;
+    // 2. Desempate estável e determinístico por número de contrato / ID
+    return String(b.contractNumber || b.contract_number || b.id || '').localeCompare(
+      String(a.contractNumber || a.contract_number || a.id || '')
+    );
   });
 
   const getStatusBadgeVariant = (status) => {
@@ -389,11 +398,16 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
                           </button>
 
                           <button
-                            onClick={() => handleRequestDelete(contract)}
+                            type="button"
+                            onClick={(e) => {
+                              if (e.preventDefault) e.preventDefault();
+                              if (e.stopPropagation) e.stopPropagation();
+                              handleRequestDelete(contract);
+                            }}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
                             title="Excluir contrato"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3.5 w-3.5 pointer-events-none" />
                           </button>
                         </div>
                       </td>

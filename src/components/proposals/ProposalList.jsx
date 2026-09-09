@@ -52,6 +52,15 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
     const matchesArea = !selectedArea || (p.legalArea || p.legal_area) === selectedArea;
 
     return matchesSearch && matchesStatus && matchesArea;
+  }).sort((a, b) => {
+    // 1. Mais recente primeiro por data de criação / envio
+    const dateA = new Date(a.createdAt || a.sentDate || a.created_at || a.createdDate || 0).getTime();
+    const dateB = new Date(b.createdAt || b.sentDate || b.created_at || b.createdDate || 0).getTime();
+    if (dateB !== dateA) return dateB - dateA;
+    // 2. Desempate estável e determinístico por número de proposta / ID (nunca troca de ordem)
+    return String(b.proposalNumber || b.proposal_number || b.id || '').localeCompare(
+      String(a.proposalNumber || a.proposal_number || a.id || '')
+    );
   });
 
   const getStatusBadgeVariant = (status) => {
@@ -284,14 +293,16 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
                     <Edit className="h-3.5 w-3.5" />
                   </button>
                   <button
+                    type="button"
                     onClick={(e) => {
-                      e.stopPropagation();
+                      if (e.preventDefault) e.preventDefault();
+                      if (e.stopPropagation) e.stopPropagation();
                       handleRequestDelete(prop);
                     }}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
                     title="Excluir proposta"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3.5 w-3.5 pointer-events-none" />
                   </button>
                 </div>
 

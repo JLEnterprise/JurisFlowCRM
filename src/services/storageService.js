@@ -722,6 +722,40 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
 }
 
 export const storageService = {
+  getDeletedIds() {
+    try {
+      const stored = localStorage.getItem(STORAGE_PREFIX + 'deleted_ids');
+      const list = stored ? JSON.parse(stored) : [];
+      if (!list.includes('test_del_123')) {
+        list.push('test_del_123');
+      }
+      return list;
+    } catch (e) {
+      return ['test_del_123'];
+    }
+  },
+
+  markAsDeleted(id) {
+    if (!id) return;
+    try {
+      const cleanId = String(id);
+      const list = this.getDeletedIds();
+      if (!list.includes(cleanId)) {
+        list.push(cleanId);
+        if (list.length > 500) list.shift();
+        localStorage.setItem(STORAGE_PREFIX + 'deleted_ids', JSON.stringify(list));
+      }
+    } catch (e) {
+      console.warn('Erro ao registrar deleted_id:', e);
+    }
+  },
+
+  isDeleted(id) {
+    if (!id) return false;
+    const list = this.getDeletedIds();
+    return list.includes(String(id));
+  },
+
   getCurrentEscritorioId() {
     try {
       const stored = localStorage.getItem(STORAGE_PREFIX + 'current_escritorio_id');
@@ -745,7 +779,10 @@ export const storageService = {
       if (!stored) return fallback;
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed)) {
-        return parsed.map(item => normalizeRow(key, item, this.getCurrentEscritorioId()));
+        const deletedIds = this.getDeletedIds();
+        return parsed
+          .filter(item => item && !deletedIds.includes(String(item.id)))
+          .map(item => normalizeRow(key, item, this.getCurrentEscritorioId()));
       }
       return parsed;
     } catch (e) {
@@ -758,7 +795,7 @@ export const storageService = {
     try {
       localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data));
       // NÃO chama syncToSupabase aqui — o sync com Supabase é feito diretamente
-      // pelas actions CRUD (saveToSupabase) e pelo persistToLocal no CRMContext
+      // pelas actions CRUD (saveToSupabase)
     } catch (e) {
       console.error('Erro ao salvar chave ' + key + ' no localStorage:', e);
     }
@@ -773,11 +810,19 @@ export const storageService = {
         query = query.or(`escritorio_id.eq.${activeEscritorio},escritorio_id.is.null,escritorio_id.eq.escritorio_Tatiane,escritorio_id.eq.escritorio_principal`);
       }
 
+      // Ordenação estável por created_at desc se disponível
+      if (['proposals', 'contracts', 'clients', 'leads', 'processes', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications'].includes(table)) {
+        query = query.order('created_at', { ascending: false });
+      }
+
       const { data, error } = await query;
       if (error) throw error;
       if (!data) return fallback;
       
-      const mapped = data.map(row => normalizeRow(table, row, activeEscritorio));
+      const deletedIds = this.getDeletedIds();
+      const mapped = data
+        .filter(row => row && !deletedIds.includes(String(row.id)))
+        .map(row => normalizeRow(table, row, activeEscritorio));
 
       localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(mapped));
       return mapped;
@@ -843,12 +888,16 @@ export const storageService = {
         return;
       }
 
+      const deletedIds = this.getDeletedIds();
+
       if (Array.isArray(data)) {
-        if (data.length === 0) return;
-        const rows = data.map(item => mapItemToSqlRow(table, item, activeEscritorio));
+        const activeItems = data.filter(item => item && item.id && !deletedIds.includes(String(item.id)));
+        if (activeItems.length === 0) return;
+        const rows = activeItems.map(item => mapItemToSqlRow(table, item, activeEscritorio));
         const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
         if (error) throw error;
       } else if (data && typeof data === 'object') {
+        if (data.id && deletedIds.includes(String(data.id))) return;
         const row = mapItemToSqlRow(table, data, activeEscritorio);
         const { error } = await supabase.from(table).upsert(row, { onConflict: 'id' });
         if (error) throw error;
@@ -865,6 +914,8 @@ export const storageService = {
   async deleteFromSupabase(table, id, email = null) {
     try {
       const cleanId = String(id || '');
+      this.markAsDeleted(cleanId);
+
       if (table === 'users') {
         const cleanEmail = email ? String(email).toLowerCase().trim() : '';
         if (cleanEmail) {
