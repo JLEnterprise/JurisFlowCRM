@@ -404,20 +404,31 @@ function normalizeRow(table, row, activeEscritorio) {
   if (table === 'installments') {
     const val = Number(base.value || base.amount) || 0;
     const num = Number(base.installmentNumber || base.installment_number || base.number) || 1;
+    const pDate = base.paymentDate || base.payment_date || base.paidDate || base.paid_date || null;
     return {
       ...base,
       contractId: base.contractId || base.contract_id || null,
+      contract_id: base.contractId || base.contract_id || null,
       clientId: base.clientId || base.client_id || null,
+      client_id: base.clientId || base.client_id || null,
       clientName: base.clientName || base.client_name || 'Cliente',
+      client_name: base.clientName || base.client_name || 'Cliente',
       installmentNumber: num,
+      installment_number: num,
       number: num,
       totalInstallments: Number(base.totalInstallments || base.total_installments) || 1,
+      total_installments: Number(base.totalInstallments || base.total_installments) || 1,
       value: val,
       amount: val,
       dueDate: base.dueDate || base.due_date || new Date().toISOString().split('T')[0],
-      paidDate: base.paidDate || base.paid_date || null,
+      due_date: base.dueDate || base.due_date || new Date().toISOString().split('T')[0],
+      paidDate: pDate,
+      paid_date: pDate,
+      paymentDate: pDate,
+      payment_date: pDate,
       status: base.status || 'pending',
       paymentMethod: base.paymentMethod || base.payment_method || 'PIX',
+      payment_method: base.paymentMethod || base.payment_method || 'PIX',
     };
   }
 
@@ -644,16 +655,16 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
   }
 
   if (table === 'installments') {
+    const paidDate = item.paymentDate || item.payment_date || item.paidDate || item.paid_date || null;
     return {
       ...base,
       contract_id: item.contractId || item.contract_id || null,
-      client_id: item.clientId || item.client_id || null,
       client_name: item.clientName || item.client_name || null,
       number: Number(item.installmentNumber || item.installment_number || item.number) || 1,
       total_installments: Number(item.totalInstallments || item.total_installments) || 1,
       amount: Number(item.value || item.amount) || 0,
       due_date: item.dueDate || item.due_date || null,
-      payment_date: item.paidDate || item.paid_date || item.payment_date || null,
+      payment_date: paidDate,
       status: item.status || 'pending',
       payment_method: item.paymentMethod || item.payment_method || 'PIX',
     };
@@ -785,6 +796,17 @@ export const storageService = {
     }
   },
 
+  unmarkAsDeleted(id) {
+    if (!id) return;
+    try {
+      const cleanId = String(id);
+      const list = this.getDeletedIds().filter(d => d !== cleanId);
+      localStorage.setItem(STORAGE_PREFIX + 'deleted_ids', JSON.stringify(list));
+    } catch (e) {
+      console.warn('Erro ao remover de deleted_ids:', e);
+    }
+  },
+
   isDeleted(id) {
     if (!id) return false;
     const list = this.getDeletedIds();
@@ -870,9 +892,13 @@ export const storageService = {
       if (error) throw error;
       if (!data) return fallback;
       
-      const deletedIds = this.getDeletedIds();
+      // Se os registros existem no Supabase, eles são legítimos e ativos; desmarca de deleted_ids
+      data.forEach(row => {
+        if (row?.id) this.unmarkAsDeleted(row.id);
+      });
+
       const mapped = data
-        .filter(row => row && !deletedIds.includes(String(row.id)))
+        .filter(Boolean)
         .map(row => normalizeRow(table, row, activeEscritorio));
 
       localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(mapped));
@@ -888,11 +914,39 @@ export const storageService = {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
       const localData = this.loadData(table, []);
       const cloudData = await this.fetchFromSupabase(table, null, activeEscritorio);
+      const deletedIds = this.getDeletedIds();
 
-      // Se a nuvem retornou um array com sucesso, ela é a autoridade central (evita ressuscitar registros excluídos)
-      if (Array.isArray(cloudData)) {
+      // Se a nuvem retornou dados
+      if (Array.isArray(cloudData) && cloudData.length > 0) {
+        const cloudIds = new Set(cloudData.map(c => String(c.id)));
+        const localOnly = localData.filter(l => l && l.id && !cloudIds.has(String(l.id)) && !deletedIds.includes(String(l.id)));
+
+        if (localOnly.length > 0) {
+          console.info(`[Auto-Recovery] Sincronizando ${localOnly.length} registro(s) locais de ${table} para a nuvem...`);
+          await this.syncToSupabase(table, localOnly);
+          const merged = [...cloudData, ...localOnly];
+          localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(merged));
+          return merged;
+        }
+
         localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(cloudData));
-        return cloudData.length > 0 ? cloudData : (localData.length === 0 ? fallback : []);
+        return cloudData;
+      }
+
+      // Se a nuvem está vazia mas existem dados locais salvos
+      if (Array.isArray(localData) && localData.length > 0) {
+        const validLocal = localData.filter(l => l && l.id && !deletedIds.includes(String(l.id)));
+        if (validLocal.length > 0) {
+          console.info(`[Auto-Recovery] Nuvem vazia para ${table}. Enviando ${validLocal.length} registro(s) locais para o Supabase...`);
+          await this.syncToSupabase(table, validLocal);
+          localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(validLocal));
+          return validLocal;
+        }
+      }
+
+      if (Array.isArray(cloudData)) {
+        localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(fallback));
+        return fallback;
       }
 
       // Se a nuvem estava inacessível ou falhou, opera com o cache local
@@ -939,16 +993,17 @@ export const storageService = {
         return;
       }
 
-      const deletedIds = this.getDeletedIds();
-
       if (Array.isArray(data)) {
-        const activeItems = data.filter(item => item && item.id && !deletedIds.includes(String(item.id)));
-        if (activeItems.length === 0) return;
-        const rows = activeItems.map(item => mapItemToSqlRow(table, item, activeEscritorio));
+        // Desmarca itens ativos de deleted_ids para evitar bloqueio acidental
+        data.forEach(item => {
+          if (item?.id) this.unmarkAsDeleted(item.id);
+        });
+        const rows = data.filter(item => item && item.id).map(item => mapItemToSqlRow(table, item, activeEscritorio));
+        if (rows.length === 0) return;
         const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
         if (error) throw error;
       } else if (data && typeof data === 'object') {
-        if (data.id && deletedIds.includes(String(data.id))) return;
+        if (data.id) this.unmarkAsDeleted(data.id);
         const row = mapItemToSqlRow(table, data, activeEscritorio);
         const { error } = await supabase.from(table).upsert(row, { onConflict: 'id' });
         if (error) throw error;

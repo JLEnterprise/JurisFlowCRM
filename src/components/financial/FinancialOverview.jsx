@@ -19,11 +19,11 @@ import { EmptyState } from '../common/EmptyState';
 import { exportService } from '../../services/exportService';
 
 export function FinancialOverview() {
-  const { contracts, installments, markInstallmentPaid } = useCRM();
+  const { contracts = [], installments = [], markInstallmentPaid } = useCRM();
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
 
-  const totalContracted = (contracts || [])
+  const contractsTotal = (contracts || [])
     .filter(c => c.status !== 'cancelado' && c.status !== 'rescindido')
     .reduce((acc, c) => acc + (Number(c.value) || 0), 0);
 
@@ -35,9 +35,12 @@ export function FinancialOverview() {
     .filter(i => i.status === 'pending')
     .reduce((acc, i) => acc + (Number(i.amount || i.value) || 0), 0);
 
+  // A Receita Contratada reflete os contratos ativos ou a soma total de parcelas
+  const totalContracted = Math.max(contractsTotal, totalReceived + pendingInstallmentsSum);
   const totalPending = pendingInstallmentsSum > 0 ? pendingInstallmentsSum : Math.max(0, totalContracted - totalReceived);
-  const averageTicket = contracts.length > 0 ? totalContracted / contracts.length : 0;
-  const overdueInstallments = installments.filter(i => i.status === 'pending' && i.dueDate && new Date(i.dueDate) < new Date());
+  const activeContractsCount = (contracts || []).filter(c => c.status !== 'cancelado' && c.status !== 'rescindido').length;
+  const averageTicket = activeContractsCount > 0 ? totalContracted / activeContractsCount : (totalContracted > 0 ? totalContracted : 0);
+  const overdueInstallments = installments.filter(i => i.status === 'pending' && (i.dueDate || i.due_date) && new Date(i.dueDate || i.due_date) < new Date());
   const defaultRate = totalContracted > 0 ? ((overdueInstallments.reduce((a, b) => a + (Number(b.amount || b.value) || 0), 0) / totalContracted) * 100).toFixed(1) : '0.0';
 
   const filteredInstallments = installments.filter(i => {
@@ -176,7 +179,7 @@ export function FinancialOverview() {
                       {inst.clientName || inst.client_name || 'Cliente'}
                     </td>
                     <td className="px-4 py-3.5 font-semibold text-slate-600 dark:text-slate-300">
-                      {inst.installmentNumber || inst.number || 1} / {inst.totalInstallments || 1}
+                      {inst.installmentNumber || inst.number || 1} / {inst.totalInstallments || inst.total_installments || 1}
                     </td>
                     <td className="px-4 py-3.5 font-extrabold text-slate-900 dark:text-white">
                       {formatCurrency(inst.amount || inst.value || 0)}
@@ -189,24 +192,28 @@ export function FinancialOverview() {
                         {inst.status === 'paid' ? 'Liquidado' : 'Pendente'}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3.5 text-slate-500">
-                      {formatDate(inst.paymentDate)}
+                    <td className="px-4 py-3.5 text-slate-500 font-mono text-[11px]">
+                      {inst.status === 'paid' ? formatDate(inst.paymentDate || inst.payment_date || inst.paidDate || inst.paid_date || new Date()) : '-'}
                     </td>
                     <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
-                      {inst.paymentMethod || 'PIX'}
+                      {inst.paymentMethod || inst.payment_method || 'PIX'}
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       {inst.status !== 'paid' ? (
                         <button
                           onClick={() => markInstallmentPaid(inst.id)}
-                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors cursor-pointer"
                         >
                           <CheckCircle2 className="h-3 w-3" /> Dar Baixa
                         </button>
                       ) : (
                         <button
-                          onClick={() => alert(`Recibo de Pagamento:\n\nCliente: ${inst.clientName}\nValor: ${formatCurrency(inst.amount)}\nData: ${formatDate(inst.paymentDate)}\nForma: ${inst.paymentMethod}\n\nAutenticado pelo JurisFlow CRM`)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+                          onClick={() => {
+                            const pDate = formatDate(inst.paymentDate || inst.payment_date || inst.paidDate || inst.paid_date || new Date());
+                            const pMethod = inst.paymentMethod || inst.payment_method || 'PIX';
+                            alert(`Recibo de Pagamento:\n\nCliente: ${inst.clientName || inst.client_name}\nValor: ${formatCurrency(inst.amount || inst.value)}\nData: ${pDate}\nForma: ${pMethod}\n\nAutenticado pelo JurisFlow CRM`);
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
                         >
                           <Receipt className="h-3 w-3" /> Recibo
                         </button>

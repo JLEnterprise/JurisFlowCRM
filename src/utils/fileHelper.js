@@ -59,6 +59,23 @@ export async function getFileFromIndexedDB(id) {
   }
 }
 
+export async function deleteFileFromIndexedDB(id) {
+  try {
+    const db = await openFilesDB();
+    if (!db) return false;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.delete(String(id));
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (e) {
+    console.warn('[IndexedDB] Erro ao deletar arquivo:', e);
+    return false;
+  }
+}
+
 export function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
   const k = 1024;

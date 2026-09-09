@@ -27,7 +27,7 @@ import { useCRM } from '../../context/CRMContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { getFileTypeInfo, readFileAsDataUrl, sanitizeAttachmentForStorage, downloadAttachment, openAttachment } from '../../utils/fileHelper';
+import { getFileTypeInfo, readFileAsDataUrl, sanitizeAttachmentForStorage, downloadAttachment, openAttachment, deleteFileFromIndexedDB } from '../../utils/fileHelper';
 import { analyzeContractWithAdvJuris } from '../../services/aiService';
 
 export function ContractDetail({
@@ -37,7 +37,7 @@ export function ContractDetail({
   onSignContract,
   onSendWhatsApp,
 }) {
-  const { contracts = [], updateContract, deleteContract, showToast, logActivity } = useCRM();
+  const { contracts = [], updateContract, deleteContract, documents = [], deleteDocument, showToast, logActivity } = useCRM();
 
   const contract = contracts.find(c => c.id === contractId);
 
@@ -117,10 +117,27 @@ export function ContractDetail({
   };
 
   const handleDeleteAttachment = (attachmentId) => {
+    const attToDelete = attachments.find(a => a.id === attachmentId);
     const updated = attachments.filter(a => a.id !== attachmentId);
+    
     updateContract(contract.id, { attachments: updated });
+
+    if (attachmentId) {
+      deleteFileFromIndexedDB(attachmentId);
+    }
+
+    if (attToDelete) {
+      const matchedDoc = (documents || []).find(d => 
+        d.id === attachmentId || 
+        (String(d.id).includes(String(contract.id)) && (d.title === attToDelete.name || d.fileName === attToDelete.name))
+      );
+      if (matchedDoc) {
+        deleteDocument(matchedDoc.id);
+      }
+    }
+
     logActivity('Exclusão de Anexo', contractNumber, 'Arquivo removido do contrato.');
-    showToast('Anexo removido.', 'success');
+    showToast('Anexo removido com sucesso!', 'success');
     setAttachmentToDelete(null);
   };
 
@@ -471,8 +488,7 @@ export function ContractDetail({
           onConfirm={handleConfirmDelete}
           title="Excluir Contrato"
           message={`Tem certeza que deseja excluir o contrato ${contractNumber}? Esta ação não pode ser desfeita.`}
-          confirmText="Excluir Definitivamente"
-          isDanger
+          confirmLabel="Sim, Excluir Definitivamente"
         />
       )}
 
@@ -483,9 +499,8 @@ export function ContractDetail({
           onClose={() => setAttachmentToDelete(null)}
           onConfirm={() => handleDeleteAttachment(attachmentToDelete)}
           title="Excluir Anexo"
-          message="Deseja remover este anexo do contrato?"
-          confirmText="Remover"
-          isDanger
+          message="Deseja realmente remover este anexo do contrato e do acervo?"
+          confirmLabel="Sim, Remover"
         />
       )}
     </div>

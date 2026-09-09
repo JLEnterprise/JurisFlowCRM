@@ -19,6 +19,7 @@ import {
 } from '../data/initialData';
 import { INITIAL_LEGAL_AREAS, INITIAL_LEAD_SOURCES } from '../data/legalAreas';
 import { useAuth } from './AuthContext';
+import { deleteFileFromIndexedDB, formatFileSize } from '../utils/fileHelper';
 
 const CRMContext = createContext();
 
@@ -947,6 +948,7 @@ export function CRMProvider({ children }) {
 
   const deleteContract = (id) => {
     const strId = String(id);
+    const contractToDelete = contracts.find(c => String(c.id) === strId);
     storageService.markAsDeleted(strId);
     setContracts(prev => {
       const next = prev.filter(c => 
@@ -959,6 +961,21 @@ export function CRMProvider({ children }) {
     });
     storageService.deleteFromSupabase('contracts', strId);
 
+    // Limpar anexos do contrato do IndexedDB
+    if (contractToDelete && Array.isArray(contractToDelete.attachments)) {
+      contractToDelete.attachments.forEach(att => {
+        if (att?.id) deleteFileFromIndexedDB(att.id);
+      });
+    }
+
+    // Remover documentos do GED vinculados a este contrato
+    setDocuments(prev => {
+      const next = prev.filter(d => !String(d.id).includes(strId));
+      storageService.saveData('documents', next);
+      return next;
+    });
+    supabase.from('documents').delete().like('id', `%${strId}%`).catch(() => {});
+
     // Também remove as parcelas vinculadas ao contrato apagado (localmente e nuvem)
     setInstallments(prev => {
       const next = prev.filter(i => String(i.contractId || i.contract_id) !== strId);
@@ -966,6 +983,26 @@ export function CRMProvider({ children }) {
       return next;
     });
     supabase.from('installments').delete().eq('contract_id', strId).catch(() => {});
+
+    // Recalcular totalContracted do cliente
+    if (contractToDelete && (contractToDelete.clientId || contractToDelete.client_id)) {
+      const cId = contractToDelete.clientId || contractToDelete.client_id;
+      setClients(prevClients => {
+        const nextClients = prevClients.map(cl => {
+          if (String(cl.id) === String(cId)) {
+            const remainingContracts = contracts.filter(c => String(c.id) !== strId && String(c.clientId || c.client_id) === String(cId));
+            const newTotalContracted = remainingContracts.reduce((acc, c) => acc + (Number(c.value) || 0), 0);
+            const upd = { ...cl, totalContracted: newTotalContracted, total_contracted: newTotalContracted };
+            storageService.saveToSupabase('clients', [upd]);
+            return upd;
+          }
+          return cl;
+        });
+        storageService.saveData('clients', nextClients);
+        return nextClients;
+      });
+    }
+
     showToast('Contrato excluído com sucesso.');
   };
 
@@ -1443,14 +1480,19 @@ export function CRMProvider({ children }) {
   // --- FINANCIAL ACTIONS ---
   const markInstallmentPaid = (installmentId) => {
     let paidInst = null;
+    const today = new Date().toISOString().split('T')[0];
+
     setInstallments(prev => {
       const next = prev.map(inst => {
-        if (inst.id === installmentId) {
+        if (String(inst.id) === String(installmentId)) {
           paidInst = {
             ...inst,
             status: 'paid',
-            paymentDate: new Date().toISOString().split('T')[0],
-            escritorio_id: currentEscritorioId
+            paidDate: today,
+            paid_date: today,
+            paymentDate: today,
+            payment_date: today,
+            escritorio_id: inst.escritorio_id || currentEscritorioId,
           };
           return paidInst;
         }
@@ -1459,17 +1501,49 @@ export function CRMProvider({ children }) {
       storageService.saveData('installments', next);
       return next;
     });
+
     if (paidInst) {
       storageService.saveToSupabase('installments', [paidInst]);
+
+      const instAmount = Number(paidInst.amount || paidInst.value) || 0;
+      // Atualiza o total liquidado do cliente se houver cliente vinculado
+      if (instAmount > 0) {
+        setClients(prev => {
+          const next = prev.map(c => {
+            const isMatch = (paidInst.clientId && String(c.id) === String(paidInst.clientId)) ||
+              (paidInst.clientName && c.name?.trim().toLowerCase() === paidInst.clientName?.trim().toLowerCase());
+            if (isMatch) {
+              const updatedTotalPaid = (Number(c.totalPaid || c.total_paid) || 0) + instAmount;
+              const updatedClient = {
+                ...c,
+                totalPaid: updatedTotalPaid,
+                total_paid: updatedTotalPaid,
+              };
+              storageService.saveToSupabase('clients', [updatedClient]);
+              return updatedClient;
+            }
+            return c;
+          });
+          storageService.saveData('clients', next);
+          return next;
+        });
+      }
+
+      logActivity('Baixa de Parcela', paidInst.clientName || 'Cliente', `Parcela de R$ ${instAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} liquidada com sucesso.`);
     }
-    showToast('Parcela marcada como paga! 💰');
+
+    try {
+      confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+    } catch (_) {}
+
+    showToast('Parcela marcada como paga! 💰', 'success');
   };
 
   // --- DOCUMENTS ACTIONS ---
   const addDocument = (docData) => {
     const newDoc = {
       ...docData,
-      id: `doc_${Date.now()}`,
+      id: docData.id || `doc_${Date.now()}`,
       escritorio_id: currentEscritorioId,
       uploadedAt: new Date().toISOString(),
     };
@@ -1485,13 +1559,53 @@ export function CRMProvider({ children }) {
   };
 
   const deleteDocument = (id) => {
+    const cleanId = String(id);
+    let docToRemove = null;
+
     setDocuments(prev => {
-      const next = prev.filter(d => d.id !== id);
+      docToRemove = prev.find(d => String(d.id) === cleanId);
+      const next = prev.filter(d => String(d.id) !== cleanId);
       storageService.saveData('documents', next);
       return next;
     });
-    storageService.deleteFromSupabase('documents', id);
-    showToast('Documento removido.');
+
+    // Exclui do IndexedDB
+    deleteFileFromIndexedDB(cleanId);
+
+    // Exclui do Supabase
+    storageService.deleteFromSupabase('documents', cleanId);
+
+    // Se o documento pertencia a anexos de contratos, remove também do contrato para não ressuscitar
+    if (docToRemove) {
+      setContracts(prev => {
+        let contractChanged = false;
+        const next = prev.map(c => {
+          if (Array.isArray(c.attachments) && c.attachments.length > 0) {
+            const filteredAtts = c.attachments.filter(att => 
+              String(att.id) !== cleanId && 
+              att.name !== docToRemove.fileName && 
+              att.name !== docToRemove.title &&
+              `doc_${c.id}_${att.id}` !== cleanId &&
+              `doc_${c.id}_${att.name}` !== cleanId
+            );
+            if (filteredAtts.length !== c.attachments.length) {
+              contractChanged = true;
+              const updatedContract = { ...c, attachments: filteredAtts };
+              storageService.saveToSupabase('contracts', [updatedContract]);
+              return updatedContract;
+            }
+          }
+          return c;
+        });
+        if (contractChanged) {
+          storageService.saveData('contracts', next);
+        }
+        return next;
+      });
+    }
+
+    logActivity('Exclusão de Documento', docToRemove?.title || 'Documento', 'Documento removido do acervo.');
+    showToast('Documento excluído com sucesso!', 'success');
   };
 
   // --- SETTINGS ACTIONS ---
