@@ -179,59 +179,122 @@ export function CRMProvider({ children }) {
   }, []);
 
   // Live Sync em TEMPO REAL com Supabase para dados do CRM
+  // Ref para impedir que atualizações vindas do realtime re-disparem sync para o Supabase (loop infinito)
+  const isRealtimeUpdateRef = useRef(false);
+  const subscriptionStatusRef = useRef('closed');
+  const pollingIntervalRef = useRef(null);
+
+  // Mapa de setters para simplificar o handler de realtime
+  const stateSettersRef = useRef({
+    leads: setLeads,
+    clients: setClients,
+    contracts: setContracts,
+    proposals: setProposals,
+    processes: setProcesses,
+    tasks: setTasks,
+    appointments: setAppointments,
+    attendances: setAttendances,
+    installments: setInstallments,
+    documents: setDocuments,
+    escritorios: setEscritorios,
+    office_settings: (data) => {
+      if (Array.isArray(data) && data.length > 0) setOfficeSettings(data[0]);
+      else if (data && !Array.isArray(data)) setOfficeSettings(data);
+    },
+  });
+
   useEffect(() => {
     let mounted = true;
 
     const tablesToWatch = [
-      'leads',
-      'clients',
-      'contracts',
-      'proposals',
-      'processes',
-      'tasks',
-      'appointments',
-      'attendances',
-      'installments',
-      'documents',
-      'office_settings',
-      'escritorios'
+      'leads', 'clients', 'contracts', 'proposals', 'processes',
+      'tasks', 'appointments', 'attendances', 'installments',
+      'documents', 'office_settings', 'escritorios'
     ];
 
-    const crmChannel = supabase.channel('realtime_crm_data_changes');
+    // Handler centralizado de realtime
+    const handleRealtimeEvent = async (table, payload) => {
+      if (!mounted) return;
+      try {
+        console.info(`[Realtime] Evento recebido na tabela ${table}:`, payload.eventType);
+        const activeEscritorio = storageService.getCurrentEscritorioId();
+        const refreshed = await storageService.fetchFromSupabase(table, [], activeEscritorio);
+        if (!mounted || !refreshed) return;
+
+        // Marca que esta atualização vem do realtime — os useEffects de persist
+        // NÃO devem chamar syncToSupabase novamente para evitar loop infinito
+        isRealtimeUpdateRef.current = true;
+
+        const setter = stateSettersRef.current[table];
+        if (setter) {
+          setter(refreshed);
+        }
+
+        // Reseta a flag após o React processar o setState
+        requestAnimationFrame(() => {
+          isRealtimeUpdateRef.current = false;
+        });
+      } catch (err) {
+        console.warn(`[Realtime Sync Warning ${table}]:`, err.message);
+      }
+    };
+
+    // Cria o canal realtime com tracking de status
+    const crmChannel = supabase.channel('realtime_crm_data_changes', {
+      config: { broadcast: { self: false } }
+    });
 
     tablesToWatch.forEach(table => {
       crmChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table },
-        async (payload) => {
-          if (!mounted) return;
-          try {
-            const activeEscritorio = storageService.getCurrentEscritorioId();
-            const refreshed = await storageService.fetchFromSupabase(table, [], activeEscritorio);
-            if (!mounted) return;
-            if (table === 'leads') setLeads(refreshed);
-            else if (table === 'clients') setClients(refreshed);
-            else if (table === 'contracts') setContracts(refreshed);
-            else if (table === 'proposals') setProposals(refreshed);
-            else if (table === 'processes') setProcesses(refreshed);
-            else if (table === 'tasks') setTasks(refreshed);
-            else if (table === 'appointments') setAppointments(refreshed);
-            else if (table === 'attendances') setAttendances(refreshed);
-            else if (table === 'installments') setInstallments(refreshed);
-            else if (table === 'documents') setDocuments(refreshed);
-            else if (table === 'escritorios' && refreshed.length > 0) setEscritorios(refreshed);
-            else if (table === 'office_settings' && refreshed.length > 0) setOfficeSettings(refreshed[0]);
-          } catch (err) {
-            console.warn(`[Realtime Sync Warning ${table}]:`, err.message);
-          }
-        }
+        (payload) => handleRealtimeEvent(table, payload)
       );
     });
 
-    crmChannel.subscribe();
+    crmChannel.subscribe((status) => {
+      subscriptionStatusRef.current = status;
+      console.info('[Realtime] Status da subscription:', status);
+      if (status === 'SUBSCRIBED') {
+        console.info('[Realtime] ✅ Canal ativo — sincronização em tempo real funcionando');
+      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        console.warn('[Realtime] ⚠️ Canal fechado/erro — tentando reconectar em 5s...');
+        setTimeout(() => {
+          if (mounted) {
+            crmChannel.subscribe();
+          }
+        }, 5000);
+      }
+    });
+
+    // Polling de fallback a cada 30s caso o realtime perca conexão silenciosamente
+    pollingIntervalRef.current = setInterval(async () => {
+      if (!mounted) return;
+      if (subscriptionStatusRef.current !== 'SUBSCRIBED') {
+        console.info('[Polling Fallback] Realtime offline — buscando dados do Supabase...');
+        try {
+          const activeEscritorio = storageService.getCurrentEscritorioId();
+          const refreshPromises = tablesToWatch
+            .filter(t => t !== 'escritorios' && t !== 'office_settings')
+            .map(async (table) => {
+              const data = await storageService.fetchFromSupabase(table, [], activeEscritorio);
+              if (data && mounted) {
+                isRealtimeUpdateRef.current = true;
+                const setter = stateSettersRef.current[table];
+                if (setter) setter(data);
+                requestAnimationFrame(() => { isRealtimeUpdateRef.current = false; });
+              }
+            });
+          await Promise.allSettled(refreshPromises);
+        } catch (err) {
+          console.warn('[Polling Fallback] Erro:', err.message);
+        }
+      }
+    }, 30000);
 
     return () => {
       mounted = false;
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
       supabase.removeChannel(crmChannel);
     };
   }, []);
@@ -240,23 +303,41 @@ export function CRMProvider({ children }) {
   const [periodFilter, setPeriodFilter] = useState('30d');
   const [toast, setToast] = useState(null);
 
-  // Sync state to storage SOMENTE apos a hidratacao inicial para evitar sobrescrever a nuvem com dados antigos
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('escritorios', escritorios); }, [escritorios]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('leads', leads); }, [leads]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('clients', clients); }, [clients]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('contracts', contracts); }, [contracts]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('proposals', proposals); }, [proposals]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('processes', processes); }, [processes]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('tasks', tasks); }, [tasks]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('appointments', appointments); }, [appointments]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('attendances', attendances); }, [attendances]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('installments', installments); }, [installments]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('documents', documents); }, [documents]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('legal_areas', legalAreas); }, [legalAreas]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('lead_sources', leadSources); }, [leadSources]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('activity_logs', activityLogs); }, [activityLogs]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('notifications', notifications); }, [notifications]);
-  useEffect(() => { if (isSyncReadyRef.current) storageService.saveData('office_settings', officeSettings); }, [officeSettings]);
+  // Sync state to localStorage SOMENTE — o Supabase é atualizado diretamente pelas actions CRUD.
+  // Quando a atualização veio do realtime (isRealtimeUpdateRef.current === true), salva apenas no localStorage
+  // para manter o cache local atualizado, MAS NÃO faz syncToSupabase (evita loop infinito).
+  const persistToLocal = useCallback((key, data) => {
+    if (!isSyncReadyRef.current) return;
+    try {
+      localStorage.setItem('jurisflow_' + key, JSON.stringify(data));
+    } catch (e) {
+      console.error('Erro ao salvar ' + key + ' no localStorage:', e);
+    }
+    // Só sincroniza com Supabase se a mudança NÃO veio de um evento realtime
+    if (!isRealtimeUpdateRef.current) {
+      storageService.syncToSupabase(key, data).catch(err => {
+        console.warn('[Persist Sync] Falha em ' + key + ':', err?.message || err);
+      });
+    }
+  }, []);
+
+  useEffect(() => { persistToLocal('escritorios', escritorios); }, [escritorios, persistToLocal]);
+  useEffect(() => { persistToLocal('leads', leads); }, [leads, persistToLocal]);
+  useEffect(() => { persistToLocal('clients', clients); }, [clients, persistToLocal]);
+  useEffect(() => { persistToLocal('contracts', contracts); }, [contracts, persistToLocal]);
+  useEffect(() => { persistToLocal('proposals', proposals); }, [proposals, persistToLocal]);
+  useEffect(() => { persistToLocal('processes', processes); }, [processes, persistToLocal]);
+  useEffect(() => { persistToLocal('tasks', tasks); }, [tasks, persistToLocal]);
+  useEffect(() => { persistToLocal('appointments', appointments); }, [appointments, persistToLocal]);
+  useEffect(() => { persistToLocal('attendances', attendances); }, [attendances, persistToLocal]);
+  useEffect(() => { persistToLocal('installments', installments); }, [installments, persistToLocal]);
+  useEffect(() => { persistToLocal('documents', documents); }, [documents, persistToLocal]);
+  useEffect(() => { persistToLocal('legal_areas', legalAreas); }, [legalAreas, persistToLocal]);
+  useEffect(() => { persistToLocal('lead_sources', leadSources); }, [leadSources, persistToLocal]);
+  useEffect(() => { persistToLocal('activity_logs', activityLogs); }, [activityLogs, persistToLocal]);
+  useEffect(() => { persistToLocal('notifications', notifications); }, [notifications, persistToLocal]);
+  useEffect(() => { persistToLocal('office_settings', officeSettings); }, [officeSettings, persistToLocal]);
+
 
   // Toast Helper com ID unico e auto-dismiss imediato
   const showToast = useCallback((message, type = 'success', duration = 3000) => {

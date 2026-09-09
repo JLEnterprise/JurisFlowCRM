@@ -752,9 +752,8 @@ export const storageService = {
   saveData(key, data) {
     try {
       localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data));
-      this.syncToSupabase(key, data).catch(err => {
-        console.warn('[Supabase Sync Warning] Falha ao sincronizar ' + key + ':', err?.message || err);
-      });
+      // NÃO chama syncToSupabase aqui — o sync com Supabase é feito diretamente
+      // pelas actions CRUD (saveToSupabase) e pelo persistToLocal no CRMContext
     } catch (e) {
       console.error('Erro ao salvar chave ' + key + ' no localStorage:', e);
     }
