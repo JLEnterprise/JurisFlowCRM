@@ -27,7 +27,7 @@ export function DashboardStats({ onNavigate }) {
   const leadsQualified = leads.filter(l => l.stage === 'qualificacao' || l.stage === 'reuniao_consulta').length;
   const proposalsSent = proposals.length;
   const contractsInNegotiation = leads.filter(l => l.stage === 'negociacao' || l.stage === 'contrato_enviado').length;
-  const contractsClosed = contracts.filter(c => c.status === 'assinado').length;
+  const contractsClosed = contracts.filter(c => c.status === 'assinado' || c.status === 'active').length;
   const activeClients = clients.filter(c => c.status === 'active').length;
   const lostLeads = leads.filter(l => l.stage === 'perdido').length;
 
@@ -36,19 +36,19 @@ export function DashboardStats({ onNavigate }) {
     .filter(l => l.stage !== 'perdido' && l.stage !== 'contrato_fechado')
     .reduce((acc, curr) => acc + (Number(curr.estimatedValue) || 0), 0);
 
+  // Soma o valor de TODOS os contratos (assinados, ativos, draft, enviados, etc.)
   const totalContractedValue = contracts
-    .filter(c => c.status === 'assinado')
     .reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
 
   const totalReceivedValue = installments
     .filter(i => i.status === 'paid')
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    .reduce((acc, curr) => acc + (Number(curr.amount || curr.value) || 0), 0);
 
   const totalPendingValue = installments
     .filter(i => i.status === 'pending')
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    .reduce((acc, curr) => acc + (Number(curr.amount || curr.value) || 0), 0);
 
-  const averageTicket = contractsClosed > 0 ? totalContractedValue / contractsClosed : 0;
+  const averageTicket = contractsClosed > 0 ? totalContractedValue / contractsClosed : (contracts.length > 0 ? totalContractedValue / contracts.length : 0);
 
   // Conversions
   const leadConversionRate = leadsReceived > 0 ? ((contractsClosed / leadsReceived) * 100).toFixed(1) : '0.0';

@@ -572,12 +572,16 @@ export function CRMProvider({ children }) {
 
   // --- CONTRACTS ACTIONS ---
   const addContract = (contractData) => {
+    const now = Date.now();
+    const contractNumber = contractData.contractNumber || contractData.contract_number || `CTR-2026/${String(now).slice(-4)}`;
     const newContract = {
       ...contractData,
-      id: `cnt_${Date.now()}`,
+      id: `cnt_${now}`,
       escritorio_id: currentEscritorioId,
+      contractNumber,
       status: contractData.status || 'draft',
-      createdDate: new Date().toISOString().split('T')[0],
+      value: Number(contractData.value) || 0,
+      createdDate: contractData.createdDate || new Date().toISOString().split('T')[0],
     };
     setContracts(prev => {
       const next = [newContract, ...prev];
@@ -585,7 +589,42 @@ export function CRMProvider({ children }) {
       return next;
     });
     storageService.saveToSupabase('contracts', [newContract]);
-    logActivity('Novo Contrato', newContract.title, `Cliente: ${newContract.clientName}`);
+
+    // Gerar parcelas automaticamente se o contrato tiver valor e número de parcelas
+    const contractValue = Number(newContract.value) || 0;
+    const numInstallments = Number(newContract.installmentsCount || newContract.installments_count) || 1;
+    if (contractValue > 0) {
+      const installmentValue = contractValue / numInstallments;
+      const generatedInstallments = [];
+      for (let i = 0; i < numInstallments; i++) {
+        const dueDate = new Date();
+        dueDate.setMonth(dueDate.getMonth() + i);
+        generatedInstallments.push({
+          id: `inst_${now}_${i + 1}`,
+          escritorio_id: currentEscritorioId,
+          contractId: newContract.id,
+          clientId: newContract.clientId || newContract.client_id || null,
+          clientName: newContract.clientName || newContract.client_name || 'Cliente',
+          installmentNumber: i + 1,
+          totalInstallments: numInstallments,
+          value: installmentValue,
+          amount: installmentValue,
+          dueDate: dueDate.toISOString().split('T')[0],
+          status: 'pending',
+          paymentMethod: newContract.paymentMethod || newContract.payment_method || 'PIX',
+        });
+      }
+      if (generatedInstallments.length > 0) {
+        setInstallments(prev => {
+          const next = [...generatedInstallments, ...prev];
+          storageService.saveData('installments', next);
+          return next;
+        });
+        storageService.saveToSupabase('installments', generatedInstallments);
+      }
+    }
+
+    logActivity('Novo Contrato', newContract.title, `Cliente: ${newContract.clientName} | Valor: R$ ${contractValue.toLocaleString('pt-BR')}`);
     showToast('Contrato gerado com sucesso!');
     return newContract;
   };

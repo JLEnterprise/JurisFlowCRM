@@ -24,14 +24,15 @@ export function FinancialOverview() {
   const [selectedStatus, setSelectedStatus] = useState('');
 
   const totalContracted = contracts.reduce((acc, c) => acc + (Number(c.value) || 0), 0);
-  const totalReceived = installments.filter(i => i.status === 'paid').reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
-  const totalPending = installments.filter(i => i.status === 'pending').reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
+  const totalReceived = installments.filter(i => i.status === 'paid').reduce((acc, i) => acc + (Number(i.amount || i.value) || 0), 0);
+  const totalPending = installments.filter(i => i.status === 'pending').reduce((acc, i) => acc + (Number(i.amount || i.value) || 0), 0);
   const averageTicket = contracts.length > 0 ? totalContracted / contracts.length : 0;
-  const overdueInstallments = installments.filter(i => i.status === 'pending' && new Date(i.dueDate) < new Date());
-  const defaultRate = totalContracted > 0 ? ((overdueInstallments.reduce((a, b) => a + b.amount, 0) / totalContracted) * 100).toFixed(1) : '0.0';
+  const overdueInstallments = installments.filter(i => i.status === 'pending' && i.dueDate && new Date(i.dueDate) < new Date());
+  const defaultRate = totalContracted > 0 ? ((overdueInstallments.reduce((a, b) => a + (Number(b.amount || b.value) || 0), 0) / totalContracted) * 100).toFixed(1) : '0.0';
 
   const filteredInstallments = installments.filter(i => {
-    const matchesSearch = i.clientName.toLowerCase().includes(search.toLowerCase());
+    const clientName = String(i.clientName || i.client_name || '').toLowerCase();
+    const matchesSearch = !search || clientName.includes(search.toLowerCase());
     const matchesStatus = !selectedStatus || i.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
@@ -162,16 +163,16 @@ export function FinancialOverview() {
                 {filteredInstallments.map(inst => (
                   <tr key={inst.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
                     <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
-                      {inst.clientName}
+                      {inst.clientName || inst.client_name || 'Cliente'}
                     </td>
                     <td className="px-4 py-3.5 font-semibold text-slate-600 dark:text-slate-300">
-                      {inst.number} / {inst.totalInstallments}
+                      {inst.installmentNumber || inst.number || 1} / {inst.totalInstallments || 1}
                     </td>
                     <td className="px-4 py-3.5 font-extrabold text-slate-900 dark:text-white">
-                      {formatCurrency(inst.amount)}
+                      {formatCurrency(inst.amount || inst.value || 0)}
                     </td>
                     <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
-                      {formatDate(inst.dueDate)}
+                      {formatDate(inst.dueDate || inst.due_date)}
                     </td>
                     <td className="px-4 py-3.5">
                       <Badge variant={inst.status === 'paid' ? 'success' : 'warning'}>
