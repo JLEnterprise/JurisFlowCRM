@@ -168,55 +168,50 @@ export function CRMProvider({ children }) {
 
         setSupabaseConnected(true);
 
-        // --- RECUPERAÇÃO 1: Converter propostas aceitas ou com título 'Contrato...' em contratos reais ---
-        const allProposals = syncedProposals || storageService.loadData('proposals') || [];
+        // --- AUTO-LINK: Associar clientId em contratos e parcelas que possuem apenas clientName ---
+        const allClients = syncedClients || storageService.loadData('clients') || [];
         let allContracts = syncedContracts || storageService.loadData('contracts') || [];
-        const existingContractIds = new Set(allContracts.map(c => c.id));
-        const existingContractTitles = new Set(allContracts.map(c => (c.title || '').toLowerCase().trim()));
-        const newContractsFromProposals = [];
+        let contractsUpdated = false;
 
-        allProposals.forEach(prop => {
-          const val = Number(prop.value || prop.feeValue) || 0;
-          const isAccepted = prop.status === 'aceita' || prop.raw_data?.status === 'aceita';
-          const titleLower = (prop.title || prop.serviceName || '').toLowerCase();
-          const isContractTitle = titleLower.includes('contrato');
-          const contractId = `cnt_prop_${prop.id}`;
-
-          if ((isAccepted || isContractTitle) && val > 0 && !existingContractIds.has(contractId) && !existingContractTitles.has(titleLower)) {
-            const newCtr = {
-              id: contractId,
-              contractNumber: `CTR-2026/${String(prop.id).slice(-4)}`,
-              escritorio_id: prop.escritorio_id || targetEscritorioId || currentEscritorioId,
-              title: prop.title || prop.serviceName || 'Contrato de Prestação de Serviços',
-              clientId: prop.clientId || prop.client_id || null,
-              clientName: prop.clientName || prop.client_name || prop.leadName || 'Cliente',
-              legalArea: prop.legalArea || prop.legal_area || 'civil',
-              responsibleLawyerId: prop.responsibleLawyerId || prop.responsible_lawyer_id || prop.responsibleId || 'usr_2',
-              serviceDescription: prop.description || prop.notes || 'Contrato formalizado a partir de proposta comercial.',
-              status: 'assinado',
-              value: val,
-              paymentMethod: prop.paymentTerms || prop.payment_terms || 'Parcelado (Boleto / PIX)',
-              installmentsCount: 1,
-              installmentValue: val,
-              createdDate: prop.sentDate || (prop.created_at ? prop.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
-              signedDate: prop.sentDate || (prop.created_at ? prop.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
-            };
-            newContractsFromProposals.push(newCtr);
-            existingContractIds.add(contractId);
-            existingContractTitles.add(titleLower);
+        allContracts = allContracts.map(c => {
+          if (!c.clientId && c.clientName) {
+            const matched = allClients.find(cl => cl.name?.trim().toLowerCase() === c.clientName?.trim().toLowerCase());
+            if (matched) {
+              contractsUpdated = true;
+              return { ...c, clientId: matched.id };
+            }
           }
+          return c;
         });
 
-        if (newContractsFromProposals.length > 0) {
-          allContracts = [...newContractsFromProposals, ...allContracts];
+        if (contractsUpdated) {
           setContracts(allContracts);
           storageService.saveData('contracts', allContracts);
-          storageService.saveToSupabase('contracts', newContractsFromProposals);
-          console.log(`[Recovery] ${newContractsFromProposals.length} contrato(s) gerado(s) a partir de propostas.`);
+          storageService.saveToSupabase('contracts', allContracts);
+        }
+
+        // Auto-link parcelas ao clientId
+        let allInstallments = syncedInstallments || storageService.loadData('installments') || [];
+        let installmentsUpdated = false;
+
+        allInstallments = allInstallments.map(i => {
+          if (!i.clientId && i.clientName) {
+            const matched = allClients.find(cl => cl.name?.trim().toLowerCase() === i.clientName?.trim().toLowerCase());
+            if (matched) {
+              installmentsUpdated = true;
+              return { ...i, clientId: matched.id };
+            }
+          }
+          return i;
+        });
+
+        if (installmentsUpdated) {
+          setInstallments(allInstallments);
+          storageService.saveData('installments', allInstallments);
+          storageService.saveToSupabase('installments', allInstallments);
         }
 
         // --- RECUPERAÇÃO 2: Gerar parcelas para contratos existentes sem installments ---
-        const allInstallments = syncedInstallments || storageService.loadData('installments') || [];
         const contractIdsWithInstallments = new Set(allInstallments.map(i => i.contractId));
         const contractsWithoutInstallments = allContracts.filter(c =>
           (Number(c.value) || 0) > 0 && !contractIdsWithInstallments.has(c.id)
@@ -664,9 +659,23 @@ export function CRMProvider({ children }) {
   const addContract = (contractData) => {
     const now = Date.now();
     const contractNumber = contractData.contractNumber || contractData.contract_number || `CTR-2026/${String(now).slice(-4)}`;
+
+    // Auto-associação com cliente existente caso o clientId não tenha sido passado
+    let finalClientId = contractData.clientId || contractData.client_id || null;
+    let finalClientName = contractData.clientName || contractData.client_name || 'Cliente';
+    if (!finalClientId && finalClientName) {
+      const matched = clients.find(cl => cl.name?.trim().toLowerCase() === finalClientName.trim().toLowerCase());
+      if (matched) {
+        finalClientId = matched.id;
+        finalClientName = matched.name;
+      }
+    }
+
     const newContract = {
       ...contractData,
-      id: `cnt_${now}`,
+      id: contractData.id || `cnt_${now}`,
+      clientId: finalClientId,
+      clientName: finalClientName,
       escritorio_id: currentEscritorioId,
       contractNumber,
       status: contractData.status || 'draft',
@@ -674,7 +683,7 @@ export function CRMProvider({ children }) {
       createdDate: contractData.createdDate || new Date().toISOString().split('T')[0],
     };
     setContracts(prev => {
-      const next = [newContract, ...prev];
+      const next = [newContract, ...prev.filter(c => String(c.id) !== String(newContract.id))];
       storageService.saveData('contracts', next);
       return next;
     });
@@ -693,8 +702,8 @@ export function CRMProvider({ children }) {
           id: `inst_${now}_${i + 1}`,
           escritorio_id: currentEscritorioId,
           contractId: newContract.id,
-          clientId: newContract.clientId || newContract.client_id || null,
-          clientName: newContract.clientName || newContract.client_name || 'Cliente',
+          clientId: finalClientId,
+          clientName: finalClientName,
           installmentNumber: i + 1,
           totalInstallments: numInstallments,
           value: installmentValue,
@@ -721,9 +730,10 @@ export function CRMProvider({ children }) {
 
   const updateContract = (id, contractData) => {
     let updatedContract = null;
+    const strId = String(id);
     setContracts(prev => {
       const next = prev.map(c => {
-        if (c.id === id) {
+        if (String(c.id) === strId) {
           updatedContract = { ...c, ...contractData, escritorio_id: currentEscritorioId };
           return updatedContract;
         }
@@ -738,7 +748,7 @@ export function CRMProvider({ children }) {
       // Se o contrato tem valor e ainda não tem parcelas no financeiro, gera automaticamente
       const contractValue = Number(updatedContract.value) || 0;
       const numInstallments = Number(updatedContract.installmentsCount || updatedContract.installments_count) || 1;
-      const existingInsts = installments.filter(i => i.contractId === id);
+      const existingInsts = installments.filter(i => String(i.contractId || i.contract_id) === strId);
 
       if (contractValue > 0 && existingInsts.length === 0) {
         const installmentValue = contractValue / numInstallments;
@@ -750,7 +760,7 @@ export function CRMProvider({ children }) {
           generatedInstallments.push({
             id: `inst_${now}_${i + 1}`,
             escritorio_id: currentEscritorioId,
-            contractId: id,
+            contractId: strId,
             clientId: updatedContract.clientId || updatedContract.client_id || null,
             clientName: updatedContract.clientName || updatedContract.client_name || 'Cliente',
             installmentNumber: i + 1,
@@ -777,20 +787,22 @@ export function CRMProvider({ children }) {
   };
 
   const deleteContract = (id) => {
+    const strId = String(id);
     setContracts(prev => {
-      const next = prev.filter(c => c.id !== id);
+      const next = prev.filter(c => String(c.id) !== strId);
       storageService.saveData('contracts', next);
       return next;
     });
-    storageService.deleteFromSupabase('contracts', id);
+    storageService.deleteFromSupabase('contracts', strId);
 
-    // Também remove as parcelas vinculadas ao contrato apagado
+    // Também remove as parcelas vinculadas ao contrato apagado (localmente e nuvem)
     setInstallments(prev => {
-      const next = prev.filter(i => i.contractId !== id);
+      const next = prev.filter(i => String(i.contractId || i.contract_id) !== strId);
       storageService.saveData('installments', next);
       return next;
     });
-    showToast('Contrato excluído.');
+    supabase.from('installments').delete().eq('contract_id', strId).catch(() => {});
+    showToast('Contrato excluído com sucesso.');
   };
 
   const closeContractWorkflow = (leadIdOrPayload, maybeContractData, maybeInstallmentsList = []) => {
@@ -970,9 +982,10 @@ export function CRMProvider({ children }) {
 
   const updateProposal = (id, propData) => {
     let updatedProp = null;
+    const strId = String(id);
     setProposals(prev => {
       const next = prev.map(p => {
-        if (p.id === id) {
+        if (String(p.id) === strId) {
           updatedProp = { ...p, ...propData, escritorio_id: currentEscritorioId };
           return updatedProp;
         }
@@ -984,15 +997,23 @@ export function CRMProvider({ children }) {
     if (updatedProp) {
       storageService.saveToSupabase('proposals', [updatedProp]);
 
-      // Se a proposta foi marcada como aceita, converte para contrato caso ainda não exista
+      // Se a proposta foi marcada como aceita, converte para contrato caso ainda não exista para esta proposta
       if (updatedProp.status === 'aceita') {
         const val = Number(updatedProp.value || updatedProp.feeValue) || 0;
-        const existsContract = contracts.some(c => c.clientName === updatedProp.clientName || c.title === updatedProp.title);
+        const targetContractId = `cnt_prop_${updatedProp.id}`;
+        const existsContract = contracts.some(c => String(c.id) === targetContractId || String(c.proposalId) === String(updatedProp.id));
         if (val > 0 && !existsContract) {
+          const matchedClient = clients.find(cl =>
+            (updatedProp.clientId && String(cl.id) === String(updatedProp.clientId)) ||
+            (cl.name && updatedProp.clientName && cl.name.trim().toLowerCase() === updatedProp.clientName.trim().toLowerCase())
+          );
+
           addContract({
+            id: targetContractId,
+            proposalId: updatedProp.id,
             title: updatedProp.title || updatedProp.serviceName || 'Contrato de Prestação de Serviços',
-            clientId: updatedProp.clientId || null,
-            clientName: updatedProp.clientName || updatedProp.leadName || 'Cliente',
+            clientId: matchedClient ? matchedClient.id : (updatedProp.clientId || null),
+            clientName: matchedClient ? matchedClient.name : (updatedProp.clientName || updatedProp.leadName || 'Cliente'),
             legalArea: updatedProp.legalArea || 'civil',
             value: val,
             installmentsCount: 1,
@@ -1007,13 +1028,14 @@ export function CRMProvider({ children }) {
   };
 
   const deleteProposal = (id) => {
+    const strId = String(id);
     setProposals(prev => {
-      const next = prev.filter(p => p.id !== id);
+      const next = prev.filter(p => String(p.id) !== strId);
       storageService.saveData('proposals', next);
       return next;
     });
-    storageService.deleteFromSupabase('proposals', id);
-    showToast('Proposta excluida.');
+    storageService.deleteFromSupabase('proposals', strId);
+    showToast('Proposta excluída com sucesso.');
   };
 
   // --- PROCESSES ACTIONS ---

@@ -10,12 +10,14 @@ import {
   Copy,
   ArrowRight,
   Sparkles,
+  Eye,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { EmptyState } from '../common/EmptyState';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { ProposalDetailModal } from './ProposalDetailModal';
 import { pdfService } from '../../services/pdfService';
 import { PROPOSAL_STATUSES } from '../../data/legalAreas';
 
@@ -28,6 +30,9 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [proposalToDelete, setProposalToDelete] = useState(null);
+
+  // View modal state
+  const [selectedProposalForView, setSelectedProposalForView] = useState(null);
 
   const filteredProposals = (proposals || []).filter(p => {
     if (!p) return false;
@@ -194,7 +199,8 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
           {filteredProposals.map((prop) => (
             <div
               key={prop.id}
-              className="group relative flex flex-col justify-between rounded-3xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-white/[0.08] p-5 shadow-xs hover:shadow-md transition-all hover:border-brand-500/30"
+              onClick={() => setSelectedProposalForView(prop)}
+              className="group relative flex flex-col justify-between rounded-3xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-white/[0.08] p-5 shadow-xs hover:shadow-md transition-all hover:border-brand-500/30 cursor-pointer"
             >
               <div className="space-y-3">
                 {/* Header */}
@@ -232,31 +238,56 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
               </div>
 
               {/* Footer Actions */}
-              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+              <div
+                className="mt-4 pt-3 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => handlePrint(prop)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedProposalForView(prop);
+                    }}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    title="Imprimir / Visualizar Minuta"
+                    title="Visualizar Proposta Completa"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrint(prop);
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    title="Imprimir / Minuta PDF"
                   >
                     <Printer className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => handleDuplicate(prop)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDuplicate(prop);
+                    }}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-purple-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     title="Duplicar proposta"
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => onEditProposal && onEditProposal(prop)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditProposal && onEditProposal(prop);
+                    }}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     title="Editar proposta"
                   >
                     <Edit className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => handleRequestDelete(prop)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRequestDelete(prop);
+                    }}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
                     title="Excluir proposta"
                   >
@@ -266,7 +297,10 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
 
                 {onConvertToContract && (
                   <button
-                    onClick={() => onConvertToContract(prop)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onConvertToContract(prop);
+                    }}
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 text-[11px] font-bold transition-colors"
                   >
                     <Sparkles className="h-3 w-3" /> Gerar Contrato
@@ -277,6 +311,25 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
           ))}
         </div>
       )}
+
+      {/* Modal de Visualização Detalhada da Proposta */}
+      <ProposalDetailModal
+        isOpen={Boolean(selectedProposalForView)}
+        onClose={() => setSelectedProposalForView(null)}
+        proposal={selectedProposalForView}
+        onEdit={(prop) => {
+          setSelectedProposalForView(null);
+          onEditProposal && onEditProposal(prop);
+        }}
+        onConvertToContract={(prop) => {
+          setSelectedProposalForView(null);
+          onConvertToContract && onConvertToContract(prop);
+        }}
+        onRequestDelete={(prop) => {
+          setSelectedProposalForView(null);
+          handleRequestDelete(prop);
+        }}
+      />
 
       {/* Confirm Delete Modal */}
       <ConfirmModal

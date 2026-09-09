@@ -36,17 +36,20 @@ export function DashboardStats({ onNavigate }) {
     .filter(l => l.stage !== 'perdido' && l.stage !== 'contrato_fechado')
     .reduce((acc, curr) => acc + (Number(curr.estimatedValue) || 0), 0);
 
-  // Soma o valor de TODOS os contratos (assinados, ativos, draft, enviados, etc.)
-  const totalContractedValue = contracts
+  // Soma o valor de TODOS os contratos ativos
+  const totalContractedValue = (contracts || [])
+    .filter(c => c.status !== 'cancelado' && c.status !== 'rescindido')
     .reduce((acc, curr) => acc + (typeof curr.value === 'number' ? curr.value : (Number(curr.value) || 0)), 0);
 
-  const totalReceivedValue = installments
+  const totalReceivedValue = (installments || [])
     .filter(i => i.status === 'paid')
     .reduce((acc, curr) => acc + (Number(curr.amount || curr.value) || 0), 0);
 
-  const totalPendingValue = installments
+  const pendingInstallmentsSum = (installments || [])
     .filter(i => i.status === 'pending')
     .reduce((acc, curr) => acc + (Number(curr.amount || curr.value) || 0), 0);
+
+  const totalPendingValue = pendingInstallmentsSum > 0 ? pendingInstallmentsSum : Math.max(0, totalContractedValue - totalReceivedValue);
 
   const averageTicket = contractsClosed > 0 ? totalContractedValue / contractsClosed : (contracts.length > 0 ? totalContractedValue / contracts.length : 0);
 

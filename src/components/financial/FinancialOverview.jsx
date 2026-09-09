@@ -23,9 +23,19 @@ export function FinancialOverview() {
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
 
-  const totalContracted = contracts.reduce((acc, c) => acc + (Number(c.value) || 0), 0);
-  const totalReceived = installments.filter(i => i.status === 'paid').reduce((acc, i) => acc + (Number(i.amount || i.value) || 0), 0);
-  const totalPending = installments.filter(i => i.status === 'pending').reduce((acc, i) => acc + (Number(i.amount || i.value) || 0), 0);
+  const totalContracted = (contracts || [])
+    .filter(c => c.status !== 'cancelado' && c.status !== 'rescindido')
+    .reduce((acc, c) => acc + (Number(c.value) || 0), 0);
+
+  const totalReceived = (installments || [])
+    .filter(i => i.status === 'paid')
+    .reduce((acc, i) => acc + (Number(i.amount || i.value) || 0), 0);
+
+  const pendingInstallmentsSum = (installments || [])
+    .filter(i => i.status === 'pending')
+    .reduce((acc, i) => acc + (Number(i.amount || i.value) || 0), 0);
+
+  const totalPending = pendingInstallmentsSum > 0 ? pendingInstallmentsSum : Math.max(0, totalContracted - totalReceived);
   const averageTicket = contracts.length > 0 ? totalContracted / contracts.length : 0;
   const overdueInstallments = installments.filter(i => i.status === 'pending' && i.dueDate && new Date(i.dueDate) < new Date());
   const defaultRate = totalContracted > 0 ? ((overdueInstallments.reduce((a, b) => a + (Number(b.amount || b.value) || 0), 0) / totalContracted) * 100).toFixed(1) : '0.0';

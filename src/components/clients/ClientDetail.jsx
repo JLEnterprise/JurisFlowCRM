@@ -90,19 +90,67 @@ export function ClientDetail({
     );
   }
 
-  // Filtrar entidades vinculadas ao cliente
-  const clientContracts = contracts.filter(c => c.clientId === client.id);
-  const clientProcesses = processes.filter(p => p.clientId === client.id);
-  const clientDocuments = documents.filter(d => d.clientId === client.id || d.clientName === client.name);
-  const clientAttendances = attendances.filter(a => a.clientId === client.id || a.clientName === client.name);
-  const clientInstallments = installments.filter(i => i.clientId === client.id || i.clientName === client.name);
-  const clientTasks = tasks.filter(t => t.clientId === client.id);
+  // Filtrar entidades vinculadas ao cliente por ID e por Nome
+  const clientNormalizedName = (client.name || '').toLowerCase().trim();
+  const clientIdStr = String(client.id);
+
+  const clientContracts = contracts.filter(c => {
+    if (!c) return false;
+    const cId = c.clientId || c.client_id;
+    if (cId && String(cId) === clientIdStr) return true;
+    const cName = (c.clientName || c.client_name || '').toLowerCase().trim();
+    return Boolean(cName && clientNormalizedName && cName === clientNormalizedName);
+  });
+
+  const clientContractIds = new Set(clientContracts.map(c => String(c.id)));
+
+  const clientProcesses = processes.filter(p => {
+    if (!p) return false;
+    const pId = p.clientId || p.client_id;
+    if (pId && String(pId) === clientIdStr) return true;
+    const pName = (p.clientName || p.client_name || '').toLowerCase().trim();
+    return Boolean(pName && clientNormalizedName && pName === clientNormalizedName);
+  });
+
+  const clientDocuments = documents.filter(d => {
+    if (!d) return false;
+    const dId = d.clientId || d.client_id;
+    if (dId && String(dId) === clientIdStr) return true;
+    const dName = (d.clientName || d.client_name || '').toLowerCase().trim();
+    return Boolean(dName && clientNormalizedName && dName === clientNormalizedName);
+  });
+
+  const clientAttendances = attendances.filter(a => {
+    if (!a) return false;
+    const aId = a.clientId || a.client_id;
+    if (aId && String(aId) === clientIdStr) return true;
+    const aName = (a.clientName || a.client_name || '').toLowerCase().trim();
+    return Boolean(aName && clientNormalizedName && aName === clientNormalizedName);
+  });
+
+  const clientInstallments = installments.filter(i => {
+    if (!i) return false;
+    const cId = i.contractId || i.contract_id;
+    if (cId && clientContractIds.has(String(cId))) return true;
+    const iId = i.clientId || i.client_id;
+    if (iId && String(iId) === clientIdStr) return true;
+    const iName = (i.clientName || i.client_name || '').toLowerCase().trim();
+    return Boolean(iName && clientNormalizedName && iName === clientNormalizedName);
+  });
+
+  const clientTasks = tasks.filter(t => {
+    if (!t) return false;
+    const tId = t.clientId || t.client_id;
+    return Boolean(tId && String(tId) === clientIdStr);
+  });
 
   const responsibleLawyer = users.find(u => u.id === client.responsibleLawyerId);
   const areaObj = legalAreas.find(a => a.id === client.legalArea);
 
-  const totalContracted = clientContracts.reduce((acc, c) => acc + (Number(c.value) || 0), client.totalContracted || 0);
-  const totalPaid = clientInstallments.filter(i => i.status === 'paid').reduce((acc, i) => acc + (Number(i.amount) || 0), client.totalPaid || 0);
+  const sumContracts = clientContracts.reduce((acc, c) => acc + (Number(c.value) || 0), 0);
+  const totalContracted = sumContracts > 0 ? sumContracts : (Number(client.totalContracted) || 0);
+  const sumPaid = clientInstallments.filter(i => i.status === 'paid').reduce((acc, i) => acc + (Number(i.amount || i.value) || 0), 0);
+  const totalPaid = sumPaid > 0 ? sumPaid : (Number(client.totalPaid) || 0);
   const totalPending = Math.max(0, totalContracted - totalPaid);
 
   const tabs = [
@@ -528,37 +576,190 @@ export function ClientDetail({
 
         {/* 8. Financeiro */}
         {activeTab === 'financial' && (
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Parcelas e Honorários</h3>
-            {clientInstallments.length === 0 ? (
-              <p className="text-xs text-slate-400">Nenhuma parcela gerada.</p>
-            ) : (
-              <div className="space-y-2">
-                {clientInstallments.map(inst => (
-                  <div key={inst.id} className="p-3.5 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-bold text-slate-900 dark:text-white">Parcela {inst.number}/{inst.totalInstallments}</span>
-                      <span className="text-slate-400 ml-2">Vencimento: {formatDate(inst.dueDate)}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-extrabold text-slate-900 dark:text-white">{formatCurrency(inst.amount)}</span>
-                      <Badge variant={inst.status === 'paid' ? 'success' : 'warning'}>{inst.status === 'paid' ? 'Pago' : 'Pendente'}</Badge>
-                      {inst.status !== 'paid' && (
-                        <button
-                          onClick={() => {
-                            markInstallmentPaid(inst.id);
-                            showToast('Parcela baixada com sucesso!');
-                          }}
-                          className="bg-emerald-600 px-2.5 py-1 text-white font-bold rounded-lg text-[11px]"
-                        >
-                          Dar Baixa
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+          <div className="space-y-6">
+            {/* Resumo Financeiro do Cliente */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-4 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Contratado</span>
+                <span className="text-lg font-black text-slate-900 dark:text-white mt-1 block">
+                  {formatCurrency(totalContracted)}
+                </span>
+                <span className="text-[11px] text-slate-400 mt-0.5 block">{clientContracts.length} contrato(s) formalizado(s)</span>
               </div>
-            )}
+
+              <div className="p-4 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">Total Liquidado (Pago)</span>
+                <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-1 block">
+                  {formatCurrency(totalPaid)}
+                </span>
+                <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  {clientInstallments.filter(i => i.status === 'paid').length} parcela(s) liquidada(s)
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+                <span className="text-[10px] font-bold text-amber-600 dark:text-gold-400 uppercase tracking-wider block">Saldo a Receber</span>
+                <span className="text-lg font-black text-amber-600 dark:text-gold-400 mt-1 block">
+                  {formatCurrency(totalPending)}
+                </span>
+                <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  {clientInstallments.filter(i => i.status !== 'paid').length} parcela(s) pendente(s)
+                </span>
+              </div>
+            </div>
+
+            {/* Contratos de Honorários Vinculados */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-brand-600 dark:text-gold-400" />
+                  Contratos de Honorários Vinculados ({clientContracts.length})
+                </h4>
+                <button
+                  onClick={onOpenNewContract}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 dark:text-gold-400 hover:underline"
+                >
+                  <Plus className="h-3 w-3" /> Adicionar Contrato
+                </button>
+              </div>
+
+              {clientContracts.length === 0 ? (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-navy-950 border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400">
+                  Nenhum contrato formalizado para este cliente.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2.5">
+                  {clientContracts.map(ctr => (
+                    <div
+                      key={ctr.id}
+                      className="p-3.5 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-brand-600 dark:text-gold-400">
+                            {ctr.contractNumber || 'CTR-2026/S/N'}
+                          </span>
+                          <Badge variant="success">
+                            {ctr.status === 'assinado' ? 'Contrato Ativo' : (ctr.status || 'Ativo')}
+                          </Badge>
+                        </div>
+                        <p className="font-bold text-slate-800 dark:text-slate-200 mt-0.5">
+                          {ctr.title || 'Contrato de Prestação de Serviços Advocatícios'}
+                        </p>
+                        <span className="text-[11px] text-slate-400">
+                          Assinado em {formatDate(ctr.signedDate || ctr.createdDate)} • {ctr.legalArea || 'civil'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3 sm:text-right">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-semibold">Valor Total</span>
+                          <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                            {formatCurrency(ctr.value || 0)}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => pdfService.printContract(ctr, officeSettings)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-brand-200 dark:border-brand-800/60 bg-brand-50 dark:bg-brand-950/40 px-3 py-1.5 text-xs font-bold text-brand-700 dark:text-gold-300 hover:bg-brand-100 transition-colors"
+                          title="Visualizar e Imprimir Minuta do Contrato"
+                        >
+                          <Printer className="h-3.5 w-3.5" /> Acessar Contrato
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Parcelas e Gestão de Pagamento */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <DollarSign className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                Detalhamento de Parcelas & Honorários ({clientInstallments.length})
+              </h4>
+
+              {clientInstallments.length === 0 ? (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-navy-950 border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400">
+                  Nenhuma parcela cadastrada para este cliente.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {clientInstallments.map(inst => {
+                    const instNumber = inst.installmentNumber || inst.number || 1;
+                    const instTotal = inst.totalInstallments || 1;
+                    const instVal = Number(inst.amount || inst.value) || 0;
+                    const isPaid = inst.status === 'paid';
+                    const relatedContract = clientContracts.find(c => String(c.id) === String(inst.contractId || inst.contract_id)) || clientContracts[0];
+
+                    return (
+                      <div
+                        key={inst.id}
+                        className="p-3.5 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              Parcela {instNumber}/{instTotal}
+                            </span>
+                            {relatedContract && (
+                              <span className="text-[11px] font-mono text-slate-400">
+                                ({relatedContract.contractNumber})
+                              </span>
+                            )}
+                            <Badge variant={isPaid ? 'success' : 'warning'}>
+                              {isPaid ? 'Liquidada' : 'Pendente'}
+                            </Badge>
+                          </div>
+                          <span className="text-slate-400 text-[11px] block mt-0.5">
+                            Vencimento: <strong>{formatDate(inst.dueDate || inst.due_date)}</strong>
+                            {inst.paidDate && ` • Pago em ${formatDate(inst.paidDate)}`}
+                            {inst.paymentMethod && ` • Forma: ${inst.paymentMethod}`}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className="font-extrabold text-slate-900 dark:text-white text-sm">
+                            {formatCurrency(instVal)}
+                          </span>
+
+                          {!isPaid ? (
+                            <button
+                              onClick={() => {
+                                markInstallmentPaid(inst.id);
+                                showToast('Parcela baixada com sucesso!');
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-white font-bold rounded-xl text-xs transition-colors shadow-xs"
+                            >
+                              Dar Baixa
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => alert(`Recibo de Pagamento:\n\nCliente: ${client.name}\nParcela: ${instNumber}/${instTotal}\nValor: ${formatCurrency(instVal)}\nData: ${formatDate(inst.paidDate || new Date())}\nForma: ${inst.paymentMethod || 'PIX'}\n\nAutenticado pelo JurisFlow CRM`)}
+                                className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                title="Ver Recibo"
+                              >
+                                Recibo
+                              </button>
+                              {relatedContract && (
+                                <button
+                                  onClick={() => pdfService.printContract(relatedContract, officeSettings)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-gold-300 font-bold hover:bg-brand-100 transition-colors"
+                                  title="Acessar Minuta do Contrato"
+                                >
+                                  <Printer className="h-3 w-3" /> Contrato
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -612,6 +612,7 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
     return {
       ...base,
       contract_id: item.contractId || item.contract_id || null,
+      client_id: item.clientId || item.client_id || null,
       client_name: item.clientName || item.client_name || null,
       number: Number(item.installmentNumber || item.installment_number || item.number) || 1,
       total_installments: Number(item.totalInstallments || item.total_installments) || 1,
@@ -790,29 +791,16 @@ export const storageService = {
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
       const localData = this.loadData(table, []);
-      const cloudData = await this.fetchFromSupabase(table, [], activeEscritorio);
+      const cloudData = await this.fetchFromSupabase(table, null, activeEscritorio);
 
-      const cloudIds = new Set((cloudData || []).map(item => String(item.id)));
-      const missingInCloud = (localData || []).filter(item => item?.id && !cloudIds.has(String(item.id)));
-
-      if (missingInCloud.length > 0) {
-        console.info(`[Auto-Recovery] Sincronizando ${missingInCloud.length} registros locais de ${table} com o Supabase...`);
-        await this.syncToSupabase(table, missingInCloud);
+      // Se a nuvem retornou um array com sucesso, ela é a autoridade central (evita ressuscitar registros excluídos)
+      if (Array.isArray(cloudData)) {
+        localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(cloudData));
+        return cloudData.length > 0 ? cloudData : (localData.length === 0 ? fallback : []);
       }
 
-      const mergedMap = new Map();
-      (cloudData || []).forEach(item => mergedMap.set(String(item.id), item));
-      (localData || []).forEach(item => {
-        if (!mergedMap.has(String(item.id))) {
-          mergedMap.set(String(item.id), item);
-        }
-      });
-
-      const merged = Array.from(mergedMap.values());
-      const finalResult = merged.length > 0 ? merged : fallback;
-
-      localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(finalResult));
-      return finalResult;
+      // Se a nuvem estava inacessível ou falhou, opera com o cache local
+      return localData.length > 0 ? localData : fallback;
     } catch (err) {
       console.warn(`[Auto-Recovery Falhou em ${table}, fallback ativado]:`, err);
       return this.loadData(table, fallback);
@@ -876,9 +864,9 @@ export const storageService = {
 
   async deleteFromSupabase(table, id, email = null) {
     try {
+      const cleanId = String(id || '');
       if (table === 'users') {
         const cleanEmail = email ? String(email).toLowerCase().trim() : '';
-        const cleanId = String(id || '');
         if (cleanEmail) {
           await supabase.from('users').delete().eq('email', cleanEmail);
         }
@@ -887,8 +875,15 @@ export const storageService = {
         }
         return;
       }
-      const { error } = await supabase.from(table).delete().eq('id', String(id));
+
+      // Se for contrato, remove também as parcelas no Supabase para não deixar órfãos
+      if (table === 'contracts' && cleanId) {
+        await supabase.from('installments').delete().eq('contract_id', cleanId);
+      }
+
+      const { error } = await supabase.from(table).delete().eq('id', cleanId);
       if (error) throw error;
+      console.info(`[Supabase Delete] Registro ${cleanId} removido da tabela ${table}.`);
     } catch (err) {
       console.warn('Erro ao deletar ' + id + ' de ' + table + ' no Supabase:', err.message);
     }
