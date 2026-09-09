@@ -303,6 +303,20 @@ export function CRMProvider({ children }) {
       if (!mounted) return;
       try {
         console.info(`[Realtime] Evento recebido na tabela ${table}:`, payload.eventType);
+
+        // Se for DELETE, remove imediatamente do state sem disparar refetch com race condition
+        if (payload.eventType === 'DELETE') {
+          const deletedId = payload.old?.id;
+          if (deletedId) {
+            storageService.markAsDeleted(deletedId);
+            const setter = stateSettersRef.current[table];
+            if (setter) {
+              setter(prev => Array.isArray(prev) ? prev.filter(item => String(item.id) !== String(deletedId)) : prev);
+            }
+          }
+          return;
+        }
+
         const activeEscritorio = storageService.getCurrentEscritorioId();
         const refreshed = await storageService.fetchFromSupabase(table, [], activeEscritorio);
         if (!mounted || !refreshed) return;
@@ -1228,20 +1242,33 @@ export function CRMProvider({ children }) {
     showToast('Proposta atualizada!');
   };
 
-  const deleteProposal = (id) => {
-    const strId = String(id);
-    storageService.markAsDeleted(strId);
+  const deleteProposal = async (id, optionalProposalNumber = null) => {
+    const strId = String(id || '');
+    const strNumber = optionalProposalNumber ? String(optionalProposalNumber) : '';
+    if (strId) storageService.markAsDeleted(strId);
+    if (strNumber) storageService.markAsDeleted(strNumber);
+
     setProposals(prev => {
       const next = prev.filter(p => 
         String(p.id) !== strId && 
+        (strNumber ? String(p.proposalNumber) !== strNumber && String(p.proposal_number) !== strNumber : true) &&
         String(p.proposalNumber) !== strId && 
         String(p.proposal_number) !== strId
       );
       storageService.saveData('proposals', next);
       return next;
     });
-    storageService.deleteFromSupabase('proposals', strId);
-    showToast('Proposta excluída com sucesso.');
+
+    try {
+      if (strId) await storageService.deleteFromSupabase('proposals', strId);
+      if (strNumber && strNumber !== strId) {
+        await storageService.deleteFromSupabase('proposals', strNumber);
+      }
+      if (strId) await supabase.from('proposals').delete().eq('id', strId);
+      if (strNumber) await supabase.from('proposals').delete().eq('proposal_number', strNumber);
+    } catch (err) {
+      console.warn('Erro ao deletar proposta do Supabase:', err);
+    }
   };
 
   // --- PROCESSES ACTIONS ---

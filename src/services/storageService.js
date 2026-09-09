@@ -274,11 +274,14 @@ function normalizeRow(table, row, activeEscritorio) {
     const responsibleName = base.responsibleName || base.responsible_name || 'Equipe Comercial';
     const paymentTerms = base.paymentTerms || base.payment_terms || '';
     const validityDate = base.validityDate || base.validity_date || '';
-    const sentDate = base.sentDate || base.sent_date || new Date().toISOString().split('T')[0];
+    const sentDate = base.sentDate || base.sent_date || '';
+    const createdAt = base.createdAt || base.created_at || (row.created_at ? row.created_at : new Date().toISOString());
     const attachments = Array.isArray(base.attachments) ? base.attachments : [];
 
     return {
       ...base,
+      createdAt,
+      created_at: createdAt,
       proposalNumber,
       proposal_number: proposalNumber,
       clientName,
@@ -771,13 +774,9 @@ export const storageService = {
   getDeletedIds() {
     try {
       const stored = localStorage.getItem(STORAGE_PREFIX + 'deleted_ids');
-      const list = stored ? JSON.parse(stored) : [];
-      if (!list.includes('test_del_123')) {
-        list.push('test_del_123');
-      }
-      return list;
+      return stored ? JSON.parse(stored) : [];
     } catch (e) {
-      return ['test_del_123'];
+      return [];
     }
   },
 
@@ -838,7 +837,12 @@ export const storageService = {
       if (Array.isArray(parsed)) {
         const deletedIds = this.getDeletedIds();
         return parsed
-          .filter(item => item && !deletedIds.includes(String(item.id)))
+          .filter(item => {
+            if (!item) return false;
+            const id = String(item.id || '');
+            const num = String(item.proposalNumber || item.proposal_number || '');
+            return (!id || !deletedIds.includes(id)) && (!num || !deletedIds.includes(num));
+          })
           .map(item => normalizeRow(key, item, this.getCurrentEscritorioId()));
       }
       return parsed;
@@ -859,27 +863,26 @@ export const storageService = {
           const stripped = data.map(item => {
             if (!item || typeof item !== 'object') return item;
             if (Array.isArray(item.attachments)) {
-              return {
-                ...item,
-                attachments: item.attachments.map(({ dataUrl, ...att }) => att),
-              };
+              return { ...item, attachments: [] };
             }
             return item;
           });
           localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(stripped));
         }
-      } catch (err2) {
-        console.error('Fallback de quota localStorage falhou:', err2);
+      } catch (inner) {
+        console.error('Falha crítica ao persistir no localStorage:', inner);
       }
     }
   },
 
   async fetchFromSupabase(table, fallback = [], escritorioId = null) {
+    if (!supabase) return fallback;
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
       let query = supabase.from(table).select('*');
       
-      if (!['legal_areas', 'lead_sources', 'escritorios', 'office_settings', 'users'].includes(table)) {
+      // Se a tabela possui isolamento por escritório
+      if (['users', 'clients', 'processes', 'leads', 'contracts', 'proposals', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications'].includes(table)) {
         query = query.or(`escritorio_id.eq.${activeEscritorio},escritorio_id.is.null,escritorio_id.eq.escritorio_Tatiane,escritorio_id.eq.escritorio_principal`);
       }
 
@@ -892,13 +895,14 @@ export const storageService = {
       if (error) throw error;
       if (!data) return fallback;
       
-      // Se os registros existem no Supabase, eles são legítimos e ativos; desmarca de deleted_ids
-      data.forEach(row => {
-        if (row?.id) this.unmarkAsDeleted(row.id);
-      });
-
+      const deletedIds = this.getDeletedIds();
       const mapped = data
-        .filter(Boolean)
+        .filter(row => {
+          if (!row || !row.id) return false;
+          const id = String(row.id);
+          const num = String(row.proposal_number || (row.raw_data && (row.raw_data.proposalNumber || row.raw_data.proposal_number)) || '');
+          return !deletedIds.includes(id) && (!num || !deletedIds.includes(num));
+        })
         .map(row => normalizeRow(table, row, activeEscritorio));
 
       localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(mapped));
@@ -916,19 +920,8 @@ export const storageService = {
       const cloudData = await this.fetchFromSupabase(table, null, activeEscritorio);
       const deletedIds = this.getDeletedIds();
 
-      // Se a nuvem retornou dados
+      // Se a nuvem retornou dados, ela é a autoridade central (evita ressuscitar registros que foram excluídos)
       if (Array.isArray(cloudData) && cloudData.length > 0) {
-        const cloudIds = new Set(cloudData.map(c => String(c.id)));
-        const localOnly = localData.filter(l => l && l.id && !cloudIds.has(String(l.id)) && !deletedIds.includes(String(l.id)));
-
-        if (localOnly.length > 0) {
-          console.info(`[Auto-Recovery] Sincronizando ${localOnly.length} registro(s) locais de ${table} para a nuvem...`);
-          await this.syncToSupabase(table, localOnly);
-          const merged = [...cloudData, ...localOnly];
-          localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(merged));
-          return merged;
-        }
-
         localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(cloudData));
         return cloudData;
       }
@@ -993,17 +986,26 @@ export const storageService = {
         return;
       }
 
+      const deletedIds = this.getDeletedIds();
+
       if (Array.isArray(data)) {
-        // Desmarca itens ativos de deleted_ids para evitar bloqueio acidental
-        data.forEach(item => {
-          if (item?.id) this.unmarkAsDeleted(item.id);
+        const activeItems = data.filter(item => {
+          if (!item || !item.id) return false;
+          const id = String(item.id);
+          const num = String(item.proposalNumber || item.proposal_number || '');
+          return !deletedIds.includes(id) && (!num || !deletedIds.includes(num));
         });
-        const rows = data.filter(item => item && item.id).map(item => mapItemToSqlRow(table, item, activeEscritorio));
-        if (rows.length === 0) return;
+        if (activeItems.length === 0) return;
+        const rows = activeItems.map(item => mapItemToSqlRow(table, item, activeEscritorio));
         const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
         if (error) throw error;
       } else if (data && typeof data === 'object') {
-        if (data.id) this.unmarkAsDeleted(data.id);
+        const id = String(data.id || '');
+        const num = String(data.proposalNumber || data.proposal_number || '');
+        if ((id && deletedIds.includes(id)) || (num && deletedIds.includes(num))) {
+          console.info(`[syncToSupabase] Ignorando item ${id || num} pois está marcado como excluído.`);
+          return;
+        }
         const row = mapItemToSqlRow(table, data, activeEscritorio);
         const { error } = await supabase.from(table).upsert(row, { onConflict: 'id' });
         if (error) throw error;
@@ -1038,8 +1040,13 @@ export const storageService = {
         await supabase.from('installments').delete().eq('contract_id', cleanId);
       }
 
-      const { error } = await supabase.from(table).delete().eq('id', cleanId);
-      if (error) throw error;
+      if (table === 'proposals' && cleanId) {
+        await supabase.from('proposals').delete().eq('id', cleanId);
+        await supabase.from('proposals').delete().eq('proposal_number', cleanId);
+      } else {
+        const { error } = await supabase.from(table).delete().eq('id', cleanId);
+        if (error) throw error;
+      }
       console.info(`[Supabase Delete] Registro ${cleanId} removido da tabela ${table}.`);
     } catch (err) {
       console.warn('Erro ao deletar ' + id + ' de ' + table + ' no Supabase:', err.message);

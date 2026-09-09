@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Search,
   Plus,
@@ -34,34 +34,45 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
   // View modal state
   const [selectedProposalForView, setSelectedProposalForView] = useState(null);
 
-  const filteredProposals = (proposals || []).filter(p => {
-    if (!p) return false;
-    const term = (search || '').toLowerCase().trim();
-    const proposalNumber = String(p.proposalNumber || p.proposal_number || '').toLowerCase();
-    const clientName = String(p.clientName || p.client_name || p.leadName || p.lead_name || '').toLowerCase();
-    const serviceName = String(p.serviceName || p.service_name || p.title || '').toLowerCase();
-    const legalArea = String(p.legalArea || p.legal_area || '').toLowerCase();
+  const filteredProposals = useMemo(() => {
+    return (proposals || [])
+      .filter(p => {
+        if (!p) return false;
+        const term = (search || '').toLowerCase().trim();
+        const proposalNumber = String(p.proposalNumber || p.proposal_number || '').toLowerCase();
+        const clientName = String(p.clientName || p.client_name || p.leadName || p.lead_name || '').toLowerCase();
+        const serviceName = String(p.serviceName || p.service_name || p.title || '').toLowerCase();
+        const legalArea = String(p.legalArea || p.legal_area || '').toLowerCase();
 
-    const matchesSearch = !term ||
-      proposalNumber.includes(term) ||
-      clientName.includes(term) ||
-      serviceName.includes(term) ||
-      legalArea.includes(term);
+        const matchesSearch = !term ||
+          proposalNumber.includes(term) ||
+          clientName.includes(term) ||
+          serviceName.includes(term) ||
+          legalArea.includes(term);
 
-    const matchesStatus = !selectedStatus || (p.status || 'rascunho') === selectedStatus;
-    const matchesArea = !selectedArea || (p.legalArea || p.legal_area) === selectedArea;
+        const matchesStatus = !selectedStatus || (p.status || 'rascunho') === selectedStatus;
+        const matchesArea = !selectedArea || (p.legalArea || p.legal_area) === selectedArea;
 
-    return matchesSearch && matchesStatus && matchesArea;
-  }).sort((a, b) => {
-    // 1. Mais recente primeiro por data de criação / envio
-    const dateA = new Date(a.createdAt || a.sentDate || a.created_at || a.createdDate || 0).getTime();
-    const dateB = new Date(b.createdAt || b.sentDate || b.created_at || b.createdDate || 0).getTime();
-    if (dateB !== dateA) return dateB - dateA;
-    // 2. Desempate estável e determinístico por número de proposta / ID (nunca troca de ordem)
-    return String(b.proposalNumber || b.proposal_number || b.id || '').localeCompare(
-      String(a.proposalNumber || a.proposal_number || a.id || '')
-    );
-  });
+        return matchesSearch && matchesStatus && matchesArea;
+      })
+      .sort((a, b) => {
+        // Ordenação fixa e determinística (evita qualquer instabilidade visual ou troca de ordem)
+        const getTime = (item) => {
+          const raw = item.createdAt || item.created_at || item.sentDate || item.sent_date;
+          if (!raw) return 0;
+          const t = new Date(raw).getTime();
+          return Number.isFinite(t) ? t : 0;
+        };
+        const timeA = getTime(a);
+        const timeB = getTime(b);
+        if (timeB !== timeA) return timeB - timeA;
+
+        // Desempate consistente por número de proposta / ID
+        const keyA = String(a.proposalNumber || a.proposal_number || a.id || '');
+        const keyB = String(b.proposalNumber || b.proposal_number || b.id || '');
+        return keyB.localeCompare(keyA);
+      });
+  }, [proposals, search, selectedStatus, selectedArea]);
 
   const getStatusBadgeVariant = (status) => {
     const s = String(status || '').toLowerCase();
@@ -117,7 +128,7 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
       const propNumber = proposalToDelete.proposalNumber || proposalToDelete.proposal_number || 'Proposta';
       setDeleteModalOpen(false);
       setProposalToDelete(null);
-      deleteProposal(propId);
+      deleteProposal(propId, propNumber);
       logActivity('Exclusão de Proposta', propNumber, 'Proposta comercial excluída.');
       showToast(`Proposta "${propNumber}" excluída com sucesso!`);
     }
