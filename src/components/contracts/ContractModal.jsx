@@ -3,7 +3,7 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { CONTRACT_STATUSES } from '../../data/legalAreas';
-import { readFileAsDataUrl, formatFileSize, getFileTypeInfo, downloadAttachment, openAttachment } from '../../utils/fileHelper';
+import { readFileAsDataUrl, formatFileSize, getFileTypeInfo, downloadAttachment, openAttachment, sanitizeAttachmentForStorage } from '../../utils/fileHelper';
 import { UploadCloud, FileText, X, Download, Eye, Paperclip, Sparkles, ShieldCheck, RefreshCw } from 'lucide-react';
 import { generateContractWithAdvJuris } from '../../services/aiService';
 
@@ -116,14 +116,17 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
 
       try {
         const dataUrl = await readFileAsDataUrl(file);
-        newAttachments.push({
+        const rawAtt = {
           id: `att_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           name: file.name,
           size: file.size,
           type: file.type || (fileExt === '.pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
           dataUrl,
           uploadedAt: new Date().toISOString(),
-        });
+          category: file.name.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos',
+        };
+        const safeAtt = await sanitizeAttachmentForStorage(rawAtt);
+        newAttachments.push(safeAtt);
       } catch (err) {
         console.error('Erro ao ler arquivo:', err);
       }

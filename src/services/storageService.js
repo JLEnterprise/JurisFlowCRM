@@ -443,12 +443,37 @@ function normalizeRow(table, row, activeEscritorio) {
   return base;
 }
 
+function sanitizePayload(data) {
+  if (!data || typeof data !== 'object') return data;
+  if (Array.isArray(data)) return data.map(sanitizePayload);
+
+  const clean = { ...data };
+  if (Array.isArray(clean.attachments)) {
+    clean.attachments = clean.attachments.map(att => {
+      if (!att) return att;
+      const dataUrl = att.dataUrl || '';
+      // Se tiver mais de 250KB de Base64, preserva todos os metadados e remove a string pesada da nuvem
+      if (dataUrl.length > 250000) {
+        const { dataUrl: _, ...rest } = att;
+        return {
+          ...rest,
+          isLarge: true,
+          category: att.category || (att.name?.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos'),
+        };
+      }
+      return att;
+    });
+  }
+  return clean;
+}
+
 function mapItemToSqlRow(table, item, activeEscritorio) {
   if (!item) return null;
+  const sanitizedItem = sanitizePayload(item);
   const base = {
     id: String(item.id || `id_${Date.now()}`),
     escritorio_id: item.escritorio_id || activeEscritorio || DEFAULT_ESCRITORIO_ID,
-    raw_data: item,
+    raw_data: sanitizedItem,
   };
 
   if (table === 'clients') {
@@ -793,11 +818,27 @@ export const storageService = {
 
   saveData(key, data) {
     try {
-      localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data));
-      // NÃO chama syncToSupabase aqui — o sync com Supabase é feito diretamente
-      // pelas actions CRUD (saveToSupabase)
+      const sanitized = sanitizePayload(data);
+      localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(sanitized));
     } catch (e) {
-      console.error('Erro ao salvar chave ' + key + ' no localStorage:', e);
+      console.warn(`[storageService] Quota no localStorage para ${key}, aplicando compressão segura:`, e.message);
+      try {
+        if (Array.isArray(data)) {
+          const stripped = data.map(item => {
+            if (!item || typeof item !== 'object') return item;
+            if (Array.isArray(item.attachments)) {
+              return {
+                ...item,
+                attachments: item.attachments.map(({ dataUrl, ...att }) => att),
+              };
+            }
+            return item;
+          });
+          localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(stripped));
+        }
+      } catch (err2) {
+        console.error('Fallback de quota localStorage falhou:', err2);
+      }
     }
   },
 

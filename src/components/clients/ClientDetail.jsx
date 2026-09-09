@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   ArrowLeft,
   User,
@@ -22,6 +22,7 @@ import {
   ExternalLink,
   Trash2,
   Printer,
+  UploadCloud,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
@@ -38,6 +39,7 @@ import { Badge } from '../common/Badge';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { Avatar } from '../common/Avatar';
 import { pdfService } from '../../services/pdfService';
+import { readFileAsDataUrl, sanitizeAttachmentForStorage, downloadAttachment, openAttachment, formatFileSize } from '../../utils/fileHelper';
 
 export function ClientDetail({
   clientId,
@@ -57,6 +59,7 @@ export function ClientDetail({
     contracts,
     processes,
     documents,
+    addDocument,
     deleteDocument,
     attendances,
     installments,
@@ -69,12 +72,58 @@ export function ClientDetail({
   } = useCRM();
   const { users } = useAuth();
 
+  const docFileInputRef = useRef(null);
+
   // Delete Modals
   const [deleteClientModalOpen, setDeleteClientModalOpen] = useState(false);
   const [deleteDocModalOpen, setDeleteDocModalOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
 
   const client = propClient || clients.find(c => c.id === clientId);
+
+  const handleClientDocUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !client) return;
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const dataUrl = await readFileAsDataUrl(file);
+        const lower = file.name.toLowerCase();
+        const category = lower.includes('procur')
+          ? 'Procuração'
+          : (lower.includes('contrat') ? 'Contratos' : 'Documentos pessoais');
+
+        const rawAtt = {
+          id: `doc_${Date.now()}_${i}`,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          dataUrl,
+          uploadedAt: new Date().toISOString(),
+          category,
+        };
+        const safeAtt = await sanitizeAttachmentForStorage(rawAtt);
+        addDocument({
+          id: safeAtt.id,
+          title: file.name,
+          category: safeAtt.category,
+          clientId: client.id,
+          clientName: client.name,
+          fileName: file.name,
+          fileSize: typeof safeAtt.size === 'number' ? formatFileSize(safeAtt.size) : (safeAtt.size || '1.0 MB'),
+          uploadedBy: 'Dra. Tatiane Camargo',
+          uploadedAt: safeAtt.uploadedAt,
+          dataUrl: safeAtt.dataUrl,
+        });
+      }
+      showToast(`${files.length} documento(s) anexado(s) com sucesso!`);
+    } catch (err) {
+      showToast('Erro ao carregar documento: ' + err.message, 'danger');
+    } finally {
+      if (docFileInputRef.current) docFileInputRef.current.value = '';
+    }
+  };
 
   if (!client) {
     return (
@@ -537,31 +586,67 @@ export function ClientDetail({
         {/* 7. Documentos */}
         {activeTab === 'documents' && (
           <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Acervo de Documentos do Cliente</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Acervo de Documentos do Cliente</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Contratos, procurações, documentos pessoais e minutas digitalizadas.</p>
+              </div>
+
+              <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition-colors">
+                <UploadCloud className="h-3.5 w-3.5" /> Anexar Documento / Procuração
+                <input
+                  type="file"
+                  ref={docFileInputRef}
+                  onChange={handleClientDocUpload}
+                  multiple
+                  className="hidden"
+                />
+              </label>
+            </div>
+
             {clientDocuments.length === 0 ? (
-              <p className="text-xs text-slate-400">Nenhum documento anexado ainda.</p>
+              <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                <FolderLock className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Nenhum documento anexado a este cliente ainda.</p>
+                <p className="text-[11px] text-slate-400 mt-1">Clique no botão acima para carregar o contrato escaneado, procuração ou PDFs.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {clientDocuments.map(doc => (
                   <div key={doc.id} className="p-4 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 text-xs flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-slate-900 dark:text-white">{doc.title}</div>
-                      <div className="text-[10px] text-slate-400">{doc.category} • {doc.fileName}</div>
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400 font-bold">
+                        <FileText className="h-4 w-4" />
+                      </div>
+                      <div className="truncate">
+                        <div className="font-bold text-slate-900 dark:text-white truncate" title={doc.title}>{doc.title}</div>
+                        <div className="text-[10px] text-slate-400">{doc.category} • {doc.fileSize || doc.fileName || 'Documento'}</div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
-                        onClick={() => showToast(`Download iniciado: ${doc.fileName}`, 'info')}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        type="button"
+                        onClick={() => openAttachment(doc)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        title="Visualizar documento"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadAttachment(doc)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         title="Baixar arquivo"
                       >
                         <Download className="h-4 w-4" />
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           setDocToDelete(doc);
                           setDeleteDocModalOpen(true);
                         }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
                         title="Excluir documento"
                       >
                         <Trash2 className="h-4 w-4" />

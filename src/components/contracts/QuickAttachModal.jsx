@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { useCRM } from '../../context/CRMContext';
-import { readFileAsDataUrl, formatFileSize, getFileTypeInfo } from '../../utils/fileHelper';
+import { readFileAsDataUrl, formatFileSize, getFileTypeInfo, sanitizeAttachmentForStorage } from '../../utils/fileHelper';
 
 export function QuickAttachModal({ isOpen, onClose, onContractCreated }) {
   const { contracts = [], updateContract, addContract, clients = [], showToast, logActivity } = useCRM();
@@ -57,14 +57,17 @@ export function QuickAttachModal({ isOpen, onClose, onContractCreated }) {
 
       try {
         const dataUrl = await readFileAsDataUrl(file);
-        newFiles.push({
+        const rawAtt = {
           id: `att_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           name: file.name,
           size: file.size,
           type: file.type || (fileExt === '.pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
           dataUrl,
           uploadedAt: new Date().toISOString(),
-        });
+          category: file.name.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos',
+        };
+        const safeAtt = await sanitizeAttachmentForStorage(rawAtt);
+        newFiles.push(safeAtt);
 
         // Se estiver criando novo contrato e o título estiver vazio, usa o nome do arquivo
         if (!contractTitle && newFiles.length === 1) {

@@ -682,6 +682,29 @@ export function CRMProvider({ children }) {
     });
     storageService.saveToSupabase('contracts', [newContract]);
 
+    // Replicar anexos do contrato na coleção documents (GED Jurídico e Acervo do Cliente)
+    const newAtts = Array.isArray(newContract.attachments) ? newContract.attachments : [];
+    if (newAtts.length > 0) {
+      const generatedDocs = newAtts.map(att => ({
+        id: `doc_${newContract.id}_${att.id || Math.random().toString(36).substr(2, 6)}`,
+        title: att.name || 'Documento Anexado',
+        clientId: finalClientId,
+        clientName: finalClientName,
+        category: att.category || (att.name?.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos'),
+        fileName: att.name || 'documento.pdf',
+        fileSize: typeof att.size === 'number' ? formatFileSize(att.size) : (att.size || '1.0 MB'),
+        uploadedBy: 'Dra. Tatiane Camargo',
+        uploadedAt: att.uploadedAt || new Date().toISOString(),
+        escritorio_id: currentEscritorioId,
+      }));
+      setDocuments(prev => {
+        const next = [...generatedDocs, ...prev];
+        storageService.saveData('documents', next);
+        return next;
+      });
+      storageService.saveToSupabase('documents', generatedDocs);
+    }
+
     // Gerar parcelas automaticamente se o contrato tiver valor e número de parcelas
     const contractValue = Number(newContract.value) || 0;
     const numInstallments = Number(newContract.installmentsCount || newContract.installments_count) || 1;
@@ -716,6 +739,23 @@ export function CRMProvider({ children }) {
       }
     }
 
+    // Atualizar totalContracted do cliente
+    if (finalClientId) {
+      setClients(prev => {
+        const next = prev.map(cl => {
+          if (String(cl.id) === String(finalClientId)) {
+            const newTotal = (Number(cl.totalContracted || cl.total_contracted) || 0) + contractValue;
+            const updated = { ...cl, totalContracted: newTotal, total_contracted: newTotal };
+            storageService.saveToSupabase('clients', [updated]);
+            return updated;
+          }
+          return cl;
+        });
+        storageService.saveData('clients', next);
+        return next;
+      });
+    }
+
     logActivity('Novo Contrato', newContract.title, `Cliente: ${newContract.clientName} | Valor: R$ ${contractValue.toLocaleString('pt-BR')}`);
     showToast('Contrato gerado com sucesso!');
     return newContract;
@@ -735,47 +775,173 @@ export function CRMProvider({ children }) {
       storageService.saveData('contracts', next);
       return next;
     });
+
     if (updatedContract) {
+      // Salva contrato no Supabase (com anexos devidamente sanitizados contra payload gigante)
       storageService.saveToSupabase('contracts', [updatedContract]);
 
-      // Se o contrato tem valor e ainda não tem parcelas no financeiro, gera automaticamente
+      // 1. Replicar anexos do contrato na coleção documents (GED Jurídico e Acervo do Cliente)
+      const currentAtts = Array.isArray(updatedContract.attachments) ? updatedContract.attachments : [];
+      if (currentAtts.length > 0) {
+        const generatedDocs = [];
+        currentAtts.forEach(att => {
+          const docId = `doc_${strId}_${att.id || att.name}`;
+          const alreadyExists = documents.some(d => String(d.id) === docId || (d.title === att.name && String(d.clientId) === String(updatedContract.clientId)));
+          if (!alreadyExists) {
+            generatedDocs.push({
+              id: docId,
+              title: att.name || 'Documento Anexado',
+              clientId: updatedContract.clientId || updatedContract.client_id || null,
+              clientName: updatedContract.clientName || updatedContract.client_name || 'Cliente',
+              category: att.category || (att.name?.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos'),
+              fileName: att.name || 'documento.pdf',
+              fileSize: typeof att.size === 'number' ? formatFileSize(att.size) : (att.size || '1.0 MB'),
+              uploadedBy: 'Dra. Tatiane Camargo',
+              uploadedAt: att.uploadedAt || new Date().toISOString(),
+              escritorio_id: currentEscritorioId,
+            });
+          }
+        });
+        if (generatedDocs.length > 0) {
+          setDocuments(prev => {
+            const next = [...generatedDocs, ...prev];
+            storageService.saveData('documents', next);
+            return next;
+          });
+          storageService.saveToSupabase('documents', generatedDocs);
+        }
+      }
+
+      // 2. Recálculo e sincronização automática das parcelas financeiras
       const contractValue = Number(updatedContract.value) || 0;
       const numInstallments = Number(updatedContract.installmentsCount || updatedContract.installments_count) || 1;
       const existingInsts = installments.filter(i => String(i.contractId || i.contract_id) === strId);
+      const now = Date.now();
 
-      if (contractValue > 0 && existingInsts.length === 0) {
-        const installmentValue = contractValue / numInstallments;
-        const generatedInstallments = [];
-        const now = Date.now();
-        for (let i = 0; i < numInstallments; i++) {
-          const dueDate = new Date(updatedContract.createdDate || updatedContract.created_date || now);
-          dueDate.setMonth(dueDate.getMonth() + i);
-          generatedInstallments.push({
-            id: `inst_${now}_${i + 1}`,
-            escritorio_id: currentEscritorioId,
-            contractId: strId,
-            clientId: updatedContract.clientId || updatedContract.client_id || null,
-            clientName: updatedContract.clientName || updatedContract.client_name || 'Cliente',
-            installmentNumber: i + 1,
-            totalInstallments: numInstallments,
-            value: installmentValue,
-            amount: installmentValue,
-            dueDate: dueDate.toISOString().split('T')[0],
-            status: 'pending',
-            paymentMethod: updatedContract.paymentMethod || updatedContract.payment_method || 'PIX',
-          });
-        }
-        if (generatedInstallments.length > 0) {
-          setInstallments(prev => {
-            const next = [...generatedInstallments, ...prev];
-            storageService.saveData('installments', next);
-            return next;
-          });
-          storageService.saveToSupabase('installments', generatedInstallments);
+      if (contractValue > 0) {
+        if (existingInsts.length === 0) {
+          // Cenário A: Ainda não tinha parcelas
+          const installmentValue = contractValue / numInstallments;
+          const generatedInstallments = [];
+          for (let i = 0; i < numInstallments; i++) {
+            const dueDate = new Date(updatedContract.createdDate || updatedContract.created_date || now);
+            dueDate.setMonth(dueDate.getMonth() + i);
+            generatedInstallments.push({
+              id: `inst_${now}_${i + 1}`,
+              escritorio_id: currentEscritorioId,
+              contractId: strId,
+              clientId: updatedContract.clientId || updatedContract.client_id || null,
+              clientName: updatedContract.clientName || updatedContract.client_name || 'Cliente',
+              installmentNumber: i + 1,
+              totalInstallments: numInstallments,
+              value: installmentValue,
+              amount: installmentValue,
+              dueDate: dueDate.toISOString().split('T')[0],
+              status: 'pending',
+              paymentMethod: updatedContract.paymentMethod || updatedContract.payment_method || 'PIX',
+            });
+          }
+          if (generatedInstallments.length > 0) {
+            setInstallments(prev => {
+              const next = [...generatedInstallments, ...prev];
+              storageService.saveData('installments', next);
+              return next;
+            });
+            storageService.saveToSupabase('installments', generatedInstallments);
+          }
+        } else {
+          // Cenário B: JÁ existiam parcelas (ex: parcela inicial de teste ou proposta aceita)
+          const paidInsts = existingInsts.filter(i => i.status === 'paid');
+          const pendingInsts = existingInsts.filter(i => i.status !== 'paid');
+          let changedInsts = [];
+
+          if (paidInsts.length === 0) {
+            // Nenhuma parcela paga ainda: rateia o valor total entre todas as parcelas pendentes existentes
+            const count = pendingInsts.length > 0 ? pendingInsts.length : numInstallments;
+            const eachVal = contractValue / count;
+            changedInsts = existingInsts.map((inst, idx) => ({
+              ...inst,
+              value: eachVal,
+              amount: eachVal,
+              totalInstallments: count,
+              installmentNumber: idx + 1,
+              clientName: updatedContract.clientName || inst.clientName,
+              clientId: updatedContract.clientId || inst.clientId,
+            }));
+          } else {
+            // Havia parcela paga: recalcular o saldo restante
+            const paidSum = paidInsts.reduce((acc, i) => acc + (Number(i.value || i.amount) || 0), 0);
+            const remaining = Math.max(0, contractValue - paidSum);
+
+            if (pendingInsts.length > 0 && remaining > 0) {
+              const eachPending = remaining / pendingInsts.length;
+              changedInsts = pendingInsts.map(inst => ({
+                ...inst,
+                value: eachPending,
+                amount: eachPending,
+                clientName: updatedContract.clientName || inst.clientName,
+                clientId: updatedContract.clientId || inst.clientId,
+              }));
+            } else if (remaining > 0 && pendingInsts.length === 0) {
+              // Se só existia a parcela inicial (que estava como paga) e o novo contrato é maior, gera nova parcela com o saldo
+              const newBalInst = {
+                id: `inst_${now}_bal`,
+                escritorio_id: currentEscritorioId,
+                contractId: strId,
+                clientId: updatedContract.clientId || updatedContract.client_id || null,
+                clientName: updatedContract.clientName || updatedContract.client_name || 'Cliente',
+                installmentNumber: paidInsts.length + 1,
+                totalInstallments: paidInsts.length + 1,
+                value: remaining,
+                amount: remaining,
+                dueDate: new Date(now + 30 * 86400000).toISOString().split('T')[0],
+                status: 'pending',
+                paymentMethod: updatedContract.paymentMethod || updatedContract.payment_method || 'PIX',
+              };
+              changedInsts = [newBalInst];
+            }
+          }
+
+          if (changedInsts.length > 0) {
+            setInstallments(prev => {
+              const mapChanged = new Map(changedInsts.map(i => [String(i.id), i]));
+              let next = prev.map(inst => mapChanged.has(String(inst.id)) ? mapChanged.get(String(inst.id)) : inst);
+              changedInsts.forEach(ci => {
+                if (!next.some(ex => String(ex.id) === String(ci.id))) {
+                  next = [ci, ...next];
+                }
+              });
+              storageService.saveData('installments', next);
+              return next;
+            });
+            storageService.saveToSupabase('installments', changedInsts);
+          }
         }
       }
+
+      // 3. Atualizar métricas financeiras do cliente
+      const cId = updatedContract.clientId || updatedContract.client_id;
+      if (cId) {
+        setClients(prevClients => {
+          const nextClients = prevClients.map(cl => {
+            if (String(cl.id) === String(cId)) {
+              // Soma de todos os contratos vigentes deste cliente
+              const clientContractsList = contracts
+                .map(c => String(c.id) === strId ? updatedContract : c)
+                .filter(c => String(c.clientId || c.client_id) === String(cId));
+              const totalContractedSum = clientContractsList.reduce((acc, c) => acc + (Number(c.value) || 0), 0);
+              const upd = { ...cl, totalContracted: totalContractedSum, total_contracted: totalContractedSum };
+              storageService.saveToSupabase('clients', [upd]);
+              return upd;
+            }
+            return cl;
+          });
+          storageService.saveData('clients', nextClients);
+          return nextClients;
+        });
+      }
     }
-    logActivity('Contrato Atualizado', contractData.title || id, `Status: ${contractData.status}`);
+    logActivity('Contrato Atualizado', contractData.title || id, `Status: ${contractData.status} | Valor: R$ ${(Number(contractData.value) || 0).toLocaleString('pt-BR')}`);
     showToast('Contrato atualizado com sucesso!');
   };
 

@@ -11,12 +11,15 @@ import {
   User,
   Filter,
   FolderPlus,
+  ExternalLink,
+  Paperclip,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { formatDate } from '../../utils/formatters';
 import { EmptyState } from '../common/EmptyState';
 import { Modal } from '../common/Modal';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { readFileAsDataUrl, sanitizeAttachmentForStorage, downloadAttachment, openAttachment, formatFileSize } from '../../utils/fileHelper';
 
 export function DocumentManager() {
   const { documents = [], addDocument, deleteDocument, clients = [], showToast, logActivity } = useCRM();
@@ -63,17 +66,62 @@ export function DocumentManager() {
     return matchesSearch && matchesCat;
   });
 
-  const handleUploadSubmit = (e) => {
+  const [rawFile, setRawFile] = useState(null);
+
+  const handleFilePicked = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setRawFile(file);
+    const lower = file.name.toLowerCase();
+    const autoCat = lower.includes('procur') ? 'Procuração' : (lower.includes('contrat') ? 'Contratos' : (formData.category || 'Documentos pessoais'));
+    setFormData(prev => ({
+      ...prev,
+      title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '),
+      fileName: file.name,
+      fileSize: formatFileSize(file.size),
+      category: autoCat,
+    }));
+  };
+
+  const handleUploadSubmit = async (e) => {
     e.preventDefault();
     if (!formData.title || !formData.clientName) {
       showToast('Por favor, informe o título e o cliente do documento.', 'danger');
       return;
     }
 
-    addDocument(formData);
-    logActivity('Upload de Documento', formData.title, `Documento anexado para o cliente ${formData.clientName}.`);
+    let dataUrl = null;
+    let safeAtt = null;
+    if (rawFile) {
+      try {
+        dataUrl = await readFileAsDataUrl(rawFile);
+        safeAtt = await sanitizeAttachmentForStorage({
+          id: `doc_${Date.now()}`,
+          name: rawFile.name,
+          size: rawFile.size,
+          type: rawFile.type,
+          dataUrl,
+          category: formData.category,
+        });
+      } catch (err) {
+        console.warn('Erro ao processar binário:', err);
+      }
+    }
+
+    const newDoc = {
+      ...formData,
+      id: safeAtt?.id || `doc_${Date.now()}`,
+      fileName: rawFile ? rawFile.name : (formData.fileName || 'documento.pdf'),
+      fileSize: rawFile ? formatFileSize(rawFile.size) : (formData.fileSize || '1.0 MB'),
+      uploadedAt: new Date().toISOString(),
+      dataUrl: safeAtt?.dataUrl || undefined,
+    };
+
+    addDocument(newDoc);
+    logActivity('Upload de Documento', newDoc.title, `Documento anexado para o cliente ${formData.clientName}.`);
     showToast('Documento anexado com sucesso!');
     setIsUploadOpen(false);
+    setRawFile(null);
   };
 
   const handleRequestDeleteDoc = (doc) => {
@@ -223,15 +271,23 @@ export function DocumentManager() {
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => {
-                            showToast('Download do documento iniciado!');
-                          }}
+                          type="button"
+                          onClick={() => openAttachment(doc)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          title="Visualizar documento"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadAttachment(doc)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                           title="Baixar arquivo"
                         >
                           <Download className="h-3.5 w-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleRequestDeleteDoc(doc)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
                           title="Excluir documento"
@@ -256,6 +312,18 @@ export function DocumentManager() {
         subtitle="Carregue procurações, contratos ou peças com classificação e criptografia."
       >
         <form onSubmit={handleUploadSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Arquivo Digitalizado (PDF, Word ou Imagem)
+            </label>
+            <input
+              type="file"
+              onChange={handleFilePicked}
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+              className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 dark:file:bg-slate-800 dark:file:text-slate-200"
+            />
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Título do Documento *

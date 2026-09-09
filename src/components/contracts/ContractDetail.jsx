@@ -27,7 +27,7 @@ import { useCRM } from '../../context/CRMContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { getFileTypeInfo, readFileAsDataUrl } from '../../utils/fileHelper';
+import { getFileTypeInfo, readFileAsDataUrl, sanitizeAttachmentForStorage, downloadAttachment, openAttachment } from '../../utils/fileHelper';
 import { analyzeContractWithAdvJuris } from '../../services/aiService';
 
 export function ContractDetail({
@@ -93,14 +93,17 @@ export function ContractDetail({
         const dataUrl = await readFileAsDataUrl(file);
         const typeInfo = getFileTypeInfo(file.name);
 
-        newAttachments.push({
+        const rawAtt = {
           id: `att_${Date.now()}_${i}`,
           name: file.name,
           size: file.size,
           type: typeInfo.type,
           dataUrl: dataUrl,
           uploadedAt: new Date().toISOString(),
-        });
+          category: file.name.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos',
+        };
+        const safeAtt = await sanitizeAttachmentForStorage(rawAtt);
+        newAttachments.push(safeAtt);
       }
 
       updateContract(contract.id, { attachments: newAttachments });
@@ -426,18 +429,27 @@ export function ContractDetail({
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      {att.dataUrl && (
-                        <a
-                          href={att.dataUrl}
-                          download={att.name}
-                          className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-700"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </a>
-                      )}
                       <button
+                        type="button"
+                        onClick={() => openAttachment(att)}
+                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-brand-600 dark:hover:bg-slate-700"
+                        title="Visualizar anexo"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadAttachment(att)}
+                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-700"
+                        title="Baixar anexo"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setAttachmentToDelete(att.id)}
                         className="rounded-lg p-1 text-rose-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30"
+                        title="Remover anexo"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
