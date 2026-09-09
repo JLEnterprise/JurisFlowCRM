@@ -783,6 +783,39 @@ export const storageService = {
     }
   },
 
+  async recoverAndSyncLocalData(table, fallback = [], escritorioId = null) {
+    try {
+      const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
+      const localData = this.loadData(table, []);
+      const cloudData = await this.fetchFromSupabase(table, [], activeEscritorio);
+
+      const cloudIds = new Set((cloudData || []).map(item => String(item.id)));
+      const missingInCloud = (localData || []).filter(item => item?.id && !cloudIds.has(String(item.id)));
+
+      if (missingInCloud.length > 0) {
+        console.info(`[Auto-Recovery] Sincronizando ${missingInCloud.length} registros locais de ${table} com o Supabase...`);
+        await this.syncToSupabase(table, missingInCloud);
+      }
+
+      const mergedMap = new Map();
+      (cloudData || []).forEach(item => mergedMap.set(String(item.id), item));
+      (localData || []).forEach(item => {
+        if (!mergedMap.has(String(item.id))) {
+          mergedMap.set(String(item.id), item);
+        }
+      });
+
+      const merged = Array.from(mergedMap.values());
+      const finalResult = merged.length > 0 ? merged : fallback;
+
+      localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(finalResult));
+      return finalResult;
+    } catch (err) {
+      console.warn(`[Auto-Recovery Falhou em ${table}, fallback ativado]:`, err);
+      return this.loadData(table, fallback);
+    }
+  },
+
   async syncToSupabase(table, data) {
     if (!supabase) return;
     try {

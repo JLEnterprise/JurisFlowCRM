@@ -106,7 +106,7 @@ export function CRMProvider({ children }) {
     }
   }, [currentUser?.escritorio_id, currentEscritorioId, switchEscritorio]);
 
-  // Hidratacao e sincronizacao inicial a partir do Supabase
+  // Hidratacao e sincronizacao inicial a partir do Supabase com Auto-Recuperacao Local
   useEffect(() => {
     async function loadCloudData() {
       try {
@@ -125,44 +125,45 @@ export function CRMProvider({ children }) {
         storageService.setCurrentEscritorioId(targetEscritorioId);
         setCurrentEscritorioIdState(targetEscritorioId);
 
+        // Auto-recupera qualquer dado que a cliente tenha digitado no navegador local e sincroniza com a nuvem
         const [
-          cloudLeads,
-          cloudClients,
-          cloudContracts,
-          cloudProposals,
-          cloudProcesses,
-          cloudTasks,
-          cloudAppointments,
-          cloudAttendances,
-          cloudInstallments,
-          cloudDocs,
-          cloudOfficeSettings
+          syncedLeads,
+          syncedClients,
+          syncedContracts,
+          syncedProposals,
+          syncedProcesses,
+          syncedTasks,
+          syncedAppointments,
+          syncedAttendances,
+          syncedInstallments,
+          syncedDocs,
+          syncedOfficeSettings
         ] = await Promise.all([
-          storageService.fetchFromSupabase('leads', [], targetEscritorioId),
-          storageService.fetchFromSupabase('clients', [], targetEscritorioId),
-          storageService.fetchFromSupabase('contracts', [], targetEscritorioId),
-          storageService.fetchFromSupabase('proposals', [], targetEscritorioId),
-          storageService.fetchFromSupabase('processes', [], targetEscritorioId),
-          storageService.fetchFromSupabase('tasks', [], targetEscritorioId),
-          storageService.fetchFromSupabase('appointments', [], targetEscritorioId),
-          storageService.fetchFromSupabase('attendances', [], targetEscritorioId),
-          storageService.fetchFromSupabase('installments', [], targetEscritorioId),
-          storageService.fetchFromSupabase('documents', [], targetEscritorioId),
-          storageService.fetchFromSupabase('office_settings', [INITIAL_OFFICE_SETTINGS]),
+          storageService.recoverAndSyncLocalData('leads', INITIAL_LEADS, targetEscritorioId),
+          storageService.recoverAndSyncLocalData('clients', INITIAL_CLIENTS, targetEscritorioId),
+          storageService.recoverAndSyncLocalData('contracts', INITIAL_CONTRACTS, targetEscritorioId),
+          storageService.recoverAndSyncLocalData('proposals', INITIAL_PROPOSALS, targetEscritorioId),
+          storageService.recoverAndSyncLocalData('processes', INITIAL_PROCESSES, targetEscritorioId),
+          storageService.recoverAndSyncLocalData('tasks', INITIAL_TASKS, targetEscritorioId),
+          storageService.recoverAndSyncLocalData('appointments', INITIAL_APPOINTMENTS, targetEscritorioId),
+          storageService.recoverAndSyncLocalData('attendances', INITIAL_ATTENDANCES, targetEscritorioId),
+          storageService.recoverAndSyncLocalData('installments', INITIAL_INSTALLMENTS, targetEscritorioId),
+          storageService.recoverAndSyncLocalData('documents', INITIAL_DOCUMENTS, targetEscritorioId),
+          storageService.recoverAndSyncLocalData('office_settings', [INITIAL_OFFICE_SETTINGS], targetEscritorioId),
         ]);
 
-        if (cloudLeads !== undefined) setLeads(cloudLeads);
-        if (cloudClients !== undefined) setClients(cloudClients);
-        if (cloudContracts !== undefined) setContracts(cloudContracts);
-        if (cloudProposals !== undefined) setProposals(cloudProposals);
-        if (cloudProcesses !== undefined) setProcesses(cloudProcesses);
-        if (cloudTasks !== undefined) setTasks(cloudTasks);
-        if (cloudAppointments !== undefined) setAppointments(cloudAppointments);
-        if (cloudAttendances !== undefined) setAttendances(cloudAttendances);
-        if (cloudInstallments !== undefined) setInstallments(cloudInstallments);
-        if (cloudDocs !== undefined) setDocuments(cloudDocs);
-        if (cloudOfficeSettings && cloudOfficeSettings.length > 0) {
-          setOfficeSettings(cloudOfficeSettings[0]);
+        if (syncedLeads !== undefined) setLeads(syncedLeads);
+        if (syncedClients !== undefined) setClients(syncedClients);
+        if (syncedContracts !== undefined) setContracts(syncedContracts);
+        if (syncedProposals !== undefined) setProposals(syncedProposals);
+        if (syncedProcesses !== undefined) setProcesses(syncedProcesses);
+        if (syncedTasks !== undefined) setTasks(syncedTasks);
+        if (syncedAppointments !== undefined) setAppointments(syncedAppointments);
+        if (syncedAttendances !== undefined) setAttendances(syncedAttendances);
+        if (syncedInstallments !== undefined) setInstallments(syncedInstallments);
+        if (syncedDocs !== undefined) setDocuments(syncedDocs);
+        if (syncedOfficeSettings && syncedOfficeSettings.length > 0) {
+          setOfficeSettings(syncedOfficeSettings[0]);
         }
 
         setSupabaseConnected(true);
@@ -202,7 +203,7 @@ export function CRMProvider({ children }) {
       crmChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table },
-        async () => {
+        async (payload) => {
           if (!mounted) return;
           try {
             const activeEscritorio = storageService.getCurrentEscritorioId();
@@ -372,32 +373,46 @@ export function CRMProvider({ children }) {
       storageService.saveData('leads', next);
       return next;
     });
+    storageService.saveToSupabase('leads', [newLead]);
     logActivity('Novo Lead', newLead.name, `Origem: ${newLead.source || 'Indicacao'}`);
     showToast('Lead adicionado com sucesso!');
     return newLead;
   };
 
   const updateLead = (id, leadData) => {
+    let updatedLead = null;
     setLeads(prev => {
-      const next = prev.map(l => l.id === id ? { ...l, ...leadData } : l);
+      const next = prev.map(l => {
+        if (l.id === id) {
+          updatedLead = { ...l, ...leadData, escritorio_id: currentEscritorioId };
+          return updatedLead;
+        }
+        return l;
+      });
       storageService.saveData('leads', next);
       return next;
     });
+    if (updatedLead) {
+      storageService.saveToSupabase('leads', [updatedLead]);
+    }
     logActivity('Lead Atualizado', leadData.name || id, 'Informacoes atualizadas');
     showToast('Lead atualizado com sucesso!');
   };
 
   const moveLeadStage = (leadId, newStage, newSubStage = null) => {
+    let updatedLead = null;
     setLeads(prev => {
       const lead = prev.find(l => l.id === leadId);
       const next = prev.map(l => {
         if (l.id === leadId) {
-          return {
+          updatedLead = {
             ...l,
             stage: newStage,
             subStage: newSubStage || l.subStage,
-            lastContactDate: new Date().toISOString().split('T')[0]
+            lastContactDate: new Date().toISOString().split('T')[0],
+            escritorio_id: currentEscritorioId
           };
+          return updatedLead;
         }
         return l;
       });
@@ -407,6 +422,9 @@ export function CRMProvider({ children }) {
       }
       return next;
     });
+    if (updatedLead) {
+      storageService.saveToSupabase('leads', [updatedLead]);
+    }
   };
 
   const deleteLead = (id) => {
@@ -435,17 +453,28 @@ export function CRMProvider({ children }) {
       storageService.saveData('clients', next);
       return next;
     });
+    storageService.saveToSupabase('clients', [newClient]);
     logActivity('Novo Cliente', newClient.name, `CPF/CNPJ: ${newClient.cpf || newClient.cnpj || 'N/A'}`);
     showToast('Cliente cadastrado com sucesso!');
     return newClient;
   };
 
   const updateClient = (id, clientData) => {
+    let updatedClient = null;
     setClients(prev => {
-      const next = prev.map(c => c.id === id ? { ...c, ...clientData } : c);
+      const next = prev.map(c => {
+        if (c.id === id) {
+          updatedClient = { ...c, ...clientData, escritorio_id: currentEscritorioId };
+          return updatedClient;
+        }
+        return c;
+      });
       storageService.saveData('clients', next);
       return next;
     });
+    if (updatedClient) {
+      storageService.saveToSupabase('clients', [updatedClient]);
+    }
     logActivity('Cliente Atualizado', clientData.name || id, 'Dados atualizados');
     showToast('Cliente atualizado com sucesso!');
   };
@@ -474,17 +503,28 @@ export function CRMProvider({ children }) {
       storageService.saveData('contracts', next);
       return next;
     });
+    storageService.saveToSupabase('contracts', [newContract]);
     logActivity('Novo Contrato', newContract.title, `Cliente: ${newContract.clientName}`);
     showToast('Contrato gerado com sucesso!');
     return newContract;
   };
 
   const updateContract = (id, contractData) => {
+    let updatedContract = null;
     setContracts(prev => {
-      const next = prev.map(c => c.id === id ? { ...c, ...contractData } : c);
+      const next = prev.map(c => {
+        if (c.id === id) {
+          updatedContract = { ...c, ...contractData, escritorio_id: currentEscritorioId };
+          return updatedContract;
+        }
+        return c;
+      });
       storageService.saveData('contracts', next);
       return next;
     });
+    if (updatedContract) {
+      storageService.saveToSupabase('contracts', [updatedContract]);
+    }
     logActivity('Contrato Atualizado', contractData.title || id, `Status: ${contractData.status}`);
     showToast('Contrato atualizado com sucesso!');
   };
@@ -528,6 +568,7 @@ export function CRMProvider({ children }) {
           storageService.saveData('clients', next);
           return next;
         });
+        storageService.saveToSupabase('clients', [client]);
       }
     }
 
@@ -547,14 +588,17 @@ export function CRMProvider({ children }) {
       storageService.saveData('contracts', next);
       return next;
     });
+    storageService.saveToSupabase('contracts', [contract]);
 
     // 3. Gerar parcelas no financeiro
     if (installmentsList.length > 0) {
+      const mappedInsts = installmentsList.map(inst => ({ ...inst, escritorio_id: currentEscritorioId }));
       setInstallments(prev => {
-        const next = [...installmentsList.map(inst => ({ ...inst, escritorio_id: currentEscritorioId })), ...prev];
+        const next = [...mappedInsts, ...prev];
         storageService.saveData('installments', next);
         return next;
       });
+      storageService.saveToSupabase('installments', mappedInsts);
     }
 
     // 4. Mover lead para contrato_assinado
@@ -580,17 +624,28 @@ export function CRMProvider({ children }) {
       storageService.saveData('proposals', next);
       return next;
     });
+    storageService.saveToSupabase('proposals', [newProp]);
     logActivity('Nova Proposta', newProp.title, `Para: ${newProp.clientName || newProp.leadName}`);
     showToast('Proposta criada e enviada!');
     return newProp;
   };
 
   const updateProposal = (id, propData) => {
+    let updatedProp = null;
     setProposals(prev => {
-      const next = prev.map(p => p.id === id ? { ...p, ...propData } : p);
+      const next = prev.map(p => {
+        if (p.id === id) {
+          updatedProp = { ...p, ...propData, escritorio_id: currentEscritorioId };
+          return updatedProp;
+        }
+        return p;
+      });
       storageService.saveData('proposals', next);
       return next;
     });
+    if (updatedProp) {
+      storageService.saveToSupabase('proposals', [updatedProp]);
+    }
     logActivity('Proposta Atualizada', propData.title || id, `Status: ${propData.status}`);
     showToast('Proposta atualizada!');
   };
@@ -620,17 +675,28 @@ export function CRMProvider({ children }) {
       storageService.saveData('processes', next);
       return next;
     });
+    storageService.saveToSupabase('processes', [newProc]);
     logActivity('Novo Processo', newProc.processNumber, `Cliente: ${newProc.clientName}`);
     showToast('Processo cadastrado com sucesso!');
     return newProc;
   };
 
   const updateProcess = (id, procData) => {
+    let updatedProc = null;
     setProcesses(prev => {
-      const next = prev.map(p => p.id === id ? { ...p, ...procData, lastUpdateDate: new Date().toISOString().split('T')[0] } : p);
+      const next = prev.map(p => {
+        if (p.id === id) {
+          updatedProc = { ...p, ...procData, lastUpdateDate: new Date().toISOString().split('T')[0], escritorio_id: currentEscritorioId };
+          return updatedProc;
+        }
+        return p;
+      });
       storageService.saveData('processes', next);
       return next;
     });
+    if (updatedProc) {
+      storageService.saveToSupabase('processes', [updatedProc]);
+    }
     logActivity('Processo Atualizado', procData.processNumber || id, `Status: ${procData.status}`);
     showToast('Processo atualizado!');
   };
@@ -659,34 +725,50 @@ export function CRMProvider({ children }) {
       storageService.saveData('tasks', next);
       return next;
     });
+    storageService.saveToSupabase('tasks', [newTask]);
     logActivity('Nova Tarefa', newTask.title, `Prazo: ${newTask.dueDate || 'Nao informado'}`);
     showToast('Tarefa criada com sucesso!');
     return newTask;
   };
 
   const updateTask = (id, taskData) => {
-    setTasks(prev => {
-      const next = prev.map(t => (t.id === id ? { ...t, ...taskData } : t));
-      storageService.saveData('tasks', next);
-      return next;
-    });
-    logActivity('Tarefa Atualizada', taskData.title || id, `Prioridade: ${taskData.priority || 'media'}`);
-    showToast('Tarefa atualizada com sucesso!');
-  };
-
-  const toggleTask = (id) => {
+    let updatedTask = null;
     setTasks(prev => {
       const next = prev.map(t => {
         if (t.id === id) {
-          const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
-          if (nextStatus === 'completed') showToast('Tarefa concluida!');
-          return { ...t, status: nextStatus };
+          updatedTask = { ...t, ...taskData, escritorio_id: currentEscritorioId };
+          return updatedTask;
         }
         return t;
       });
       storageService.saveData('tasks', next);
       return next;
     });
+    if (updatedTask) {
+      storageService.saveToSupabase('tasks', [updatedTask]);
+    }
+    logActivity('Tarefa Atualizada', taskData.title || id, `Prioridade: ${taskData.priority || 'media'}`);
+    showToast('Tarefa atualizada com sucesso!');
+  };
+
+  const toggleTask = (id) => {
+    let toggledTask = null;
+    setTasks(prev => {
+      const next = prev.map(t => {
+        if (t.id === id) {
+          const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
+          if (nextStatus === 'completed') showToast('Tarefa concluida!');
+          toggledTask = { ...t, status: nextStatus, escritorio_id: currentEscritorioId };
+          return toggledTask;
+        }
+        return t;
+      });
+      storageService.saveData('tasks', next);
+      return next;
+    });
+    if (toggledTask) {
+      storageService.saveToSupabase('tasks', [toggledTask]);
+    }
   };
 
   const deleteTask = (id) => {
@@ -762,12 +844,21 @@ export function CRMProvider({ children }) {
   };
 
   const updateAppointment = (id, updatedFields) => {
+    let updatedApt = null;
     setAppointments(prev => {
-      const next = prev.map(a => (a.id === id ? { ...a, ...updatedFields } : a));
+      const next = prev.map(a => {
+        if (a.id === id) {
+          updatedApt = { ...a, ...updatedFields, escritorio_id: currentEscritorioId };
+          return updatedApt;
+        }
+        return a;
+      });
       storageService.saveData('appointments', next);
       return next;
     });
-    storageService.saveToSupabase('appointments', [{ id, ...updatedFields, escritorio_id: currentEscritorioId }]);
+    if (updatedApt) {
+      storageService.saveToSupabase('appointments', [updatedApt]);
+    }
     logActivity('Compromisso Atualizado', updatedFields.title || 'Agenda', `Atualizado em ${new Date().toLocaleDateString('pt-BR')}`);
     showToast('Compromisso atualizado com sucesso!');
     return true;
@@ -796,6 +887,7 @@ export function CRMProvider({ children }) {
       storageService.saveData('attendances', next);
       return next;
     });
+    storageService.saveToSupabase('attendances', [newAtt]);
     logActivity('Atendimento Registrado', newAtt.clientName, `Canal: ${newAtt.channel}`);
     showToast('Atendimento registrado!');
     return newAtt;
@@ -803,20 +895,26 @@ export function CRMProvider({ children }) {
 
   // --- FINANCIAL ACTIONS ---
   const markInstallmentPaid = (installmentId) => {
+    let paidInst = null;
     setInstallments(prev => {
       const next = prev.map(inst => {
         if (inst.id === installmentId) {
-          return {
+          paidInst = {
             ...inst,
             status: 'paid',
-            paymentDate: new Date().toISOString().split('T')[0]
+            paymentDate: new Date().toISOString().split('T')[0],
+            escritorio_id: currentEscritorioId
           };
+          return paidInst;
         }
         return inst;
       });
       storageService.saveData('installments', next);
       return next;
     });
+    if (paidInst) {
+      storageService.saveToSupabase('installments', [paidInst]);
+    }
     showToast('Parcela marcada como paga! 💰');
   };
 
@@ -833,6 +931,7 @@ export function CRMProvider({ children }) {
       storageService.saveData('documents', next);
       return next;
     });
+    storageService.saveToSupabase('documents', [newDoc]);
     logActivity('Upload de Documento', newDoc.title, `Categoria: ${newDoc.category}`);
     showToast('Documento anexado com sucesso!');
     return newDoc;
@@ -850,11 +949,10 @@ export function CRMProvider({ children }) {
 
   // --- SETTINGS ACTIONS ---
   const updateOfficeSettings = (settingsData) => {
-    setOfficeSettings(prev => {
-      const merged = { ...prev, ...settingsData };
-      storageService.saveData('office_settings', merged);
-      return merged;
-    });
+    const merged = { ...officeSettings, ...settingsData, escritorio_id: currentEscritorioId };
+    setOfficeSettings(merged);
+    storageService.saveData('office_settings', merged);
+    storageService.saveToSupabase('office_settings', [merged]);
 
     if (currentEscritorioId) {
       setEscritorios(prev => {
@@ -872,6 +970,7 @@ export function CRMProvider({ children }) {
           return e;
         });
         storageService.saveData('escritorios', next);
+        storageService.saveToSupabase('escritorios', next);
         return next;
       });
     }
