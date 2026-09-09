@@ -440,17 +440,18 @@ function normalizeRow(table, row, activeEscritorio) {
 }
 
 function mapItemToSqlRow(table, item, activeEscritorio) {
+  if (!item) return null;
   const base = {
-    id: String(item.id),
-    escritorio_id: item.escritorio_id || activeEscritorio,
+    id: String(item.id || `id_${Date.now()}`),
+    escritorio_id: item.escritorio_id || activeEscritorio || DEFAULT_ESCRITORIO_ID,
     raw_data: item,
   };
 
   if (table === 'clients') {
     return {
       ...base,
-      name: item.name || item.client_name || null,
-      cpf: item.cpf || null,
+      name: item.name || item.client_name || 'Cliente',
+      cpf: item.cpf || item.cnpj || item.cpf_cnpj || null,
       rg: item.rg || null,
       birth_date: item.birthDate || item.birth_date || null,
       marital_status: item.maritalStatus || item.marital_status || null,
@@ -458,27 +459,31 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
       email: item.email || null,
       phone: item.phone || null,
       whatsapp: item.whatsapp || null,
-      zip_code: item.zipCode || item.zip_code || null,
       address: item.address || null,
-      neighborhood: item.neighborhood || null,
       city: item.city || null,
       state: item.state || null,
+      zip_code: item.zipCode || item.zip_code || null,
       legal_area: item.legalArea || item.legal_area || null,
       responsible_lawyer_id: item.responsibleLawyerId || item.responsible_lawyer_id || null,
       status: item.status || 'active',
+      total_contracted: Number(item.totalContracted || item.total_contracted) || 0,
+      total_paid: Number(item.totalPaid || item.total_paid) || 0,
+      avatar: item.avatar || null,
       notes: item.notes || null,
-      first_contact_date: item.firstContactDate || item.first_contact_date || null,
-      converted_date: item.convertedDate || item.converted_date || null,
     };
   }
 
   if (table === 'leads') {
     return {
       ...base,
-      name: item.name || null,
-      email: item.email || null,
+      name: item.name || 'Lead',
+      cpf: item.cpf || item.cnpj || item.cpf_cnpj || null,
       phone: item.phone || null,
       whatsapp: item.whatsapp || null,
+      email: item.email || null,
+      city: item.city || null,
+      state: item.state || null,
+      birth_date: item.birthDate || item.birth_date || null,
       source: item.source || null,
       legal_area: item.legalArea || item.legal_area || null,
       assigned_to: item.assignedTo || item.assigned_to || null,
@@ -494,31 +499,13 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
     };
   }
 
-  if (table === 'processes') {
-    return {
-      ...base,
-      process_number: item.processNumber || item.process_number || null,
-      title: item.title || null,
-      client_id: item.clientId || item.client_id || null,
-      client_name: item.clientName || item.client_name || null,
-      court: item.court || null,
-      tribunal: item.tribunal || null,
-      legal_area: item.legalArea || item.legal_area || null,
-      responsible_lawyer_id: item.responsibleLawyerId || item.responsible_lawyer_id || null,
-      responsible_lawyer_name: item.responsibleLawyerName || item.responsible_lawyer_name || null,
-      status: item.status || 'active',
-      distribution_date: item.distributionDate || item.distribution_date || null,
-      notes: item.notes || null,
-    };
-  }
-
   if (table === 'contracts') {
     return {
       ...base,
       contract_number: item.contractNumber || item.contract_number || null,
       client_id: item.clientId || item.client_id || null,
-      client_name: item.clientName || item.client_name || null,
-      title: item.title || null,
+      client_name: item.clientName || item.client_name || 'Cliente',
+      title: item.title || 'Contrato de Prestação de Serviços',
       legal_area: item.legalArea || item.legal_area || null,
       responsible_lawyer_id: item.responsibleLawyerId || item.responsible_lawyer_id || null,
       responsible_lawyer_name: item.responsibleLawyerName || item.responsible_lawyer_name || null,
@@ -531,7 +518,7 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
       created_date: item.createdDate || item.created_date || null,
       sent_date: item.sentDate || item.sent_date || null,
       signed_date: item.signedDate || item.signed_date || null,
-      observations: item.observations || null,
+      observations: item.observations || item.notes || null,
     };
   }
 
@@ -539,24 +526,43 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
     return {
       ...base,
       proposal_number: item.proposalNumber || item.proposal_number || null,
-      client_name: item.clientName || item.client_name || null,
+      client_id: item.clientId || item.client_id || null,
       lead_id: item.leadId || item.lead_id || null,
-      service_name: item.serviceName || item.service_name || item.title || null,
+      client_name: item.clientName || item.client_name || null,
+      lead_name: item.leadName || item.lead_name || null,
+      title: item.title || item.serviceName || item.service_name || 'Proposta de Honorários',
       legal_area: item.legalArea || item.legal_area || null,
+      responsible_lawyer_id: item.responsibleId || item.responsible_id || item.responsibleLawyerId || item.responsible_lawyer_id || null,
+      fee_value: Number(item.feeValue || item.fee_value || item.value) || 0,
       status: item.status || 'rascunho',
-      value: Number(item.value || item.feeValue) || 0,
+    };
+  }
+
+  if (table === 'processes') {
+    return {
+      ...base,
+      process_number: item.processNumber || item.process_number || null,
+      client_id: item.clientId || item.client_id || null,
+      client_name: item.clientName || item.client_name || null,
+      tribunal: item.tribunal || null,
+      vara: item.court || item.vara || null,
+      legal_area: item.legalArea || item.legal_area || null,
+      responsible_lawyer_id: item.responsibleLawyerId || item.responsible_lawyer_id || null,
+      responsible_lawyer_name: item.responsibleLawyerName || item.responsible_lawyer_name || null,
+      status: item.status || 'active',
+      distribution_date: item.distributionDate || item.distribution_date || null,
+      last_update_date: item.lastUpdateDate || item.last_update_date || null,
+      action_type: item.actionType || item.action_type || null,
+      value: Number(item.value) || 0,
     };
   }
 
   if (table === 'tasks') {
     return {
       ...base,
-      title: item.title || null,
+      title: item.title || 'Tarefa',
       description: item.description || null,
-      task_type: item.taskType || item.task_type || 'peticao',
-      custom_type: item.customType || item.custom_type || null,
       due_date: item.dueDate || item.due_date || null,
-      due_time: item.dueTime || item.due_time || '14:00',
       priority: item.priority || 'media',
       status: item.status || 'pending',
       assigned_to: item.assignedTo || item.assigned_to || null,
@@ -569,7 +575,7 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
   if (table === 'appointments') {
     return {
       ...base,
-      title: item.title || null,
+      title: item.title || 'Compromisso',
       date: item.date || null,
       time: item.startTime || item.time || null,
       type: item.type || 'reuniao',
@@ -586,12 +592,15 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
       ...base,
       client_id: item.clientId || item.client_id || null,
       client_name: item.clientName || item.client_name || null,
-      subject: item.subject || null,
-      description: item.description || null,
+      lead_id: item.leadId || item.lead_id || null,
+      responsible_id: item.responsibleId || item.responsible_id || null,
+      responsible_name: item.responsibleName || item.responsible_name || null,
+      date: item.date || null,
       channel: item.channel || 'whatsapp',
+      subject: item.subject || 'Atendimento Geral',
+      description: item.description || null,
       result: item.result || null,
       next_action: item.nextAction || item.next_action || null,
-      date: item.date || null,
     };
   }
 
@@ -599,12 +608,12 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
     return {
       ...base,
       contract_id: item.contractId || item.contract_id || null,
-      client_id: item.clientId || item.client_id || null,
       client_name: item.clientName || item.client_name || null,
-      installment_number: Number(item.installmentNumber || item.installment_number) || 1,
-      value: Number(item.value) || 0,
+      number: Number(item.installmentNumber || item.installment_number || item.number) || 1,
+      total_installments: Number(item.totalInstallments || item.total_installments) || 1,
+      amount: Number(item.value || item.amount) || 0,
       due_date: item.dueDate || item.due_date || null,
-      paid_date: item.paidDate || item.paid_date || null,
+      payment_date: item.paidDate || item.paid_date || item.payment_date || null,
       status: item.status || 'pending',
       payment_method: item.paymentMethod || item.payment_method || 'PIX',
     };
@@ -614,18 +623,41 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
     return {
       ...base,
       title: item.title || 'Documento',
+      client_id: item.clientId || item.client_id || null,
       client_name: item.clientName || item.client_name || null,
-      file_name: item.fileName || item.file_name || null,
       category: item.category || 'Outros',
+      file_name: item.fileName || item.file_name || null,
       file_size: item.fileSize || item.file_size || '1.0 MB',
+      uploaded_by: item.uploadedBy || item.uploaded_by || null,
       uploaded_at: item.uploadedAt || item.uploaded_at || new Date().toISOString(),
-      file_data: item.fileData || item.file_data || item.dataUrl || null,
+    };
+  }
+
+  if (table === 'activity_logs') {
+    return {
+      ...base,
+      user_name: item.userName || item.user_name || null,
+      user_role: item.userRole || item.user_role || null,
+      action: item.action || null,
+      target: item.target || null,
+      details: item.details || null,
+      timestamp: item.timestamp || new Date().toISOString(),
+    };
+  }
+
+  if (table === 'notifications') {
+    return {
+      ...base,
+      title: item.title || null,
+      message: item.message || null,
+      type: item.type || 'info',
+      read: Boolean(item.read),
+      timestamp: item.timestamp || new Date().toISOString(),
     };
   }
 
   if (table === 'escritorios') {
     return {
-      ...base,
       id: item.id || 'escritorio_principal',
       nome: item.nome || item.name || 'JurisFlow Advocacia Matriz',
       cnpj: item.cnpj || null,
@@ -634,8 +666,10 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
       endereco: item.endereco || item.address || null,
       cidade: item.cidade || item.city || null,
       estado: item.estado || item.state || null,
+      logo_url: item.logoUrl || item.logo_url || null,
       plano: item.plano || 'enterprise',
       status: item.status || 'active',
+      raw_data: item,
     };
   }
 
@@ -643,7 +677,7 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
     return {
       ...base,
       id: item.id || 'settings_default',
-      office_name: item.officeName || item.office_name || 'JurisFlow Advocacia',
+      office_name: item.officeName || item.office_name || item.name || 'JurisFlow Advocacia',
       cnpj: item.cnpj || null,
       email: item.email || null,
       phone: item.phone || null,
