@@ -72,8 +72,17 @@ export function CalendarView({ onOpenNewEvent }) {
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
 
-  // Dias do mês atual (Setembro 2026 tem 30 dias, começa na terça-feira)
-  const daysInMonth = Array.from({ length: 30 }, (_, i) => i + 1);
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  // Primeiro dia da semana do mês (0 = domingo, 1 = segunda, ..., 6 = sábado)
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  // Total de dias no mês corrente
+  const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInMonth = Array.from({ length: totalDaysInMonth }, (_, i) => i + 1);
+  const blankDays = Array.from({ length: firstDayIndex }, (_, i) => i);
+
+  const todayStr = new Date().toISOString().split('T')[0];
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -85,7 +94,7 @@ export function CalendarView({ onOpenNewEvent }) {
           </div>
           <div>
             <h2 className="text-base font-extrabold text-slate-900 dark:text-white capitalize">
-              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              {monthNames[month]} {year}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {appointments.length} compromissos agendados
@@ -125,13 +134,22 @@ export function CalendarView({ onOpenNewEvent }) {
           <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-2">
             <button
               onClick={prevMonth}
-              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Mês anterior"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
+              onClick={() => setCurrentDate(new Date())}
+              className="px-2.5 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              title="Ir para hoje"
+            >
+              Hoje
+            </button>
+            <button
               onClick={nextMonth}
-              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Próximo mês"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -139,7 +157,7 @@ export function CalendarView({ onOpenNewEvent }) {
 
           <button
             onClick={() => onOpenNewEvent()}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md hover:bg-brand-700 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md hover:bg-brand-700 transition-colors cursor-pointer"
           >
             <Plus className="h-4 w-4" /> Agendar
           </button>
@@ -162,14 +180,19 @@ export function CalendarView({ onOpenNewEvent }) {
 
           {/* Days cells */}
           <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 dark:divide-slate-800/60 min-h-[500px]">
-            {/* Offset for Setembro 2026 (Começa na terça-feira = 2 vazios) */}
-            <div className="p-2 bg-slate-50/30 dark:bg-navy-950/20" />
-            <div className="p-2 bg-slate-50/30 dark:bg-navy-950/20" />
+            {/* Espaços vazios antes do 1º dia do mês */}
+            {blankDays.map((_, idx) => (
+              <div key={`blank-${idx}`} className="p-2 bg-slate-50/30 dark:bg-navy-950/20" />
+            ))}
 
             {daysInMonth.map((day) => {
-              const dateStr = `2026-09-${day < 10 ? '0' + day : day}`;
-              const dayEvents = appointments.filter(a => a.date === dateStr);
-              const isToday = day === 2; // Data corrente de demonstração
+              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              const dayEvents = appointments.filter(a => {
+                if (!a.date) return false;
+                const cleanDate = a.date.includes('T') ? a.date.split('T')[0] : a.date;
+                return cleanDate === dateStr;
+              });
+              const isToday = dateStr === todayStr;
 
               return (
                 <div
@@ -190,7 +213,7 @@ export function CalendarView({ onOpenNewEvent }) {
                       {day}
                     </span>
                     {dayEvents.length > 0 && (
-                      <span className="text-[10px] text-slate-400 font-semibold">
+                      <span className="text-[10px] text-brand-600 dark:text-gold-400 font-bold bg-brand-50 dark:bg-brand-950/50 px-1.5 py-0.2 rounded-full">
                         {dayEvents.length}
                       </span>
                     )}
@@ -208,10 +231,10 @@ export function CalendarView({ onOpenNewEvent }) {
                             if (onOpenNewEvent) onOpenNewEvent(evt.date, evt);
                           }}
                           className={`group relative rounded-lg border px-2 py-1 text-[10px] font-semibold truncate transition-all shadow-xs cursor-pointer hover:scale-[1.02] ${getEventTypeColor(evt.type)}`}
-                          title={`${evt.startTime} - ${evt.title} (${evt.clientName || 'Geral'}) [${formatEventType(evt.type)}]`}
+                          title={`${evt.startTime || evt.time || ''} - ${evt.title} (${evt.clientName || 'Geral'}) [${formatEventType(evt.type)}]`}
                         >
                           <div className="truncate flex items-center gap-1">
-                            <span className="font-bold shrink-0">{evt.startTime}</span>
+                            <span className="font-bold shrink-0">{evt.startTime || evt.time || ''}</span>
                             <span className="truncate">{evt.title}</span>
                             {isCustom && (
                               <Sparkles className="h-2.5 w-2.5 text-gold-500 shrink-0" />

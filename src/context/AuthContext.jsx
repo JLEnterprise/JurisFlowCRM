@@ -46,6 +46,8 @@ export function AuthProvider({ children }) {
               const singleTitle = data.title || raw.title || 'Advogado(a)';
               const assignedTitles = Array.isArray(data.titles) ? data.titles : (Array.isArray(raw.titles) ? raw.titles : [singleTitle]);
 
+              const userEscritorioId = data.escritorio_id || raw.escritorio_id || 'escritorio_Tatiane';
+
               remoteUser = {
                 id: data.id || session.user.id,
                 name: data.name || raw.name || email.split('@')[0],
@@ -57,7 +59,8 @@ export function AuthProvider({ children }) {
                 oab: data.oab || raw.oab || '',
                 phone: data.phone || raw.phone || '',
                 avatar: data.avatar || raw.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
-                status: data.status || 'active'
+                status: data.status || 'active',
+                escritorio_id: userEscritorioId
               };
             }
           } catch (err) {
@@ -66,6 +69,9 @@ export function AuthProvider({ children }) {
 
           const match = remoteUser || users.find(u => u.email?.toLowerCase() === email);
           if (match) {
+            if (match.escritorio_id) {
+              storageService.setCurrentEscritorioId(match.escritorio_id);
+            }
             setCurrentUser(match);
             setIsAuthenticated(true);
             storageService.saveData('current_user', match);
@@ -73,6 +79,7 @@ export function AuthProvider({ children }) {
             const meta = session.user.user_metadata || {};
             const metaRoles = Array.isArray(meta.roles) ? meta.roles : (meta.role ? [meta.role] : ['admin']);
             const primaryRole = metaRoles.includes('dev') ? 'dev' : (metaRoles.includes('admin') ? 'admin' : (meta.role || metaRoles[0] || 'admin'));
+            const userEscritorioId = meta.escritorio_id || 'escritorio_Tatiane';
             const newUser = {
               id: session.user.id,
               name: meta.name || email.split('@')[0],
@@ -84,8 +91,12 @@ export function AuthProvider({ children }) {
               oab: meta.oab || '',
               phone: meta.phone || '',
               avatar: meta.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
-              status: 'active'
+              status: 'active',
+              escritorio_id: userEscritorioId
             };
+            if (userEscritorioId) {
+              storageService.setCurrentEscritorioId(userEscritorioId);
+            }
             setCurrentUser(newUser);
             setIsAuthenticated(true);
             storageService.saveData('current_user', newUser);
@@ -104,6 +115,9 @@ export function AuthProvider({ children }) {
         const email = session.user.email?.toLowerCase();
         const match = users.find(u => u.email?.toLowerCase() === email);
         if (match) {
+          if (match.escritorio_id) {
+            storageService.setCurrentEscritorioId(match.escritorio_id);
+          }
           setCurrentUser(match);
           setIsAuthenticated(true);
           storageService.saveData('current_user', match);
@@ -215,6 +229,8 @@ export function AuthProvider({ children }) {
             const singleTitle = payload.new.title || raw.title || 'Advogado(a)';
             const assignedTitles = rawTitles && rawTitles.length > 0 ? rawTitles : [singleTitle];
 
+            const userEscritorioId = payload.new.escritorio_id || raw.escritorio_id || 'escritorio_Tatiane';
+
             const normalizedUser = {
               id: payload.new.id,
               name: payload.new.name || raw.name || payload.new.email?.split('@')[0],
@@ -228,6 +244,7 @@ export function AuthProvider({ children }) {
               firmName: raw.firmName || 'JurisFlow Advocacia',
               avatar: payload.new.avatar || raw.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
               status: payload.new.status || 'active',
+              escritorio_id: userEscritorioId,
             };
 
             setUsers(prev => {
@@ -243,6 +260,9 @@ export function AuthProvider({ children }) {
             setCurrentUser(prevCurrent => {
               if (prevCurrent && (prevCurrent.id === normalizedUser.id || prevCurrent.email?.toLowerCase() === normalizedUser.email?.toLowerCase())) {
                 const updatedCurrent = { ...prevCurrent, ...normalizedUser };
+                if (normalizedUser.escritorio_id) {
+                  storageService.setCurrentEscritorioId(normalizedUser.escritorio_id);
+                }
                 storageService.saveData('current_user', updatedCurrent);
                 return updatedCurrent;
               }
@@ -364,6 +384,8 @@ export function AuthProvider({ children }) {
           const singleTitle = data.title || raw.title || 'Sócio Administrador';
           const assignedTitles = rawTitles && rawTitles.length > 0 ? rawTitles : [singleTitle];
 
+          const userEscritorioId = data.escritorio_id || raw.escritorio_id || 'escritorio_Tatiane';
+
           remoteProfile = {
             id: data.id,
             name: data.name || raw.name || data.email?.split('@')[0],
@@ -376,7 +398,8 @@ export function AuthProvider({ children }) {
             phone: data.phone || raw.phone || '',
             firmName: raw.firmName || 'JurisFlow Advocacia',
             avatar: data.avatar || raw.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
-            status: data.status || 'active'
+            status: data.status || 'active',
+            escritorio_id: userEscritorioId
           };
         }
       } catch (dbErr) {
@@ -391,10 +414,12 @@ export function AuthProvider({ children }) {
           const meta = authData.user.user_metadata || {};
           const metaRoles = Array.isArray(meta.roles) ? meta.roles : (meta.role ? [meta.role] : ['admin']);
           const primaryMetaRole = metaRoles.includes('dev') ? 'dev' : (metaRoles.includes('admin') ? 'admin' : (meta.role || metaRoles[0] || 'admin'));
+          const userEscritorioId = match?.escritorio_id || meta.escritorio_id || 'escritorio_Tatiane';
 
           const userToSet = match ? {
             ...match,
             id: authData.user.id || match.id,
+            escritorio_id: userEscritorioId
           } : {
             id: authData.user.id,
             name: meta.name || cleanEmail.split('@')[0],
@@ -404,8 +429,12 @@ export function AuthProvider({ children }) {
             title: meta.title || 'Sócio Administrador',
             titles: Array.isArray(meta.titles) ? meta.titles : [meta.title || 'Sócio Administrador'],
             avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
-            status: 'active'
+            status: 'active',
+            escritorio_id: userEscritorioId
           };
+          if (userEscritorioId) {
+            storageService.setCurrentEscritorioId(userEscritorioId);
+          }
           setCurrentUser(userToSet);
           setIsAuthenticated(true);
           storageService.saveData('current_user', userToSet);
@@ -435,10 +464,20 @@ export function AuthProvider({ children }) {
           firmName: 'JurisFlow Advocacia',
           avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
           status: 'active',
+          escritorio_id: 'escritorio_Tatiane',
           created_at: new Date().toISOString()
         };
-      } else if (password) {
-        found = { ...found, password };
+      } else {
+        if (password) {
+          found = { ...found, password };
+        }
+        if (!found.escritorio_id) {
+          found.escritorio_id = 'escritorio_Tatiane';
+        }
+      }
+
+      if (found.escritorio_id) {
+        storageService.setCurrentEscritorioId(found.escritorio_id);
       }
 
       // 4. Atualizar lista de usuarios e salvar no Supabase PostgreSQL

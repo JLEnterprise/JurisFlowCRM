@@ -189,11 +189,33 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
             <input
               type="text"
               required
+              list="clients-leads-list"
               value={formData.clientName}
-              onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-              placeholder="Nome do cliente ou lead"
+              onChange={(e) => {
+                const val = e.target.value;
+                const matchedClient = clients.find(c => c.name === val || `${c.name} (${c.cpf || c.phone || 'Cliente'})` === val);
+                if (matchedClient) {
+                  setFormData({ ...formData, clientName: matchedClient.name, clientId: matchedClient.id });
+                } else {
+                  setFormData({ ...formData, clientName: val, clientId: '' });
+                }
+              }}
+              placeholder="Digite o nome ou selecione um cliente..."
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
             />
+            <datalist id="clients-leads-list">
+              {clients.map(c => (
+                <option key={c.id} value={c.name}>{c.cpf ? `CPF: ${c.cpf}` : (c.phone ? `Tel: ${c.phone}` : 'Cliente Base')}</option>
+              ))}
+              {leads.map(l => (
+                <option key={l.id} value={l.name}>{l.phone ? `Lead • ${l.phone}` : 'Lead Comercial'}</option>
+              ))}
+            </datalist>
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              {clients.some(c => c.name?.toLowerCase() === (formData.clientName || '').toLowerCase().trim())
+                ? '✓ Cliente vinculado da base'
+                : (formData.clientName?.trim() ? '✨ Novo cliente (será salvo automaticamente na base de Clientes)' : 'Selecione ou digite um novo cliente')}
+            </p>
           </div>
 
           <div>

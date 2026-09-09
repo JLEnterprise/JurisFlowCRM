@@ -99,12 +99,33 @@ export function CRMProvider({ children }) {
     }
   }, []);
 
+  // Sincronizar escritorio ativo automaticamente quando o usuario logar ou possuir escritorio_id
+  useEffect(() => {
+    if (currentUser?.escritorio_id && currentUser.escritorio_id !== currentEscritorioId) {
+      switchEscritorio(currentUser.escritorio_id);
+    }
+  }, [currentUser?.escritorio_id, currentEscritorioId, switchEscritorio]);
+
   // Hidratacao e sincronizacao inicial a partir do Supabase
   useEffect(() => {
     async function loadCloudData() {
       try {
+        const cloudEscritorios = await storageService.fetchFromSupabase('escritorios', INITIAL_ESCRITORIOS);
+        if (cloudEscritorios && cloudEscritorios.length > 0) {
+          setEscritorios(cloudEscritorios);
+        }
+
+        let targetEscritorioId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId();
+        if (cloudEscritorios && cloudEscritorios.length > 0) {
+          const targetExists = cloudEscritorios.some(e => e.id === targetEscritorioId);
+          if (!targetExists) {
+            targetEscritorioId = cloudEscritorios[0].id;
+          }
+        }
+        storageService.setCurrentEscritorioId(targetEscritorioId);
+        setCurrentEscritorioIdState(targetEscritorioId);
+
         const [
-          cloudEscritorios,
           cloudLeads,
           cloudClients,
           cloudContracts,
@@ -117,21 +138,19 @@ export function CRMProvider({ children }) {
           cloudDocs,
           cloudOfficeSettings
         ] = await Promise.all([
-          storageService.fetchFromSupabase('escritorios', INITIAL_ESCRITORIOS),
-          storageService.fetchFromSupabase('leads', [], currentEscritorioId),
-          storageService.fetchFromSupabase('clients', [], currentEscritorioId),
-          storageService.fetchFromSupabase('contracts', [], currentEscritorioId),
-          storageService.fetchFromSupabase('proposals', [], currentEscritorioId),
-          storageService.fetchFromSupabase('processes', [], currentEscritorioId),
-          storageService.fetchFromSupabase('tasks', [], currentEscritorioId),
-          storageService.fetchFromSupabase('appointments', [], currentEscritorioId),
-          storageService.fetchFromSupabase('attendances', [], currentEscritorioId),
-          storageService.fetchFromSupabase('installments', [], currentEscritorioId),
-          storageService.fetchFromSupabase('documents', [], currentEscritorioId),
+          storageService.fetchFromSupabase('leads', [], targetEscritorioId),
+          storageService.fetchFromSupabase('clients', [], targetEscritorioId),
+          storageService.fetchFromSupabase('contracts', [], targetEscritorioId),
+          storageService.fetchFromSupabase('proposals', [], targetEscritorioId),
+          storageService.fetchFromSupabase('processes', [], targetEscritorioId),
+          storageService.fetchFromSupabase('tasks', [], targetEscritorioId),
+          storageService.fetchFromSupabase('appointments', [], targetEscritorioId),
+          storageService.fetchFromSupabase('attendances', [], targetEscritorioId),
+          storageService.fetchFromSupabase('installments', [], targetEscritorioId),
+          storageService.fetchFromSupabase('documents', [], targetEscritorioId),
           storageService.fetchFromSupabase('office_settings', [INITIAL_OFFICE_SETTINGS]),
         ]);
 
-        if (cloudEscritorios && cloudEscritorios.length > 0) setEscritorios(cloudEscritorios);
         if (cloudLeads !== undefined) setLeads(cloudLeads);
         if (cloudClients !== undefined) setClients(cloudClients);
         if (cloudContracts !== undefined) setContracts(cloudContracts);
@@ -682,19 +701,63 @@ export function CRMProvider({ children }) {
 
   // --- APPOINTMENTS / AGENDA ---
   const addAppointment = (aptData) => {
+    let resolvedClientId = aptData.clientId || null;
+    let autoCreatedClient = null;
+
+    // Se informou nome de cliente e não vinculou ID existente, verifica se já existe ou cria
+    if (aptData.clientName && aptData.clientName.trim()) {
+      const cleanName = aptData.clientName.trim();
+      const existingClient = clients.find(c => (c.name || '').toLowerCase() === cleanName.toLowerCase());
+      if (existingClient) {
+        resolvedClientId = existingClient.id;
+      } else {
+        // Auto-cria cliente na base do CRM para sincronização imediata
+        autoCreatedClient = {
+          id: `cli_${Date.now()}`,
+          escritorio_id: currentEscritorioId,
+          name: cleanName,
+          cpf: '',
+          cnpj: '',
+          email: '',
+          phone: '',
+          whatsapp: '',
+          city: 'São Paulo',
+          state: 'SP',
+          legalArea: 'Geral',
+          status: 'active',
+          totalContracted: 0,
+          totalPaid: 0,
+          createdAt: new Date().toISOString().split('T')[0],
+          notes: `Cliente cadastrado automaticamente via agendamento de ${aptData.title || 'compromisso'}.`
+        };
+        resolvedClientId = autoCreatedClient.id;
+        setClients(prev => {
+          const nextClients = [autoCreatedClient, ...prev];
+          storageService.saveData('clients', nextClients);
+          return nextClients;
+        });
+        storageService.saveToSupabase('clients', [autoCreatedClient]);
+      }
+    }
+
     const newApt = {
       ...aptData,
       id: `apt_${Date.now()}`,
+      clientId: resolvedClientId,
       escritorio_id: currentEscritorioId,
       type: aptData.type || 'meeting',
     };
+
     setAppointments(prev => {
       const next = [newApt, ...prev];
       storageService.saveData('appointments', next);
       return next;
     });
-    logActivity('Novo Agendamento', newApt.title, `${newApt.date} as ${newApt.time}`);
-    showToast('Compromisso agendado com sucesso!');
+
+    storageService.saveToSupabase('appointments', [newApt]);
+
+    logActivity('Novo Agendamento', newApt.title, `${newApt.date} às ${newApt.time || newApt.startTime || ''}`);
+    showToast(autoCreatedClient ? 'Compromisso agendado e cliente cadastrado no CRM!' : 'Compromisso agendado com sucesso!');
     return newApt;
   };
 
@@ -704,6 +767,7 @@ export function CRMProvider({ children }) {
       storageService.saveData('appointments', next);
       return next;
     });
+    storageService.saveToSupabase('appointments', [{ id, ...updatedFields, escritorio_id: currentEscritorioId }]);
     logActivity('Compromisso Atualizado', updatedFields.title || 'Agenda', `Atualizado em ${new Date().toLocaleDateString('pt-BR')}`);
     showToast('Compromisso atualizado com sucesso!');
     return true;

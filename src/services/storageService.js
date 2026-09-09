@@ -17,9 +17,21 @@ import {
 import { INITIAL_LEGAL_AREAS, INITIAL_LEAD_SOURCES } from '../data/legalAreas';
 
 const STORAGE_PREFIX = 'jurisflow_';
-export const DEFAULT_ESCRITORIO_ID = 'escritorio_principal';
+export const DEFAULT_ESCRITORIO_ID = 'escritorio_Tatiane';
 
 export const INITIAL_ESCRITORIOS = [
+  {
+    id: 'escritorio_Tatiane',
+    nome: 'Tatiane Camargo Advocacia',
+    cnpj: '',
+    email: 'tatianecamargo@adv.oabsp.org.br',
+    telefone: '(11) 98289-9672',
+    endereco: 'Escritório Home - N/A',
+    cidade: 'Jandira',
+    estado: 'SP',
+    plano: 'Anual',
+    status: 'active'
+  },
   {
     id: 'escritorio_principal',
     nome: 'JurisFlow Advocacia Matriz',
@@ -720,7 +732,7 @@ export const storageService = {
       let query = supabase.from(table).select('*');
       
       if (!['legal_areas', 'lead_sources', 'escritorios', 'office_settings', 'users'].includes(table)) {
-        query = query.or('escritorio_id.eq.' + activeEscritorio + ',escritorio_id.is.null,escritorio_id.eq.escritorio_principal');
+        query = query.or(`escritorio_id.eq.${activeEscritorio},escritorio_id.is.null,escritorio_id.eq.escritorio_Tatiane,escritorio_id.eq.escritorio_principal`);
       }
 
       const { data, error } = await query;
