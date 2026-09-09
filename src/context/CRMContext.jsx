@@ -167,6 +167,50 @@ export function CRMProvider({ children }) {
         }
 
         setSupabaseConnected(true);
+
+        // --- RECUPERAÇÃO: Gerar parcelas para contratos existentes sem installments ---
+        const allContracts = syncedContracts || storageService.loadData('contracts') || [];
+        const allInstallments = syncedInstallments || storageService.loadData('installments') || [];
+        const contractIdsWithInstallments = new Set(allInstallments.map(i => i.contractId));
+        const contractsWithoutInstallments = allContracts.filter(c =>
+          (Number(c.value) || 0) > 0 && !contractIdsWithInstallments.has(c.id)
+        );
+
+        if (contractsWithoutInstallments.length > 0) {
+          console.log(`[Recovery] Gerando parcelas para ${contractsWithoutInstallments.length} contrato(s) sem parcelas...`);
+          const newInstallments = [];
+          contractsWithoutInstallments.forEach(contract => {
+            const contractValue = Number(contract.value) || 0;
+            const numInstallments = Number(contract.installmentsCount || contract.installments_count) || 1;
+            const installmentValue = contractValue / numInstallments;
+            for (let i = 0; i < numInstallments; i++) {
+              const dueDate = new Date(contract.createdDate || contract.created_date || Date.now());
+              dueDate.setMonth(dueDate.getMonth() + i);
+              newInstallments.push({
+                id: `inst_recovery_${contract.id}_${i + 1}`,
+                escritorio_id: contract.escritorio_id || targetEscritorioId || currentEscritorioId,
+                contractId: contract.id,
+                clientId: contract.clientId || contract.client_id || null,
+                clientName: contract.clientName || contract.client_name || 'Cliente',
+                installmentNumber: i + 1,
+                totalInstallments: numInstallments,
+                value: installmentValue,
+                amount: installmentValue,
+                dueDate: dueDate.toISOString().split('T')[0],
+                status: 'pending',
+                paymentMethod: contract.paymentMethod || contract.payment_method || 'PIX',
+              });
+            }
+          });
+          if (newInstallments.length > 0) {
+            const mergedInstallments = [...allInstallments, ...newInstallments];
+            setInstallments(mergedInstallments);
+            storageService.saveData('installments', mergedInstallments);
+            storageService.saveToSupabase('installments', newInstallments);
+            console.log(`[Recovery] ${newInstallments.length} parcela(s) gerada(s) com sucesso.`);
+          }
+        }
+        // --- FIM DA RECUPERAÇÃO ---
       } catch (err) {
         console.warn('Erro no sync inicial do Supabase, operando com cache local:', err);
       } finally {
@@ -644,6 +688,43 @@ export function CRMProvider({ children }) {
     });
     if (updatedContract) {
       storageService.saveToSupabase('contracts', [updatedContract]);
+
+      // Se o contrato tem valor e ainda não tem parcelas no financeiro, gera automaticamente
+      const contractValue = Number(updatedContract.value) || 0;
+      const numInstallments = Number(updatedContract.installmentsCount || updatedContract.installments_count) || 1;
+      const existingInsts = installments.filter(i => i.contractId === id);
+
+      if (contractValue > 0 && existingInsts.length === 0) {
+        const installmentValue = contractValue / numInstallments;
+        const generatedInstallments = [];
+        const now = Date.now();
+        for (let i = 0; i < numInstallments; i++) {
+          const dueDate = new Date(updatedContract.createdDate || updatedContract.created_date || now);
+          dueDate.setMonth(dueDate.getMonth() + i);
+          generatedInstallments.push({
+            id: `inst_${now}_${i + 1}`,
+            escritorio_id: currentEscritorioId,
+            contractId: id,
+            clientId: updatedContract.clientId || updatedContract.client_id || null,
+            clientName: updatedContract.clientName || updatedContract.client_name || 'Cliente',
+            installmentNumber: i + 1,
+            totalInstallments: numInstallments,
+            value: installmentValue,
+            amount: installmentValue,
+            dueDate: dueDate.toISOString().split('T')[0],
+            status: 'pending',
+            paymentMethod: updatedContract.paymentMethod || updatedContract.payment_method || 'PIX',
+          });
+        }
+        if (generatedInstallments.length > 0) {
+          setInstallments(prev => {
+            const next = [...generatedInstallments, ...prev];
+            storageService.saveData('installments', next);
+            return next;
+          });
+          storageService.saveToSupabase('installments', generatedInstallments);
+        }
+      }
     }
     logActivity('Contrato Atualizado', contractData.title || id, `Status: ${contractData.status}`);
     showToast('Contrato atualizado com sucesso!');
@@ -656,7 +737,14 @@ export function CRMProvider({ children }) {
       return next;
     });
     storageService.deleteFromSupabase('contracts', id);
-    showToast('Contrato excluido.');
+
+    // Também remove as parcelas vinculadas ao contrato apagado
+    setInstallments(prev => {
+      const next = prev.filter(i => i.contractId !== id);
+      storageService.saveData('installments', next);
+      return next;
+    });
+    showToast('Contrato excluído.');
   };
 
   const closeContractWorkflow = (leadId, contractData, installmentsList = []) => {

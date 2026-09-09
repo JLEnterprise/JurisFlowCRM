@@ -392,14 +392,18 @@ function normalizeRow(table, row, activeEscritorio) {
   }
 
   if (table === 'installments') {
+    const val = Number(base.value || base.amount) || 0;
+    const num = Number(base.installmentNumber || base.installment_number || base.number) || 1;
     return {
       ...base,
       contractId: base.contractId || base.contract_id || null,
       clientId: base.clientId || base.client_id || null,
       clientName: base.clientName || base.client_name || 'Cliente',
-      installmentNumber: Number(base.installmentNumber || base.installment_number) || 1,
+      installmentNumber: num,
+      number: num,
       totalInstallments: Number(base.totalInstallments || base.total_installments) || 1,
-      value: Number(base.value) || 0,
+      value: val,
+      amount: val,
       dueDate: base.dueDate || base.due_date || new Date().toISOString().split('T')[0],
       paidDate: base.paidDate || base.paid_date || null,
       status: base.status || 'pending',
