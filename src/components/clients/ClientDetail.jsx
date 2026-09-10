@@ -42,6 +42,7 @@ import { ConfirmModal } from '../common/ConfirmModal';
 import { Avatar } from '../common/Avatar';
 import { pdfService } from '../../services/pdfService';
 import { readFileAsDataUrl, sanitizeAttachmentForStorage, downloadAttachment, openAttachment, formatFileSize } from '../../utils/fileHelper';
+import { AttendanceModal } from '../attendance/AttendanceModal';
 
 export function ClientDetail({
   clientId,
@@ -77,6 +78,8 @@ export function ClientDetail({
     unmarkInstallmentPaid,
     deleteInstallment,
     updateInstallment,
+    deleteAttendance,
+    updateAttendance,
     legalAreas,
     showToast,
     logActivity,
@@ -89,6 +92,12 @@ export function ClientDetail({
   const [deleteClientModalOpen, setDeleteClientModalOpen] = useState(false);
   const [deleteDocModalOpen, setDeleteDocModalOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
+
+  // Attendance Modals
+  const [deleteAttendanceModalOpen, setDeleteAttendanceModalOpen] = useState(false);
+  const [attendanceToDelete, setAttendanceToDelete] = useState(null);
+  const [editAttendanceModalOpen, setEditAttendanceModalOpen] = useState(false);
+  const [attendanceToEdit, setAttendanceToEdit] = useState(null);
 
   // Installment Modals
   const [deleteInstallmentModalOpen, setDeleteInstallmentModalOpen] = useState(false);
@@ -526,12 +535,44 @@ export function ClientDetail({
             ) : (
               <div className="space-y-3">
                 {clientAttendances.map(att => (
-                  <div key={att.id} className="p-4 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 text-xs space-y-1">
-                    <div className="flex justify-between items-start font-bold">
-                      <span className="text-slate-900 dark:text-white">{att.subject} ({att.channel})</span>
-                      <span className="text-slate-400 text-[10px]">{formatDate(att.date, true)}</span>
+                  <div key={att.id} className="p-4 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 text-xs flex items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 font-bold">
+                        <span className="text-slate-900 dark:text-white">{att.subject}</span>
+                        <span className="text-[10px] font-bold text-brand-600 dark:text-gold-400 bg-brand-50 dark:bg-brand-950/60 px-2 py-0.5 rounded-md capitalize">
+                          {att.channel || 'whatsapp'}
+                        </span>
+                        <span className="text-slate-400 text-[10px] font-normal">{formatDate(att.date, true)}</span>
+                      </div>
+                      <p className="text-slate-600 dark:text-slate-300">{att.description}</p>
+                      {att.result && (
+                        <p className="text-[11px] text-slate-500"><strong className="text-slate-700 dark:text-slate-300">Resultado:</strong> {att.result}</p>
+                      )}
                     </div>
-                    <p className="text-slate-600 dark:text-slate-300">{att.description}</p>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAttendanceToEdit(att);
+                          setEditAttendanceModalOpen(true);
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        title="Editar atendimento"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAttendanceToDelete(att);
+                          setDeleteAttendanceModalOpen(true);
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        title="Excluir atendimento"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1075,6 +1116,36 @@ export function ClientDetail({
           </div>
         </div>
       )}
+
+      {/* Excluir Atendimento ConfirmModal */}
+      <ConfirmModal
+        isOpen={deleteAttendanceModalOpen}
+        onClose={() => {
+          setDeleteAttendanceModalOpen(false);
+          setAttendanceToDelete(null);
+        }}
+        onConfirm={() => {
+          if (attendanceToDelete) {
+            deleteAttendance(attendanceToDelete.id);
+            setDeleteAttendanceModalOpen(false);
+            setAttendanceToDelete(null);
+            showToast('Atendimento excluído com sucesso!');
+          }
+        }}
+        title="Excluir Atendimento"
+        message={`Tem certeza que deseja excluir o atendimento sobre "${attendanceToDelete?.subject || 'Atendimento'}"? Esta ação removerá o registro do histórico do cliente.`}
+        confirmLabel="Sim, Excluir"
+      />
+
+      {/* Editar Atendimento Modal */}
+      <AttendanceModal
+        isOpen={editAttendanceModalOpen}
+        onClose={() => {
+          setEditAttendanceModalOpen(false);
+          setAttendanceToEdit(null);
+        }}
+        attendanceToEdit={attendanceToEdit}
+      />
 
     </div>
   );

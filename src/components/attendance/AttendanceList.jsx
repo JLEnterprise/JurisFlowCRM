@@ -12,15 +12,47 @@ import {
   Clock,
   User,
   Headphones,
+  Edit,
+  Trash2,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { formatDate } from '../../utils/formatters';
 import { EmptyState } from '../common/EmptyState';
+import { ConfirmModal } from '../common/ConfirmModal';
+import { AttendanceModal } from './AttendanceModal';
 
-export function AttendanceList({ onOpenNewAttendance }) {
-  const { attendances = [] } = useCRM();
+export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
+  const { attendances = [], deleteAttendance } = useCRM();
   const [search, setSearch] = useState('');
   const [selectedChannel, setSelectedChannel] = useState('');
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [attendanceToDelete, setAttendanceToDelete] = useState(null);
+
+  const [localEditModalOpen, setLocalEditModalOpen] = useState(false);
+  const [localAttendanceToEdit, setLocalAttendanceToEdit] = useState(null);
+
+  const handleEditClick = (att) => {
+    if (onEditAttendance) {
+      onEditAttendance(att);
+    } else {
+      setLocalAttendanceToEdit(att);
+      setLocalEditModalOpen(true);
+    }
+  };
+
+  const handleDeleteClick = (att) => {
+    setAttendanceToDelete(att);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (attendanceToDelete) {
+      deleteAttendance(attendanceToDelete.id);
+      setDeleteModalOpen(false);
+      setAttendanceToDelete(null);
+    }
+  };
 
   const filtered = (attendances || []).filter(a => {
     if (!a) return false;
@@ -155,18 +187,60 @@ export function AttendanceList({ onOpenNewAttendance }) {
                 </div>
               </div>
 
-              <div className="text-right sm:flex-shrink-0">
-                <div className="text-[11px] text-slate-400 font-mono">
-                  {formatDate(att.date || new Date().toISOString().split('T')[0])}
+              <div className="flex items-center gap-4 sm:flex-shrink-0 justify-between sm:justify-end">
+                <div className="text-left sm:text-right">
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    {formatDate(att.date || new Date().toISOString().split('T')[0])}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    Resp: {att.responsibleName || att.responsible_lawyer_name || 'Equipe'}
+                  </div>
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">
-                  Resp: {att.responsibleName || att.responsible_lawyer_name || 'Equipe'}
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleEditClick(att)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    title="Editar Atendimento"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(att)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    title="Excluir Atendimento"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setAttendanceToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Excluir Registro de Atendimento"
+        message={`Tem certeza que deseja excluir o atendimento do cliente "${attendanceToDelete?.clientName || attendanceToDelete?.client_name || 'Cliente'}" sobre "${attendanceToDelete?.subject || 'Atendimento'}"? Esta ação removerá o registro do histórico.`}
+        confirmLabel="Sim, Excluir Atendimento"
+      />
+
+      {/* Local Edit Attendance Modal (if used standalone) */}
+      <AttendanceModal
+        isOpen={localEditModalOpen}
+        onClose={() => {
+          setLocalEditModalOpen(false);
+          setLocalAttendanceToEdit(null);
+        }}
+        attendanceToEdit={localAttendanceToEdit}
+      />
     </div>
   );
 }

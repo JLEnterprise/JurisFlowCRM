@@ -1524,6 +1524,51 @@ export function CRMProvider({ children }) {
     return newAtt;
   };
 
+  const updateAttendance = (id, updatedFields) => {
+    let updatedAtt = null;
+    setAttendances(prev => {
+      const next = prev.map(a => {
+        if (String(a.id) === String(id)) {
+          updatedAtt = {
+            ...a,
+            ...updatedFields,
+            id: a.id,
+            escritorio_id: a.escritorio_id || currentEscritorioId,
+          };
+          return updatedAtt;
+        }
+        return a;
+      });
+      storageService.saveData('attendances', next);
+      return next;
+    });
+
+    if (updatedAtt) {
+      storageService.saveToSupabase('attendances', [updatedAtt]);
+      logActivity('Atendimento Atualizado', updatedAtt.clientName || 'Cliente', `Assunto: ${updatedAtt.subject || ''}`);
+      showToast('Atendimento atualizado com sucesso!');
+    }
+    return true;
+  };
+
+  const deleteAttendance = (id) => {
+    let removedAtt = null;
+    setAttendances(prev => {
+      const target = prev.find(a => String(a.id) === String(id));
+      if (target) removedAtt = target;
+      const next = prev.filter(a => String(a.id) !== String(id));
+      storageService.saveData('attendances', next);
+      return next;
+    });
+
+    storageService.deleteFromSupabase('attendances', id);
+    if (removedAtt) {
+      logActivity('Atendimento Excluído', removedAtt.clientName || 'Cliente', `Assunto: ${removedAtt.subject || ''}`);
+    }
+    showToast('Atendimento excluído com sucesso.');
+    return true;
+  };
+
   // --- FINANCIAL ACTIONS ---
   const markInstallmentPaid = (installmentId) => {
     let paidInst = null;
@@ -1959,6 +2004,8 @@ export function CRMProvider({ children }) {
         updateAppointment,
         deleteAppointment,
         addAttendance,
+        updateAttendance,
+        deleteAttendance,
         markInstallmentPaid,
         unmarkInstallmentPaid,
         deleteInstallment,

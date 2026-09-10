@@ -4,9 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { ATTENDANCE_CHANNELS } from '../../data/legalAreas';
 
-export function AttendanceModal({ isOpen, onClose, prefillData = null }) {
-  const { addAttendance, clients, leads } = useCRM();
+export function AttendanceModal({ isOpen, onClose, prefillData = null, attendanceToEdit = null }) {
+  const { addAttendance, updateAttendance, clients, leads } = useCRM();
   const { users } = useAuth();
+
+  const isEditing = Boolean(attendanceToEdit && attendanceToEdit.id);
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -20,15 +22,28 @@ export function AttendanceModal({ isOpen, onClose, prefillData = null }) {
   });
 
   useEffect(() => {
-    if (prefillData) {
+    if (attendanceToEdit) {
+      const rawDate = attendanceToEdit.date || '';
+      const formattedDate = rawDate.includes('T') ? rawDate.slice(0, 16) : (rawDate ? `${rawDate}T12:00` : new Date().toISOString().slice(0, 16));
       setFormData({
-        clientId: prefillData.clientId || '',
-        clientName: prefillData.clientName || '',
-        channel: 'whatsapp',
-        subject: '',
-        description: '',
-        result: '',
-        nextAction: '',
+        clientId: attendanceToEdit.clientId || attendanceToEdit.client_id || '',
+        clientName: attendanceToEdit.clientName || attendanceToEdit.client_name || '',
+        channel: attendanceToEdit.channel || 'whatsapp',
+        subject: attendanceToEdit.subject || '',
+        description: attendanceToEdit.description || '',
+        result: attendanceToEdit.result || '',
+        nextAction: attendanceToEdit.nextAction || attendanceToEdit.next_action || '',
+        date: formattedDate,
+      });
+    } else if (prefillData) {
+      setFormData({
+        clientId: prefillData.clientId || prefillData.client_id || '',
+        clientName: prefillData.clientName || prefillData.client_name || '',
+        channel: prefillData.channel || 'whatsapp',
+        subject: prefillData.subject || '',
+        description: prefillData.description || '',
+        result: prefillData.result || '',
+        nextAction: prefillData.nextAction || prefillData.next_action || '',
         date: new Date().toISOString().slice(0, 16),
       });
     } else {
@@ -43,7 +58,7 @@ export function AttendanceModal({ isOpen, onClose, prefillData = null }) {
         date: new Date().toISOString().slice(0, 16),
       });
     }
-  }, [prefillData, isOpen]);
+  }, [attendanceToEdit, prefillData, isOpen]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -52,7 +67,11 @@ export function AttendanceModal({ isOpen, onClose, prefillData = null }) {
       return;
     }
 
-    addAttendance(formData);
+    if (isEditing) {
+      updateAttendance(attendanceToEdit.id, formData);
+    } else {
+      addAttendance(formData);
+    }
     onClose();
   };
 
@@ -60,8 +79,8 @@ export function AttendanceModal({ isOpen, onClose, prefillData = null }) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Registrar Atendimento Jurídico / Contato"
-      subtitle="Grave o histórico de interações por WhatsApp, telefone, reunião presencial ou vídeo"
+      title={isEditing ? "Editar Atendimento Jurídico / Contato" : "Registrar Atendimento Jurídico / Contato"}
+      subtitle={isEditing ? "Altere as informações, canal, pauta ou encaminhamento deste atendimento" : "Grave o histórico de interações por WhatsApp, telefone, reunião presencial ou vídeo"}
       maxWidth="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -183,7 +202,7 @@ export function AttendanceModal({ isOpen, onClose, prefillData = null }) {
             type="submit"
             className="rounded-xl bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-brand-700 transition-colors"
           >
-            Salvar Registro
+            {isEditing ? 'Salvar Alterações' : 'Salvar Registro'}
           </button>
         </div>
       </form>

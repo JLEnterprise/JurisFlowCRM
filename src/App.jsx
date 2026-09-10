@@ -99,6 +99,7 @@ export function App() {
 
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [attendancePrefill, setAttendancePrefill] = useState(null);
+  const [attendanceToEdit, setAttendanceToEdit] = useState(null);
 
   // Power-Ups Modals
   const [copilotModalOpen, setCopilotModalOpen] = useState(false);
@@ -255,7 +256,14 @@ export function App() {
   };
 
   const handleOpenNewAttendance = (prefill) => {
+    setAttendanceToEdit(null);
     setAttendancePrefill(prefill || null);
+    setAttendanceModalOpen(true);
+  };
+
+  const handleEditAttendance = (attendance) => {
+    setAttendancePrefill(null);
+    setAttendanceToEdit(attendance);
     setAttendanceModalOpen(true);
   };
 
@@ -386,6 +394,7 @@ export function App() {
         return (
           <AttendanceList
             onOpenNewAttendance={() => handleOpenNewAttendance()}
+            onEditAttendance={handleEditAttendance}
           />
         );
 
@@ -563,8 +572,13 @@ export function App() {
       {/* Attendance Modal */}
       <AttendanceModal
         isOpen={attendanceModalOpen}
-        onClose={() => setAttendanceModalOpen(false)}
+        onClose={() => {
+          setAttendanceModalOpen(false);
+          setAttendanceToEdit(null);
+          setAttendancePrefill(null);
+        }}
         prefillData={attendancePrefill}
+        attendanceToEdit={attendanceToEdit}
       />
 
       {/* POWER-UPS MODALS */}
