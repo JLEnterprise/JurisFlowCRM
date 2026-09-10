@@ -447,12 +447,11 @@ export function DocumentManager() {
               Selecione ou Arraste seus Arquivos (PDF, Word ou Imagem) *
             </label>
 
-            <div
+            <label
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`relative border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 ${
+              className={`relative border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 block ${
                 isDragging
                   ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/30 scale-[1.01]'
                   : 'border-slate-300 dark:border-slate-700 hover:border-brand-400 hover:bg-slate-50/60 dark:hover:bg-navy-950/40'
@@ -467,7 +466,7 @@ export function DocumentManager() {
                 className="hidden"
               />
 
-              <div className="flex flex-col items-center justify-center space-y-2">
+              <div className="flex flex-col items-center justify-center space-y-2 pointer-events-none">
                 <div className="w-12 h-12 rounded-2xl bg-brand-50 dark:bg-brand-950/50 flex items-center justify-center text-brand-600 dark:text-brand-400 shadow-sm">
                   <UploadCloud className="w-6 h-6 animate-pulse" />
                 </div>
@@ -480,7 +479,7 @@ export function DocumentManager() {
                   </p>
                 </div>
               </div>
-            </div>
+            </label>
           </div>
 
           {/* Lista de Arquivos Selecionados */}

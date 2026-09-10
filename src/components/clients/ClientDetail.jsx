@@ -23,6 +23,8 @@ import {
   Trash2,
   Printer,
   UploadCloud,
+  Undo2,
+  X,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
@@ -51,8 +53,14 @@ export function ClientDetail({
   onOpenNewAttendance,
   onOpenNewTask,
   onOpenNewProposal,
+  initialTab = 'overview',
 }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(initialTab);
+  
+  React.useEffect(() => {
+    setActiveTab(initialTab);
+  }, [clientId, initialTab]);
+  
   const {
     clients,
     deleteClient,
@@ -66,6 +74,9 @@ export function ClientDetail({
     tasks,
     officeSettings,
     markInstallmentPaid,
+    unmarkInstallmentPaid,
+    deleteInstallment,
+    updateInstallment,
     legalAreas,
     showToast,
     logActivity,
@@ -78,6 +89,42 @@ export function ClientDetail({
   const [deleteClientModalOpen, setDeleteClientModalOpen] = useState(false);
   const [deleteDocModalOpen, setDeleteDocModalOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
+
+  // Installment Modals
+  const [deleteInstallmentModalOpen, setDeleteInstallmentModalOpen] = useState(false);
+  const [installmentToDelete, setInstallmentToDelete] = useState(null);
+  const [editInstallmentModalOpen, setEditInstallmentModalOpen] = useState(false);
+  const [installmentToEdit, setInstallmentToEdit] = useState(null);
+  const [editInstallmentForm, setEditInstallmentForm] = useState({
+    status: '',
+    paymentMethod: '',
+    dueDate: '',
+  });
+
+  const handleOpenEditInstallment = (inst) => {
+    setInstallmentToEdit(inst);
+    setEditInstallmentForm({
+      status: inst.status || 'pending',
+      paymentMethod: inst.paymentMethod || inst.payment_method || 'PIX',
+      dueDate: inst.dueDate || inst.due_date || '',
+    });
+    setEditInstallmentModalOpen(true);
+  };
+
+  const handleSaveEditInstallment = (e) => {
+    e.preventDefault();
+    if (installmentToEdit) {
+      updateInstallment(installmentToEdit.id, {
+        status: editInstallmentForm.status,
+        paymentMethod: editInstallmentForm.paymentMethod,
+        dueDate: editInstallmentForm.dueDate,
+        paymentDate: editInstallmentForm.status === 'paid' ? (installmentToEdit.paymentDate || new Date().toISOString()) : null,
+      });
+      setEditInstallmentModalOpen(false);
+      setInstallmentToEdit(null);
+      showToast('Parcela atualizada com sucesso!');
+    }
+  };
 
   const client = propClient || clients.find(c => c.id === clientId);
 
@@ -810,17 +857,61 @@ export function ClientDetail({
                           </span>
 
                           {!isPaid ? (
-                            <button
-                              onClick={() => {
-                                markInstallmentPaid(inst.id);
-                                showToast('Parcela baixada com sucesso!');
-                              }}
-                              className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-white font-bold rounded-xl text-xs transition-colors shadow-xs"
-                            >
-                              Dar Baixa
-                            </button>
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => {
+                                  markInstallmentPaid(inst.id);
+                                  showToast('Parcela baixada com sucesso!');
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors cursor-pointer"
+                                title="Dar Baixa"
+                              >
+                                <CheckCircle2 className="h-3 w-3" /> Baixa
+                              </button>
+                              <button
+                                onClick={() => handleOpenEditInstallment(inst)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800 transition-colors"
+                                title="Editar Parcela"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setInstallmentToDelete(inst);
+                                  setDeleteInstallmentModalOpen(true);
+                                }}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
+                                title="Excluir Parcela"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           ) : (
                             <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => unmarkInstallmentPaid(inst.id)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-800 transition-colors"
+                                title="Estornar Baixa"
+                              >
+                                <Undo2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenEditInstallment(inst)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800 transition-colors"
+                                title="Editar Recibo"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setInstallmentToDelete(inst);
+                                  setDeleteInstallmentModalOpen(true);
+                                }}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
+                                title="Excluir Recibo"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                               <button
                                 onClick={() => alert(`Recibo de Pagamento:\n\nCliente: ${client.name}\nParcela: ${instNumber}/${instTotal}\nValor: ${formatCurrency(instVal)}\nData: ${formatDate(inst.paidDate || new Date())}\nForma: ${inst.paymentMethod || 'PIX'}\n\nAutenticado pelo JurisFlow CRM`)}
                                 className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
@@ -872,6 +963,119 @@ export function ClientDetail({
         message={`Deseja excluir o documento "${docToDelete?.title}" do acervo deste cliente?`}
         confirmLabel="Sim, Excluir"
       />
+      {/* Excluir Parcela/Recibo */}
+      <ConfirmModal
+        isOpen={deleteInstallmentModalOpen}
+        onClose={() => {
+          setDeleteInstallmentModalOpen(false);
+          setInstallmentToDelete(null);
+        }}
+        onConfirm={() => {
+          if (installmentToDelete) {
+            deleteInstallment(installmentToDelete.id);
+            setDeleteInstallmentModalOpen(false);
+            setInstallmentToDelete(null);
+            showToast('Item excluído com sucesso!');
+          }
+        }}
+        title="Excluir Parcela / Recibo"
+        message={`Tem certeza que deseja excluir a parcela no valor de ${formatCurrency(installmentToDelete?.amount || installmentToDelete?.value || 0)}? Esta ação não pode ser desfeita e pode afetar as estatísticas financeiras.`}
+        confirmLabel="Sim, Excluir"
+      />
+
+      {/* Editar Parcela / Recibo Modal */}
+      {editInstallmentModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl dark:bg-navy-900 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-navy-950/50 shrink-0">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <Edit className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+                Editar Parcela / Recibo
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditInstallmentModalOpen(false);
+                  setInstallmentToEdit(null);
+                }}
+                className="rounded-xl p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveEditInstallment} className="p-6 space-y-5 overflow-y-auto">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Status
+                </label>
+                <select
+                  required
+                  value={editInstallmentForm.status}
+                  onChange={(e) => setEditInstallmentForm(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950/50 dark:text-white"
+                >
+                  <option value="pending">Pendente</option>
+                  <option value="paid">Liquidado (Pago)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Forma de Pagamento
+                </label>
+                <select
+                  required
+                  value={editInstallmentForm.paymentMethod}
+                  onChange={(e) => setEditInstallmentForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950/50 dark:text-white"
+                >
+                  <option value="PIX">PIX</option>
+                  <option value="Boleto">Boleto</option>
+                  <option value="Cartão de Crédito">Cartão de Crédito</option>
+                  <option value="Transferência">Transferência Bancária</option>
+                  <option value="Dinheiro">Dinheiro em Espécie</option>
+                  <option value="Êxito / Quota Litis">Êxito / Quota Litis</option>
+                  <option value="A combinar">A combinar</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Data de Vencimento
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editInstallmentForm.dueDate}
+                  onChange={(e) => setEditInstallmentForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950/50 dark:text-white [&::-webkit-calendar-picker-indicator]:dark:invert"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditInstallmentModalOpen(false);
+                    setInstallmentToEdit(null);
+                  }}
+                  className="rounded-xl px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-500/30 hover:bg-brand-700 active:scale-95 transition-all"
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1586,6 +1586,160 @@ export function CRMProvider({ children }) {
     showToast('Parcela marcada como paga! 💰', 'success');
   };
 
+  const unmarkInstallmentPaid = (installmentId) => {
+    let revertedInst = null;
+    
+    setInstallments(prev => {
+      const next = prev.map(inst => {
+        if (String(inst.id) === String(installmentId) && inst.status === 'paid') {
+          revertedInst = {
+            ...inst,
+            status: 'pending',
+            paidDate: null,
+            paid_date: null,
+            paymentDate: null,
+            payment_date: null,
+          };
+          return revertedInst;
+        }
+        return inst;
+      });
+      storageService.saveData('installments', next);
+      return next;
+    });
+
+    if (revertedInst) {
+      storageService.saveToSupabase('installments', [revertedInst]);
+
+      const instAmount = Number(revertedInst.amount || revertedInst.value) || 0;
+      if (instAmount > 0) {
+        setClients(prev => {
+          const next = prev.map(c => {
+            const isMatch = (revertedInst.clientId && String(c.id) === String(revertedInst.clientId)) ||
+              (revertedInst.clientName && c.name?.trim().toLowerCase() === revertedInst.clientName?.trim().toLowerCase());
+            if (isMatch) {
+              const updatedTotalPaid = Math.max(0, (Number(c.totalPaid || c.total_paid) || 0) - instAmount);
+              const updatedClient = {
+                ...c,
+                totalPaid: updatedTotalPaid,
+                total_paid: updatedTotalPaid,
+              };
+              storageService.saveToSupabase('clients', [updatedClient]);
+              return updatedClient;
+            }
+            return c;
+          });
+          storageService.saveData('clients', next);
+          return next;
+        });
+      }
+
+      logActivity('Estorno de Parcela', revertedInst.clientName || 'Cliente', `Parcela de R$ ${instAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} estornada para pendente.`);
+      showToast('Baixa cancelada. Parcela voltou a ficar pendente.');
+    }
+  };
+
+  const deleteInstallment = (installmentId) => {
+    const deletedInst = installments.find(i => String(i.id) === String(installmentId));
+    
+    if (deletedInst) {
+      setInstallments(prev => {
+        const next = prev.filter(i => String(i.id) !== String(installmentId));
+        storageService.saveData('installments', next);
+        return next;
+      });
+
+      storageService.deleteFromSupabase('installments', deletedInst.id);
+      
+      const instAmount = Number(deletedInst.amount || deletedInst.value) || 0;
+      if (deletedInst.status === 'paid' && instAmount > 0) {
+        setClients(prev => {
+          const next = prev.map(c => {
+            const isMatch = (deletedInst.clientId && String(c.id) === String(deletedInst.clientId)) ||
+              (deletedInst.clientName && c.name?.trim().toLowerCase() === deletedInst.clientName?.trim().toLowerCase());
+            if (isMatch) {
+              const updatedTotalPaid = Math.max(0, (Number(c.totalPaid || c.total_paid) || 0) - instAmount);
+              const updatedClient = {
+                ...c,
+                totalPaid: updatedTotalPaid,
+                total_paid: updatedTotalPaid,
+              };
+              storageService.saveToSupabase('clients', [updatedClient]);
+              return updatedClient;
+            }
+            return c;
+          });
+          storageService.saveData('clients', next);
+          return next;
+        });
+      }
+
+      logActivity('Exclusão de Parcela', deletedInst.clientName || 'Cliente', `Parcela no valor de R$ ${instAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} excluída.`);
+      showToast('Parcela excluída com sucesso!');
+    }
+  };
+
+  const updateInstallment = (installmentId, updates) => {
+    let updatedInst = null;
+    let oldInst = null;
+    setInstallments(prev => {
+      const next = prev.map(inst => {
+        if (String(inst.id) === String(installmentId)) {
+          oldInst = { ...inst };
+          updatedInst = { ...inst, ...updates, updatedAt: new Date().toISOString() };
+          return updatedInst;
+        }
+        return inst;
+      });
+      storageService.saveData('installments', next);
+      return next;
+    });
+
+    if (updatedInst) {
+      storageService.saveToSupabase('installments', [updatedInst]);
+
+      // Handle totalPaid recalculation if status or amount changed and it was paid or became paid
+      const oldStatus = oldInst.status;
+      const newStatus = updatedInst.status;
+      const oldAmount = Number(oldInst.amount || oldInst.value) || 0;
+      const newAmount = Number(updatedInst.amount || updatedInst.value) || 0;
+
+      let valueDiff = 0;
+      if (oldStatus === 'paid' && newStatus === 'paid') {
+        valueDiff = newAmount - oldAmount; // if they changed the amount while paid
+      } else if (oldStatus !== 'paid' && newStatus === 'paid') {
+        valueDiff = newAmount; // it became paid
+      } else if (oldStatus === 'paid' && newStatus !== 'paid') {
+        valueDiff = -oldAmount; // it was unpaid
+      }
+
+      if (valueDiff !== 0) {
+        setClients(prev => {
+          const next = prev.map(c => {
+            const isMatch = (updatedInst.clientId && String(c.id) === String(updatedInst.clientId)) ||
+              (updatedInst.clientName && c.name?.trim().toLowerCase() === updatedInst.clientName?.trim().toLowerCase());
+            if (isMatch) {
+              const updatedTotalPaid = Math.max(0, (Number(c.totalPaid || c.total_paid) || 0) + valueDiff);
+              const updatedClient = {
+                ...c,
+                totalPaid: updatedTotalPaid,
+                total_paid: updatedTotalPaid,
+              };
+              storageService.saveToSupabase('clients', [updatedClient]);
+              return updatedClient;
+            }
+            return c;
+          });
+          storageService.saveData('clients', next);
+          return next;
+        });
+      }
+
+      logActivity('Atualização de Parcela', updatedInst.clientName || 'Cliente', 'Dados da parcela/recibo atualizados.');
+      showToast('Parcela/Recibo atualizado com sucesso!');
+    }
+  };
+
   // --- DOCUMENTS ACTIONS ---
   const addDocument = (docData) => {
     const newDoc = {
@@ -1806,6 +1960,9 @@ export function CRMProvider({ children }) {
         deleteAppointment,
         addAttendance,
         markInstallmentPaid,
+        unmarkInstallmentPaid,
+        deleteInstallment,
+        updateInstallment,
         addDocument,
         deleteDocument,
         updateOfficeSettings,

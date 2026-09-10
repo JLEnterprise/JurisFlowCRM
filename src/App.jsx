@@ -149,14 +149,18 @@ export function App() {
     setClientModalOpen(true);
   };
 
+  const [activeClientTab, setActiveClientTab] = useState('overview');
+
   const handleEditClient = (client) => {
     setClientToEdit(client);
     setClientModalOpen(true);
   };
 
-  const handleViewClientDetail = (clientId) => {
+  const handleViewClientDetail = (clientId, tab = 'overview') => {
     const id = typeof clientId === 'object' ? clientId.id : clientId;
     setSelectedClientId(id);
+    setActiveClientTab(tab);
+    setCurrentTab('clients');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -175,6 +179,7 @@ export function App() {
   const handleViewContractDetail = (contractOrId) => {
     const id = typeof contractOrId === 'object' ? contractOrId.id : contractOrId;
     setSelectedContractId(id);
+    setCurrentTab('contracts');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -274,16 +279,18 @@ export function App() {
   // Router for Main Content
   const renderContent = () => {
     // Detail Views have priority
-    if (selectedClientId && currentTab === 'clients') {
+    if (selectedClientId && (currentTab === 'clients' || currentTab === 'clientes')) {
       return (
         <ClientDetail
           clientId={selectedClientId}
-          onBack={() => setSelectedClientId(null)}
+          initialTab={activeClientTab}
+          onBack={() => { setSelectedClientId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           onEditClient={handleEditClient}
           onOpenNewContract={handleOpenNewContract}
           onOpenNewProcess={handleOpenNewProcess}
-          onOpenNewTask={handleOpenNewTask}
           onOpenNewAttendance={handleOpenNewAttendance}
+          onOpenNewTask={handleOpenNewTask}
+          onOpenNewProposal={handleOpenNewProposal}
         />
       );
     }
@@ -406,7 +413,7 @@ export function App() {
         if (!permissions?.canAccessFinancial) {
           return renderAccessRestricted('Financeiro & Honorários Globais', 'Sócia Administradora, Controller Financeiro e Dev');
         }
-        return <FinancialOverview onOpenWhatsApp={handleOpenWhatsAppModal} />;
+        return <FinancialOverview onOpenWhatsApp={handleOpenWhatsAppModal} onSelectClient={handleViewClientDetail} onSelectContract={handleViewContractDetail} />;
 
       case 'reports':
         return <ReportsView />;

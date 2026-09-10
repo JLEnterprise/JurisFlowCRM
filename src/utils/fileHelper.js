@@ -161,6 +161,7 @@ export async function sanitizeAttachmentForStorage(att) {
       category: att.category || (att.name?.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos'),
       isLarge: true,
       hasIndexedDb: true,
+      dataUrl,
     };
   }
 

@@ -467,17 +467,25 @@ function normalizeRow(table, row, activeEscritorio) {
   return base;
 }
 
-function sanitizePayload(data) {
+function sanitizePayload(data, keepLargeData = false) {
   if (!data || typeof data !== 'object') return data;
-  if (Array.isArray(data)) return data.map(sanitizePayload);
+  if (Array.isArray(data)) return data.map(item => sanitizePayload(item, keepLargeData));
 
   const clean = { ...data };
+
+  // Tratamento para Documentos avulsos na tabela 'documents'
+  if (!keepLargeData && clean.dataUrl && clean.dataUrl.length > 250000) {
+    clean.isLarge = true;
+    clean.hasIndexedDb = true;
+    delete clean.dataUrl;
+  }
+
   if (Array.isArray(clean.attachments)) {
     clean.attachments = clean.attachments.map(att => {
       if (!att) return att;
       const dataUrl = att.dataUrl || '';
-      // Se tiver mais de 250KB de Base64, preserva todos os metadados e remove a string pesada da nuvem
-      if (dataUrl.length > 250000) {
+      // Se tiver mais de 250KB de Base64, e não for para nuvem, remove a string
+      if (!keepLargeData && dataUrl.length > 250000) {
         const { dataUrl: _, ...rest } = att;
         return {
           ...rest,
@@ -493,7 +501,7 @@ function sanitizePayload(data) {
 
 function mapItemToSqlRow(table, item, activeEscritorio) {
   if (!item) return null;
-  const sanitizedItem = sanitizePayload(item);
+  const sanitizedItem = sanitizePayload(item, true); // true = KEEP dataUrl for Supabase
   const base = {
     id: String(item.id || `id_${Date.now()}`),
     escritorio_id: item.escritorio_id || activeEscritorio || DEFAULT_ESCRITORIO_ID,
@@ -864,7 +872,7 @@ export const storageService = {
 
   saveData(key, data) {
     try {
-      const sanitized = sanitizePayload(data);
+      const sanitized = sanitizePayload(data, false); // false = STRIP dataUrl for localStorage
       localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(sanitized));
     } catch (e) {
       console.warn(`[storageService] Quota no localStorage para ${key}, aplicando compressão segura:`, e.message);
