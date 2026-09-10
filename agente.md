@@ -9,7 +9,7 @@ Este documento é a diretriz oficial para o desenvolvimento, manutenção e evol
 - 📁 **Diretório Principal de Trabalho (C:)**: `C:\JurisFlow-ADV`
 - 📁 **Diretório Espelho & Backup (E:)**: `E:\JurisFlow-ADV`
 - 📁 **Diretório de Configurações dos Agentes**: `E:\Agente1 - Antigraviy`
-- 🌐 **URL Oficial do CRM em Produção (Netlify)**: [https://jurisflowcrmofc.netlify.app](https://jurisflowcrmofc.netlify.app)
+- 🌐 **URL Oficial do CRM em Produção (Vercel)**: [https://juris-flow-adv.vercel.app](https://juris-flow-adv.vercel.app)
 - 🖥️ **Execução Local Direta (Sem Servidor)**: `C:\JurisFlow-ADV\dist\index.html`
 - 🗄️ **Schema SQL do Banco Supabase**: `C:\JurisFlow-ADV\supabase_schema.sql`
 - 📦 **Arquivo de Backup Compactado**: `C:\JurisFlow-ADV\BACKUP_JURISFLOW_CRM_ATUALIZADO.zip`
@@ -20,8 +20,8 @@ Este documento é a diretriz oficial para o desenvolvimento, manutenção e evol
 
 - **Frontend**: React 18, Vite 6, Tailwind CSS 3, Lucide React, Recharts (BI & Gráficos), jsPDF.
 - **Backend / Nuvem**: Supabase PostgreSQL Cloud (`https://cbaanfpitqayqraizacv.supabase.co` / Ref: `cbaanfpitqayqraizacv`).
-- **Hospedagem & CDN**: Netlify (`jurisflowcrmofc.netlify.app`).
-- **Roteamento & Assets**: `base: './'` no `vite.config.js` com redirecionamentos SPA (`public/_redirects` e `netlify.toml`).
+- **Hospedagem & CDN**: Vercel (`juris-flow-adv.vercel.app`).
+- **Roteamento & Assets**: `base: './'` no `vite.config.js` com redirecionamentos SPA (`vercel.json`).
 
 ---
 
@@ -48,4 +48,4 @@ Este documento é a diretriz oficial para o desenvolvimento, manutenção e evol
 
 - **Iniciar Servidor Dev**: `cd C:\JurisFlow-ADV; npm run dev`
 - **Gerar Build de Produção**: `cd C:\JurisFlow-ADV; npm run build`
-- **Publicar Atualização no Netlify**: `cd C:\JurisFlow-ADV; npx netlify-cli deploy --prod --dir=dist`
+- **Publicar Atualização no Vercel**: `cd C:\JurisFlow-ADV; npx vercel --prod --yes`
