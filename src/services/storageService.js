@@ -843,7 +843,13 @@ export const storageService = {
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith(STORAGE_PREFIX)) {
-          keysToRemove.push(k);
+          // Preserva preferências e chaves utilitárias do sistema
+          if (
+            k !== STORAGE_PREFIX + 'theme' &&
+            k !== STORAGE_PREFIX + 'gemini_api_key'
+          ) {
+            keysToRemove.push(k);
+          }
         }
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
@@ -859,35 +865,56 @@ export const storageService = {
       const tables = [
         'clients', 'contracts', 'proposals', 'leads', 'processes',
         'tasks', 'appointments', 'attendances', 'installments', 'documents',
-        'office_settings', 'users'
+        'office_settings', 'users', 'escritorios', 'activity_logs', 'notifications'
       ];
 
-      // Se NÃO for o escritório de demonstração da Tatiane, expurga chaves legadas e itens de outros escritórios
-      if (activeEscritorio !== 'escritorio_Tatiane') {
-        tables.forEach(table => {
-          localStorage.removeItem(STORAGE_PREFIX + table);
-        });
+      // 1. Expurgar TODAS as chaves globais sem prefixo de tenant (evita vazamento legado)
+      tables.forEach(table => {
+        localStorage.removeItem(STORAGE_PREFIX + table);
+      });
 
-        tables.forEach(table => {
-          const tenantKey = this.getTenantStorageKey(table, activeEscritorio);
-          const raw = localStorage.getItem(tenantKey);
-          if (raw) {
-            try {
-              const items = JSON.parse(raw);
-              if (Array.isArray(items)) {
-                const cleaned = items.filter(item => {
-                  if (!item) return false;
-                  const itemEsc = item.escritorio_id || (item.raw_data && item.raw_data.escritorio_id);
-                  return itemEsc === activeEscritorio;
-                });
-                if (cleaned.length !== items.length) {
-                  localStorage.setItem(tenantKey, JSON.stringify(cleaned));
-                }
-              }
-            } catch (err) {}
+      // 2. Expurgar chaves pertencentes a outros escritórios do LocalStorage
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX)) {
+          // Mantém apenas chaves do tenant ativo ou chaves de controle geral de sessão
+          if (
+            k !== STORAGE_PREFIX + 'current_escritorio_id' &&
+            k !== STORAGE_PREFIX + 'current_user' &&
+            k !== STORAGE_PREFIX + 'gemini_api_key' &&
+            k !== STORAGE_PREFIX + 'theme' &&
+            !k.startsWith(`${STORAGE_PREFIX}${activeEscritorio}_`)
+          ) {
+            keysToRemove.push(k);
           }
-        });
+        }
       }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+
+      // 3. Limpeza interna de itens dentro da chave do próprio tenant ativo
+      tables.forEach(table => {
+        const tenantKey = this.getTenantStorageKey(table, activeEscritorio);
+        const raw = localStorage.getItem(tenantKey);
+        if (raw) {
+          try {
+            const items = JSON.parse(raw);
+            if (Array.isArray(items)) {
+              const cleaned = items.filter(item => {
+                if (!item) return false;
+                if (table === 'escritorios') {
+                  return item.id === activeEscritorio || item.parent_id === activeEscritorio;
+                }
+                const itemEsc = item.escritorio_id || (item.raw_data && item.raw_data.escritorio_id);
+                return itemEsc === activeEscritorio;
+              });
+              if (cleaned.length !== items.length) {
+                localStorage.setItem(tenantKey, JSON.stringify(cleaned));
+              }
+            }
+          } catch (err) {}
+        }
+      });
     } catch (e) {
       console.warn('Erro na purificação de cache:', e);
     }
@@ -895,18 +922,29 @@ export const storageService = {
 
   loadData(key, fallback = [], escritorioId = null) {
     try {
-      const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-      if (!activeEscritorio) return [];
+      // 1. Chaves globais de sessão e sistema que NÃO dependem do tenant:
+      if (key === 'current_user') {
+        const storedUser = localStorage.getItem(STORAGE_PREFIX + 'current_user');
+        if (!storedUser || storedUser === 'null' || storedUser === 'undefined') return fallback;
+        try {
+          return JSON.parse(storedUser);
+        } catch (e) {
+          return fallback;
+        }
+      }
+      if (key === 'current_escritorio_id') {
+        return this.getCurrentEscritorioId() || fallback;
+      }
 
-      const effectiveFallback = (activeEscritorio === 'escritorio_Tatiane') ? fallback : [];
+      const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
+      if (!activeEscritorio) return Array.isArray(fallback) ? [] : fallback;
+
+      // Metadados do sistema (áreas e origens de lead) podem ter fallback se não salvos
+      const isSystemMeta = ['legal_areas', 'lead_sources'].includes(key);
+      const effectiveFallback = isSystemMeta ? fallback : (Array.isArray(fallback) ? [] : fallback);
 
       const tenantKey = this.getTenantStorageKey(key, activeEscritorio);
-      let stored = localStorage.getItem(tenantKey);
-
-      // Compatibilidade legada apenas para o escritório principal da Tatiane
-      if (!stored && activeEscritorio === 'escritorio_Tatiane') {
-        stored = localStorage.getItem(STORAGE_PREFIX + key);
-      }
+      const stored = localStorage.getItem(tenantKey);
 
       if (!stored) return effectiveFallback;
 
@@ -920,9 +958,12 @@ export const storageService = {
             const num = String(item.proposalNumber || item.proposal_number || '');
             if (deletedIds.includes(id) || (num && deletedIds.includes(num))) return false;
             
-            // ISOLAMENTO ESTRITO: se o tenant não for da Tatiane, o item deve pertencer estritamente a ele
+            // ISOLAMENTO ESTRITO:
+            if (key === 'escritorios') {
+              return item.id === activeEscritorio || item.parent_id === activeEscritorio;
+            }
             const itemEsc = item.escritorio_id || (item.raw_data && item.raw_data.escritorio_id);
-            if (activeEscritorio !== 'escritorio_Tatiane' && itemEsc !== activeEscritorio) {
+            if (itemEsc && itemEsc !== activeEscritorio) {
               return false;
             }
             return true;
@@ -932,23 +973,32 @@ export const storageService = {
       return parsed;
     } catch (e) {
       console.error('Erro ao carregar chave ' + key + ' do localStorage:', e);
-      return (escritorioId === 'escritorio_Tatiane') ? fallback : [];
+      return Array.isArray(fallback) ? [] : fallback;
     }
   },
 
   saveData(key, data, escritorioId = null) {
     try {
+      // 1. Chaves globais de sessão e sistema que NÃO dependem do tenant:
+      if (key === 'current_user') {
+        if (!data) {
+          localStorage.removeItem(STORAGE_PREFIX + 'current_user');
+          return;
+        }
+        localStorage.setItem(STORAGE_PREFIX + 'current_user', JSON.stringify(data));
+        return;
+      }
+      if (key === 'current_escritorio_id') {
+        this.setCurrentEscritorioId(data);
+        return;
+      }
+
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
       if (!activeEscritorio) return;
 
       const sanitized = sanitizePayload(data, false);
       const tenantKey = this.getTenantStorageKey(key, activeEscritorio);
       localStorage.setItem(tenantKey, JSON.stringify(sanitized));
-
-      // Espelha na chave legada apenas se for o escritório da Tatiane
-      if (activeEscritorio === 'escritorio_Tatiane') {
-        localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(sanitized));
-      }
     } catch (e) {
       console.warn(`[storageService] Quota no localStorage para ${key}:`, e.message);
     }
@@ -958,17 +1008,19 @@ export const storageService = {
     if (!supabase) return fallback;
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-      if (!activeEscritorio) return [];
+      if (!activeEscritorio) return Array.isArray(fallback) ? [] : fallback;
 
-      const effectiveFallback = (activeEscritorio === 'escritorio_Tatiane') ? fallback : [];
+      const isSystemMeta = ['legal_areas', 'lead_sources'].includes(table);
+      const effectiveFallback = isSystemMeta ? fallback : (Array.isArray(fallback) ? [] : fallback);
+
       let query = supabase.from(table).select('*');
       
-      // ISOLAMENTO MULTI-TENANT ESTRITO:
+      // ISOLAMENTO MULTI-TENANT ESTRITO NO SUPABASE:
       if (['users', 'clients', 'processes', 'leads', 'contracts', 'proposals', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications', 'office_settings'].includes(table)) {
         query = query.eq('escritorio_id', activeEscritorio);
       }
 
-      // Se for a tabela de escritórios, retorna apenas o próprio escritório
+      // Se for a tabela de escritórios, retorna estritamente o próprio escritório do tenant
       if (table === 'escritorios') {
         query = query.eq('id', activeEscritorio);
       }
@@ -980,7 +1032,7 @@ export const storageService = {
 
       const { data, error } = await query;
       if (error) throw error;
-      if (!data) return effectiveFallback;
+      if (!data || data.length === 0) return effectiveFallback;
       
       const deletedIds = this.getDeletedIds();
       const mapped = data
@@ -988,9 +1040,15 @@ export const storageService = {
           if (!row || !row.id) return false;
           const id = String(row.id);
           const num = String(row.proposal_number || (row.raw_data && (row.raw_data.proposalNumber || row.raw_data.proposal_number)) || '');
-          // Garante estritamente que pertence ao tenant
-          const rowEsc = row.escritorio_id || (row.raw_data && row.raw_data.escritorio_id);
-          if (rowEsc && activeEscritorio && rowEsc !== activeEscritorio) return false;
+          
+          // Blindagem de validação de isolamento:
+          if (table === 'escritorios') {
+            if (row.id !== activeEscritorio && row.parent_id !== activeEscritorio) return false;
+          } else {
+            const rowEsc = row.escritorio_id || (row.raw_data && row.raw_data.escritorio_id);
+            if (rowEsc && rowEsc !== activeEscritorio) return false;
+          }
+
           return !deletedIds.includes(id) && (!num || !deletedIds.includes(num));
         })
         .map(row => normalizeRow(table, row, activeEscritorio));
@@ -1006,41 +1064,31 @@ export const storageService = {
   async recoverAndSyncLocalData(table, fallback = [], escritorioId = null) {
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-      if (!activeEscritorio) return [];
+      if (!activeEscritorio) return Array.isArray(fallback) ? [] : fallback;
 
-      // ISOLAMENTO TOTAL:
-      // Para qualquer escritório comercial ou nova conta, o Supabase é a autoridade absoluta.
-      // Auto-recuperação de dados locais nunca é executada para contas de clientes.
-      if (activeEscritorio !== 'escritorio_Tatiane') {
-        const cloudData = await this.fetchFromSupabase(table, [], activeEscritorio);
-        return Array.isArray(cloudData) ? cloudData : [];
-      }
-
-      // Legado apenas para escritório_Tatiane
-      const effectiveFallback = fallback;
-      const localData = this.loadData(table, [], activeEscritorio);
-      const cloudData = await this.fetchFromSupabase(table, null, activeEscritorio);
-      const deletedIds = this.getDeletedIds();
-
+      // Para qualquer escritório, a autoridade primária é o Supabase
+      const cloudData = await this.fetchFromSupabase(table, [], activeEscritorio);
       if (Array.isArray(cloudData) && cloudData.length > 0) {
-        this.saveData(table, cloudData, activeEscritorio);
         return cloudData;
       }
+
+      const localData = this.loadData(table, [], activeEscritorio);
+      const deletedIds = this.getDeletedIds();
 
       if (Array.isArray(localData) && localData.length > 0) {
         const validLocal = localData.filter(l => {
           if (!l || !l.id || deletedIds.includes(String(l.id))) return false;
+          if (table === 'escritorios') return l.id === activeEscritorio || l.parent_id === activeEscritorio;
           const itemEsc = l.escritorio_id || (l.raw_data && l.raw_data.escritorio_id);
           return itemEsc === activeEscritorio;
         });
         if (validLocal.length > 0) {
           await this.syncToSupabase(table, validLocal);
-          this.saveData(table, validLocal, activeEscritorio);
           return validLocal;
         }
       }
 
-      return Array.isArray(cloudData) ? cloudData : effectiveFallback;
+      return Array.isArray(fallback) ? [] : fallback;
     } catch (err) {
       console.warn(`[Auto-Recovery Falhou em ${table}]:`, err);
       return this.loadData(table, fallback, escritorioId);

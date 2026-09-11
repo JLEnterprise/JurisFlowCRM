@@ -32,13 +32,15 @@ export function KanbanBoard({ onOpenNewLead, onEditLead, onCloseContract, onNavi
   const [lossReasonInput, setLossReasonInput] = useState('');
 
   const getUserName = (userId) => {
-    const found = users.find(u => u.id === userId);
-    return found ? found.name.split(' ')[0] : 'Equipe';
+    const found = (users || []).find(u => u && u.id === userId);
+    if (!found) return 'Equipe';
+    const nameStr = (found.name || found.email || 'Equipe').trim();
+    return nameStr.split(' ')[0] || 'Equipe';
   };
 
   const getAreaName = (areaId) => {
-    const found = legalAreas.find(a => a.id === areaId);
-    return found ? found.name.replace('Direito ', '') : areaId;
+    const found = (legalAreas || []).find(a => a && a.id === areaId);
+    return found ? (found.name ? found.name.replace('Direito ', '') : areaId) : areaId;
   };
 
   // Drag handlers

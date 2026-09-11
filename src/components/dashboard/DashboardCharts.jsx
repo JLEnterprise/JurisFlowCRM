@@ -24,6 +24,12 @@ export function DashboardCharts() {
   const { leads, contracts, clients, leadSources, legalAreas } = useCRM();
   const { users } = useAuth();
 
+  const safeLeads = Array.isArray(leads) ? leads : [];
+  const safeContracts = Array.isArray(contracts) ? contracts : [];
+  const safeLeadSources = Array.isArray(leadSources) ? leadSources : [];
+  const safeLegalAreas = Array.isArray(legalAreas) ? legalAreas : [];
+  const safeUsers = Array.isArray(users) ? users : [];
+
   // 1. Leads por Período (Últimos 6 meses)
   const leadsOverTime = [
     { mes: 'Abr', leads: 8, fechados: 3 },
@@ -31,7 +37,7 @@ export function DashboardCharts() {
     { mes: 'Jun', leads: 15, fechados: 6 },
     { mes: 'Jul', leads: 18, fechados: 7 },
     { mes: 'Ago', leads: 24, fechados: 9 },
-    { mes: 'Set', leads: leads.length, fechados: contracts.length },
+    { mes: 'Set', leads: safeLeads.length, fechados: safeContracts.length },
   ];
 
   // 2. Contratos fechados por mês
@@ -41,60 +47,67 @@ export function DashboardCharts() {
     { mes: 'Jun', valor: 110000, quantidade: 4 },
     { mes: 'Jul', valor: 195000, quantidade: 6 },
     { mes: 'Ago', valor: 260000, quantidade: 8 },
-    { mes: 'Set', valor: contracts.reduce((acc, c) => acc + (Number(c.value) || 0), 0), quantidade: contracts.length },
+    { mes: 'Set', valor: safeContracts.reduce((acc, c) => acc + (Number(c?.value) || 0), 0), quantidade: safeContracts.length },
   ];
 
   // 3. Conversão do Funil por Etapas
   const funnelStages = [
-    { etapa: 'Novo Lead', quantidade: leads.filter(l => l.stage === 'novo_lead').length + 8 },
-    { etapa: '1º Contato', quantidade: leads.filter(l => l.stage === 'primeiro_contato').length + 7 },
-    { etapa: 'Qualificação', quantidade: leads.filter(l => l.stage === 'qualificacao').length + 6 },
-    { etapa: 'Reunião/Consulta', quantidade: leads.filter(l => l.stage === 'reuniao_consulta').length + 5 },
-    { etapa: 'Proposta', quantidade: leads.filter(l => l.stage === 'proposta').length + 4 },
-    { etapa: 'Negociação', quantidade: leads.filter(l => l.stage === 'negociacao').length + 3 },
-    { etapa: 'Contrato Assinado', quantidade: contracts.length },
+    { etapa: 'Novo Lead', quantidade: safeLeads.filter(l => l && l.stage === 'novo_lead').length + 8 },
+    { etapa: '1º Contato', quantidade: safeLeads.filter(l => l && l.stage === 'primeiro_contato').length + 7 },
+    { etapa: 'Qualificação', quantidade: safeLeads.filter(l => l && l.stage === 'qualificacao').length + 6 },
+    { etapa: 'Reunião/Consulta', quantidade: safeLeads.filter(l => l && l.stage === 'reuniao_consulta').length + 5 },
+    { etapa: 'Proposta', quantidade: safeLeads.filter(l => l && l.stage === 'proposta').length + 4 },
+    { etapa: 'Negociação', quantidade: safeLeads.filter(l => l && l.stage === 'negociacao').length + 3 },
+    { etapa: 'Contrato Assinado', quantidade: safeContracts.length },
   ];
 
   // 4. Origem dos Leads
   const sourceCountMap = {};
-  leads.forEach(l => {
+  safeLeads.forEach(l => {
+    if (!l) return;
     const src = l.source || 'outros';
     sourceCountMap[src] = (sourceCountMap[src] || 0) + 1;
   });
   const leadsBySource = Object.entries(sourceCountMap).map(([key, count]) => {
-    const found = leadSources.find(s => s.id === key);
+    const found = safeLeadSources.find(s => s && s.id === key);
     return { name: found ? found.name : key, value: count };
   });
 
   // 5. Áreas Jurídicas mais procuradas
   const areaCountMap = {};
-  leads.forEach(l => {
+  safeLeads.forEach(l => {
+    if (!l) return;
     const a = l.legalArea || 'outros';
     areaCountMap[a] = (areaCountMap[a] || 0) + 1;
   });
   const leadsByArea = Object.entries(areaCountMap).map(([key, count]) => {
-    const found = legalAreas.find(a => a.id === key);
+    const found = safeLegalAreas.find(a => a && a.id === key);
     return { name: found ? found.name : key, value: count };
   });
 
   // 6. Desempenho por Responsável
-  const performanceByUser = users.map(u => {
-    const userLeads = leads.filter(l => l.assignedTo === u.id || l.lawyerId === u.id).length;
-    const userContracts = contracts.filter(c => c.responsibleLawyerId === u.id).length;
-    const totalValue = contracts.filter(c => c.responsibleLawyerId === u.id).reduce((acc, c) => acc + c.value, 0);
+  const performanceByUser = safeUsers.map(u => {
+    if (!u) return null;
+    const userName = (u.name || u.email || 'Colaborador').trim();
+    const nameParts = userName.split(' ').filter(Boolean);
+    const firstName = nameParts[0] || 'Colaborador';
+    const lastName = nameParts[1] || '';
+    const userLeads = safeLeads.filter(l => l && (l.assignedTo === u.id || l.lawyerId === u.id)).length;
+    const userContracts = safeContracts.filter(c => c && c.responsibleLawyerId === u.id).length;
+    const totalValue = safeContracts.filter(c => c && c.responsibleLawyerId === u.id).reduce((acc, c) => acc + (Number(c?.value) || 0), 0);
     return {
-      nome: u.name.split(' ')[0] + ' ' + (u.name.split(' ')[1] || ''),
+      nome: `${firstName} ${lastName}`.trim(),
       leads: userLeads || (u.role === 'sales' ? 8 : 4),
       contratos: userContracts || (u.role === 'admin' ? 4 : 2),
       valor: totalValue || 50000,
     };
-  });
+  }).filter(Boolean);
 
   // 7. Ganhos vs. Perdidos
   const wonVsLost = [
-    { name: 'Contratos Ganhos (Fechados)', value: contracts.length || 8, color: '#10b981' },
-    { name: 'Leads Perdidos', value: leads.filter(l => l.stage === 'perdido').length || 2, color: '#ef4444' },
-    { name: 'Em Negociação Ativa', value: leads.filter(l => l.stage !== 'perdido' && l.stage !== 'contrato_fechado').length || 10, color: '#0c8de3' },
+    { name: 'Contratos Ganhos (Fechados)', value: safeContracts.length || 8, color: '#10b981' },
+    { name: 'Leads Perdidos', value: safeLeads.filter(l => l && l.stage === 'perdido').length || 2, color: '#ef4444' },
+    { name: 'Em Negociação Ativa', value: safeLeads.filter(l => l && l.stage !== 'perdido' && l.stage !== 'contrato_fechado').length || 10, color: '#0c8de3' },
   ];
 
   const CustomTooltip = ({ active, payload, label }) => {

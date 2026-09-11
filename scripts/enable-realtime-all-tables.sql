@@ -16,7 +16,7 @@ DECLARE
     'documents', 'activity_logs', 'notifications',
     'office_settings', 'escritorios', 'users'
   ];
-BEGIN
+BEGIN 
   FOREACH tbl IN ARRAY tables LOOP
     -- Verifica se a tabela existe antes de tentar alterar
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN

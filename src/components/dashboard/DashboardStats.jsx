@@ -21,37 +21,43 @@ import { StatCard } from '../common/StatCard';
 export function DashboardStats({ onNavigate }) {
   const { leads, clients, contracts, proposals, installments } = useCRM();
 
+  const safeLeads = Array.isArray(leads) ? leads : [];
+  const safeClients = Array.isArray(clients) ? clients : [];
+  const safeContracts = Array.isArray(contracts) ? contracts : [];
+  const safeProposals = Array.isArray(proposals) ? proposals : [];
+  const safeInstallments = Array.isArray(installments) ? installments : [];
+
   // Volume Metrics
-  const leadsReceived = leads.length;
-  const leadsInAttendance = leads.filter(l => l.stage === 'primeiro_contato' || l.stage === 'qualificacao').length;
-  const leadsQualified = leads.filter(l => l.stage === 'qualificacao' || l.stage === 'reuniao_consulta').length;
-  const proposalsSent = proposals.length;
-  const contractsInNegotiation = leads.filter(l => l.stage === 'negociacao' || l.stage === 'contrato_enviado').length;
-  const contractsClosed = contracts.filter(c => c.status === 'assinado' || c.status === 'active').length;
-  const activeClients = clients.filter(c => c.status === 'active').length;
-  const lostLeads = leads.filter(l => l.stage === 'perdido').length;
+  const leadsReceived = safeLeads.length;
+  const leadsInAttendance = safeLeads.filter(l => l && (l.stage === 'primeiro_contato' || l.stage === 'qualificacao')).length;
+  const leadsQualified = safeLeads.filter(l => l && (l.stage === 'qualificacao' || l.stage === 'reuniao_consulta')).length;
+  const proposalsSent = safeProposals.length;
+  const contractsInNegotiation = safeLeads.filter(l => l && (l.stage === 'negociacao' || l.stage === 'contrato_enviado')).length;
+  const contractsClosed = safeContracts.filter(c => c && (c.status === 'assinado' || c.status === 'active')).length;
+  const activeClients = safeClients.filter(c => c && c.status === 'active').length;
+  const lostLeads = safeLeads.filter(l => l && l.stage === 'perdido').length;
 
   // Financial Metrics
-  const pipelinePotentialValue = leads
-    .filter(l => l.stage !== 'perdido' && l.stage !== 'contrato_fechado')
-    .reduce((acc, curr) => acc + (Number(curr.estimatedValue) || 0), 0);
+  const pipelinePotentialValue = safeLeads
+    .filter(l => l && l.stage !== 'perdido' && l.stage !== 'contrato_fechado')
+    .reduce((acc, curr) => acc + (Number(curr?.estimatedValue) || 0), 0);
 
   // Soma o valor de TODOS os contratos ativos
-  const totalContractedValue = (contracts || [])
-    .filter(c => c.status !== 'cancelado' && c.status !== 'rescindido')
-    .reduce((acc, curr) => acc + (typeof curr.value === 'number' ? curr.value : (Number(curr.value) || 0)), 0);
+  const totalContractedValue = safeContracts
+    .filter(c => c && c.status !== 'cancelado' && c.status !== 'rescindido')
+    .reduce((acc, curr) => acc + (typeof curr?.value === 'number' ? curr.value : (Number(curr?.value) || 0)), 0);
 
-  const totalReceivedValue = (installments || [])
-    .filter(i => i.status === 'paid')
-    .reduce((acc, curr) => acc + (Number(curr.amount || curr.value) || 0), 0);
+  const totalReceivedValue = safeInstallments
+    .filter(i => i && i.status === 'paid')
+    .reduce((acc, curr) => acc + (Number(curr?.amount || curr?.value) || 0), 0);
 
-  const pendingInstallmentsSum = (installments || [])
-    .filter(i => i.status === 'pending')
-    .reduce((acc, curr) => acc + (Number(curr.amount || curr.value) || 0), 0);
+  const pendingInstallmentsSum = safeInstallments
+    .filter(i => i && i.status === 'pending')
+    .reduce((acc, curr) => acc + (Number(curr?.amount || curr?.value) || 0), 0);
 
   const totalPendingValue = pendingInstallmentsSum > 0 ? pendingInstallmentsSum : Math.max(0, totalContractedValue - totalReceivedValue);
 
-  const averageTicket = contractsClosed > 0 ? totalContractedValue / contractsClosed : (contracts.length > 0 ? totalContractedValue / contracts.length : 0);
+  const averageTicket = contractsClosed > 0 ? totalContractedValue / contractsClosed : (safeContracts.length > 0 ? totalContractedValue / safeContracts.length : 0);
 
   // Conversions
   const leadConversionRate = leadsReceived > 0 ? ((contractsClosed / leadsReceived) * 100).toFixed(1) : '0.0';

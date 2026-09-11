@@ -235,7 +235,7 @@ export function Header({
                 >
                   <div className="flex items-center gap-1.5 truncate">
                     <Building2 className="h-3.5 w-3.5 text-gold-500 shrink-0" />
-                    <span className="truncate">{currentEscritorio?.nome || officeSettings?.officeName || officeSettings?.tradeName || 'JurisFlow Advocacia'}</span>
+                    <span className="truncate">{currentEscritorio?.nome || officeSettings?.officeName || officeSettings?.tradeName || currentUser?.firmName || 'Meu Escritório'}</span>
                   </div>
                   <span className="text-[10px] text-brand-600 dark:text-gold-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     Alterar
@@ -247,7 +247,7 @@ export function Header({
               <div className="mb-2 px-1 space-y-1.5">
                 {/* Se houver múltiplas filiais do próprio escritório, permite alternar */}
                 {(() => {
-                  const myBranches = (escritorios || []).filter(esc => esc.id === currentEscritorioId || (esc.parent_id && esc.parent_id === currentEscritorioId));
+                  const myBranches = (escritorios || []).filter(esc => esc && (esc.id === currentEscritorioId || (esc.parent_id && esc.parent_id === currentEscritorioId)));
                   if (myBranches.length <= 1) return null;
                   return (
                     <div className="p-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] space-y-1">

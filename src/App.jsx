@@ -54,7 +54,7 @@ import { UserProfileModal } from './components/common/UserProfileModal';
 
 export function App() {
   const { isAuthenticated, currentUser, permissions } = useAuth();
-  const { toast, hideToast } = useCRM();
+  const { toast, hideToast, initialSupabaseSyncDone, currentEscritorioId } = useCRM();
 
   // Navigation state
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -121,6 +121,26 @@ export function App() {
         <LoginView />
         <Toast toast={toast} onClose={hideToast} />
       </>
+    );
+  }
+
+  // Tela de carregamento intermediária: aguarda o primeiro sync do tenant antes de renderizar o dashboard.
+  // Isso garante que NUNCA serão exibidos dados do escritório anterior ou uma tela vazia/incorreta.
+  if (!initialSupabaseSyncDone && isAuthenticated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-navy-950">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="relative h-16 w-16">
+            <div className="absolute inset-0 rounded-full border-4 border-brand-200 dark:border-brand-900" />
+            <div className="absolute inset-0 rounded-full border-4 border-brand-600 dark:border-brand-400 border-t-transparent animate-spin" />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-slate-800 dark:text-white">Carregando seu escritório…</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Sincronizando dados com segurança</p>
+          </div>
+        </div>
+        <Toast toast={toast} onClose={hideToast} />
+      </div>
     );
   }
 

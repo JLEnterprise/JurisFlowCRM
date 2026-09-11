@@ -8,7 +8,8 @@ export function NotificationCenter() {
   const { notifications, markAllNotificationsRead } = useCRM();
   const dropdownRef = useRef(null);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
+  const unreadCount = safeNotifications.filter(n => n && !n.read).length;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -57,12 +58,12 @@ export function NotificationCenter() {
           </div>
 
           <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 mt-2">
-            {notifications.length === 0 ? (
+            {safeNotifications.length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400">
                 Nenhuma notificação no momento.
               </div>
             ) : (
-              notifications.map(notif => (
+              safeNotifications.map(notif => (
                 <div
                   key={notif.id}
                   className={`py-3 px-1 transition-colors ${notif.read ? 'opacity-70' : 'bg-brand-50/30 dark:bg-brand-950/20 rounded-xl px-2'}`}
