@@ -226,13 +226,28 @@ export function ContractDetail({
             </button>
           )}
 
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-          >
-            <Printer className="h-3.5 w-3.5" />
-            Imprimir
-          </button>
+          {attachments.length > 0 ? (
+            <button
+              onClick={() => {
+                downloadAttachment(attachments[0]);
+                showToast(`Baixando contrato oficial: ${attachments[0]?.name || 'arquivo'}`);
+              }}
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 shadow-sm hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300 transition-colors"
+              title={`Baixar contrato oficial verídico: ${attachments[0]?.name || 'arquivo'}`}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Baixar Contrato Oficial
+            </button>
+          ) : (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 rounded-xl border border-brand-200 bg-brand-50 px-3.5 py-2 text-xs font-bold text-brand-700 shadow-sm hover:bg-brand-100 dark:border-brand-800/60 dark:bg-brand-950/40 dark:text-gold-300 transition-colors"
+              title="Anexar contrato oficial ou lauda verdadeira do seu escritório (PDF/Word)"
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              Anexar Contrato Oficial
+            </button>
+          )}
 
           {onEditContract && (
             <button
