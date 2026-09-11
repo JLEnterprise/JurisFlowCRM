@@ -63,6 +63,7 @@ export function App() {
 
   // Selected Detail Views
   const [selectedClientId, setSelectedClientId] = useState(null);
+  const [activeClientTab, setActiveClientTab] = useState('overview');
   const [selectedContractId, setSelectedContractId] = useState(null);
 
   // Lead view mode (kanban vs list)
@@ -172,8 +173,6 @@ export function App() {
     setClientToEdit(null);
     setClientModalOpen(true);
   };
-
-  const [activeClientTab, setActiveClientTab] = useState('overview');
 
   const handleEditClient = (client) => {
     setClientToEdit(client);
