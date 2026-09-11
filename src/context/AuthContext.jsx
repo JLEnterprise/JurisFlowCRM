@@ -46,7 +46,9 @@ export function AuthProvider({ children }) {
               const singleTitle = data.title || raw.title || 'Advogado(a)';
               const assignedTitles = Array.isArray(data.titles) ? data.titles : (Array.isArray(raw.titles) ? raw.titles : [singleTitle]);
 
-              const userEscritorioId = data.escritorio_id || raw.escritorio_id || 'escritorio_Tatiane';
+              const userEscritorioId = data.escritorio_id || raw.escritorio_id || (
+                email.includes('tatiane') || email === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${session.user.id}`
+              );
 
               remoteUser = {
                 id: data.id || session.user.id,
@@ -79,7 +81,9 @@ export function AuthProvider({ children }) {
             const meta = session.user.user_metadata || {};
             const metaRoles = Array.isArray(meta.roles) ? meta.roles : (meta.role ? [meta.role] : ['admin']);
             const primaryRole = metaRoles.includes('dev') ? 'dev' : (metaRoles.includes('admin') ? 'admin' : (meta.role || metaRoles[0] || 'admin'));
-            const userEscritorioId = meta.escritorio_id || 'escritorio_Tatiane';
+            const userEscritorioId = meta.escritorio_id || (
+              email.includes('tatiane') || email === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${session.user.id}`
+            );
             const newUser = {
               id: session.user.id,
               name: meta.name || email.split('@')[0],
@@ -229,7 +233,9 @@ export function AuthProvider({ children }) {
             const singleTitle = payload.new.title || raw.title || 'Advogado(a)';
             const assignedTitles = rawTitles && rawTitles.length > 0 ? rawTitles : [singleTitle];
 
-            const userEscritorioId = payload.new.escritorio_id || raw.escritorio_id || 'escritorio_Tatiane';
+            const userEscritorioId = payload.new.escritorio_id || raw.escritorio_id || (
+              payload.new.email?.includes('tatiane') || payload.new.email === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${payload.new.id}`
+            );
 
             const normalizedUser = {
               id: payload.new.id,
@@ -384,7 +390,9 @@ export function AuthProvider({ children }) {
           const singleTitle = data.title || raw.title || 'Sócio Administrador';
           const assignedTitles = rawTitles && rawTitles.length > 0 ? rawTitles : [singleTitle];
 
-          const userEscritorioId = data.escritorio_id || raw.escritorio_id || 'escritorio_Tatiane';
+          const userEscritorioId = data.escritorio_id || raw.escritorio_id || (
+            cleanEmail.includes('tatiane') || cleanEmail === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${data.id}`
+          );
 
           remoteProfile = {
             id: data.id,
@@ -414,7 +422,9 @@ export function AuthProvider({ children }) {
           const meta = authData.user.user_metadata || {};
           const metaRoles = Array.isArray(meta.roles) ? meta.roles : (meta.role ? [meta.role] : ['admin']);
           const primaryMetaRole = metaRoles.includes('dev') ? 'dev' : (metaRoles.includes('admin') ? 'admin' : (meta.role || metaRoles[0] || 'admin'));
-          const userEscritorioId = match?.escritorio_id || meta.escritorio_id || 'escritorio_Tatiane';
+          const userEscritorioId = match?.escritorio_id || meta.escritorio_id || (
+            cleanEmail.includes('tatiane') || cleanEmail === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${authData.user.id}`
+          );
 
           const userToSet = match ? {
             ...match,
@@ -452,6 +462,7 @@ export function AuthProvider({ children }) {
 
       if (!found) {
         const formattedName = cleanEmail.split('@')[0].replace(/[._-]/g, ' ');
+        const generatedEscId = cleanEmail.includes('tatiane') || cleanEmail === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${Date.now()}`;
         found = {
           id: `usr_${Date.now()}`,
           name: formattedName ? formattedName.charAt(0).toUpperCase() + formattedName.slice(1) : 'Administrador',
@@ -464,7 +475,7 @@ export function AuthProvider({ children }) {
           firmName: 'JurisFlow Advocacia',
           avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
           status: 'active',
-          escritorio_id: 'escritorio_Tatiane',
+          escritorio_id: generatedEscId,
           created_at: new Date().toISOString()
         };
       } else {
@@ -472,7 +483,7 @@ export function AuthProvider({ children }) {
           found = { ...found, password };
         }
         if (!found.escritorio_id) {
-          found.escritorio_id = 'escritorio_Tatiane';
+          found.escritorio_id = cleanEmail.includes('tatiane') || cleanEmail === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${Date.now()}`;
         }
       }
 
@@ -563,11 +574,11 @@ export function AuthProvider({ children }) {
             status: 'active',
             plano: 'trial'
           });
-          storageService.saveData('current_escritorio_id', finalEscritorioId);
         } catch(e) {
           console.warn('[Supabase Escritorios Warning]:', e.message);
         }
       }
+      storageService.setCurrentEscritorioId(finalEscritorioId);
 
       const userId = supabaseUserId || `usr_${Date.now()}`;
       const newUser = {
@@ -609,6 +620,8 @@ export function AuthProvider({ children }) {
       setIsLoading(false);
       return true;
     } catch (err) {
+      const fallbackEscritorioId = cleanEmail.includes('tatiane') || cleanEmail === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${Date.now()}`;
+      storageService.setCurrentEscritorioId(fallbackEscritorioId);
       const fallbackUser = {
         id: `usr_${Date.now()}`,
         name: name || 'Administrador',
@@ -617,7 +630,8 @@ export function AuthProvider({ children }) {
         roles: ['admin'],
         title: 'Sócio Administrador',
         titles: ['Sócio Administrador'],
-        status: 'active'
+        status: 'active',
+        escritorio_id: fallbackEscritorioId
       };
       setCurrentUser(fallbackUser);
       setIsAuthenticated(true);
@@ -633,6 +647,7 @@ export function AuthProvider({ children }) {
     } catch (e) {
       console.warn('Erro ao deslogar do Supabase:', e.message);
     }
+    storageService.clearTenantCache();
     setCurrentUser(null);
     setIsAuthenticated(false);
     storageService.saveData('current_user', null);

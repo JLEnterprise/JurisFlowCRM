@@ -30,29 +30,42 @@ export function CRMProvider({ children }) {
   const [escritorios, setEscritorios] = useState(() => storageService.loadData('escritorios', INITIAL_ESCRITORIOS));
   const [currentEscritorioId, setCurrentEscritorioIdState] = useState(() => storageService.getCurrentEscritorioId());
 
+  // Os dados mock de demonstração só são usados no escritório default da Tatiane
+  // Qualquer novo escritório inicia com lista limpa e estritamente vazia
+  const initialClients = (currentEscritorioId === 'escritorio_Tatiane') ? INITIAL_CLIENTS : [];
+  const initialContracts = (currentEscritorioId === 'escritorio_Tatiane') ? INITIAL_CONTRACTS : [];
+  const initialLeads = (currentEscritorioId === 'escritorio_Tatiane') ? INITIAL_LEADS : [];
+  const initialProposals = (currentEscritorioId === 'escritorio_Tatiane') ? INITIAL_PROPOSALS : [];
+  const initialProcesses = (currentEscritorioId === 'escritorio_Tatiane') ? INITIAL_PROCESSES : [];
+  const initialTasks = (currentEscritorioId === 'escritorio_Tatiane') ? INITIAL_TASKS : [];
+  const initialAppointments = (currentEscritorioId === 'escritorio_Tatiane') ? INITIAL_APPOINTMENTS : [];
+  const initialAttendances = (currentEscritorioId === 'escritorio_Tatiane') ? INITIAL_ATTENDANCES : [];
+  const initialInstallments = (currentEscritorioId === 'escritorio_Tatiane') ? INITIAL_INSTALLMENTS : [];
+  const initialDocs = (currentEscritorioId === 'escritorio_Tatiane') ? INITIAL_DOCUMENTS : [];
+
   // State slices
-  const [leads, setLeads] = useState(() => storageService.loadData('leads', INITIAL_LEADS));
-  const [clients, setClients] = useState(() => storageService.loadData('clients', INITIAL_CLIENTS));
-  const [contracts, setContracts] = useState(() => storageService.loadData('contracts', INITIAL_CONTRACTS));
+  const [leads, setLeads] = useState(() => storageService.loadData('leads', initialLeads, currentEscritorioId));
+  const [clients, setClients] = useState(() => storageService.loadData('clients', initialClients, currentEscritorioId));
+  const [contracts, setContracts] = useState(() => storageService.loadData('contracts', initialContracts, currentEscritorioId));
   const [proposals, setProposals] = useState(() => {
-    const loaded = storageService.loadData('proposals', INITIAL_PROPOSALS) || [];
+    const loaded = storageService.loadData('proposals', initialProposals, currentEscritorioId) || [];
     return loaded.filter(p => {
       const id = String(p?.id || '');
       const num = String(p?.proposalNumber || p?.proposal_number || '');
       return !storageService.isDeleted(id) && !storageService.isDeleted(num);
     });
   });
-  const [processes, setProcesses] = useState(() => storageService.loadData('processes', INITIAL_PROCESSES));
-  const [tasks, setTasks] = useState(() => storageService.loadData('tasks', INITIAL_TASKS));
-  const [appointments, setAppointments] = useState(() => storageService.loadData('appointments', INITIAL_APPOINTMENTS));
-  const [attendances, setAttendances] = useState(() => storageService.loadData('attendances', INITIAL_ATTENDANCES));
-  const [installments, setInstallments] = useState(() => storageService.loadData('installments', INITIAL_INSTALLMENTS));
-  const [documents, setDocuments] = useState(() => storageService.loadData('documents', INITIAL_DOCUMENTS));
+  const [processes, setProcesses] = useState(() => storageService.loadData('processes', initialProcesses, currentEscritorioId));
+  const [tasks, setTasks] = useState(() => storageService.loadData('tasks', initialTasks, currentEscritorioId));
+  const [appointments, setAppointments] = useState(() => storageService.loadData('appointments', initialAppointments, currentEscritorioId));
+  const [attendances, setAttendances] = useState(() => storageService.loadData('attendances', initialAttendances, currentEscritorioId));
+  const [installments, setInstallments] = useState(() => storageService.loadData('installments', initialInstallments, currentEscritorioId));
+  const [documents, setDocuments] = useState(() => storageService.loadData('documents', initialDocs, currentEscritorioId));
   const [legalAreas, setLegalAreas] = useState(() => storageService.loadData('legal_areas', INITIAL_LEGAL_AREAS));
   const [leadSources, setLeadSources] = useState(() => storageService.loadData('lead_sources', INITIAL_LEAD_SOURCES));
-  const [activityLogs, setActivityLogs] = useState(() => storageService.loadData('activity_logs', INITIAL_ACTIVITY_LOGS));
-  const [notifications, setNotifications] = useState(() => storageService.loadData('notifications', INITIAL_NOTIFICATIONS));
-  const [officeSettings, setOfficeSettings] = useState(() => storageService.loadData('office_settings', INITIAL_OFFICE_SETTINGS));
+  const [activityLogs, setActivityLogs] = useState(() => storageService.loadData('activity_logs', INITIAL_ACTIVITY_LOGS, currentEscritorioId));
+  const [notifications, setNotifications] = useState(() => storageService.loadData('notifications', INITIAL_NOTIFICATIONS, currentEscritorioId));
+  const [officeSettings, setOfficeSettings] = useState(() => storageService.loadData('office_settings', INITIAL_OFFICE_SETTINGS, currentEscritorioId));
 
   const [supabaseConnected, setSupabaseConnected] = useState(true);
   const [initialSupabaseSyncDone, setInitialSupabaseSyncDone] = useState(false);
@@ -61,12 +74,26 @@ export function CRMProvider({ children }) {
   // Objeto do escritorio ativo
   const currentEscritorio = escritorios.find(e => e.id === currentEscritorioId) || escritorios[0] || INITIAL_ESCRITORIOS[0];
 
-  // Alternar escritorio ativo
+  // Alternar escritorio ativo com limpeza e isolamento imediato
   const switchEscritorio = useCallback(async (escritorioId) => {
+    if (!escritorioId) return;
     storageService.setCurrentEscritorioId(escritorioId);
     setCurrentEscritorioIdState(escritorioId);
     
-    // Recarregar dados do tenant
+    // Imediatamente isola o estado local para o novo escritório (evita flash visual de dados de outro tenant)
+    const isDefaultTatiane = (escritorioId === 'escritorio_Tatiane');
+    setLeads(storageService.loadData('leads', isDefaultTatiane ? INITIAL_LEADS : [], escritorioId));
+    setClients(storageService.loadData('clients', isDefaultTatiane ? INITIAL_CLIENTS : [], escritorioId));
+    setContracts(storageService.loadData('contracts', isDefaultTatiane ? INITIAL_CONTRACTS : [], escritorioId));
+    setProposals(storageService.loadData('proposals', isDefaultTatiane ? INITIAL_PROPOSALS : [], escritorioId));
+    setProcesses(storageService.loadData('processes', isDefaultTatiane ? INITIAL_PROCESSES : [], escritorioId));
+    setTasks(storageService.loadData('tasks', isDefaultTatiane ? INITIAL_TASKS : [], escritorioId));
+    setAppointments(storageService.loadData('appointments', isDefaultTatiane ? INITIAL_APPOINTMENTS : [], escritorioId));
+    setAttendances(storageService.loadData('attendances', isDefaultTatiane ? INITIAL_ATTENDANCES : [], escritorioId));
+    setInstallments(storageService.loadData('installments', isDefaultTatiane ? INITIAL_INSTALLMENTS : [], escritorioId));
+    setDocuments(storageService.loadData('documents', isDefaultTatiane ? INITIAL_DOCUMENTS : [], escritorioId));
+
+    // Recarregar dados estritos do tenant diretamente da nuvem
     try {
       const [
         cloudLeads,
@@ -78,7 +105,8 @@ export function CRMProvider({ children }) {
         cloudAppointments,
         cloudAttendances,
         cloudInstallments,
-        cloudDocs
+        cloudDocs,
+        cloudSettings
       ] = await Promise.all([
         storageService.fetchFromSupabase('leads', [], escritorioId),
         storageService.fetchFromSupabase('clients', [], escritorioId),
@@ -90,6 +118,7 @@ export function CRMProvider({ children }) {
         storageService.fetchFromSupabase('attendances', [], escritorioId),
         storageService.fetchFromSupabase('installments', [], escritorioId),
         storageService.fetchFromSupabase('documents', [], escritorioId),
+        storageService.fetchFromSupabase('office_settings', [], escritorioId),
       ]);
 
       if (cloudLeads !== undefined) setLeads(cloudLeads);
@@ -102,6 +131,7 @@ export function CRMProvider({ children }) {
       if (cloudAttendances !== undefined) setAttendances(cloudAttendances);
       if (cloudInstallments !== undefined) setInstallments(cloudInstallments);
       if (cloudDocs !== undefined) setDocuments(cloudDocs);
+      if (cloudSettings && cloudSettings.length > 0) setOfficeSettings(cloudSettings[0]);
     } catch (err) {
       console.warn('Erro ao carregar dados do escritorio:', err);
     }
@@ -118,13 +148,15 @@ export function CRMProvider({ children }) {
   useEffect(() => {
     async function loadCloudData() {
       try {
-        const cloudEscritorios = await storageService.fetchFromSupabase('escritorios', INITIAL_ESCRITORIOS);
+        let targetEscritorioId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId();
+
+        const cloudEscritorios = await storageService.fetchFromSupabase('escritorios', INITIAL_ESCRITORIOS, targetEscritorioId);
         if (cloudEscritorios && cloudEscritorios.length > 0) {
           setEscritorios(cloudEscritorios);
         }
 
-        let targetEscritorioId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId();
-        if (cloudEscritorios && cloudEscritorios.length > 0) {
+        // Se o usuário autenticado já tem escritório definido, NUNCA sobreponha por outro!
+        if (!currentUser?.escritorio_id && cloudEscritorios && cloudEscritorios.length > 0) {
           const targetExists = cloudEscritorios.some(e => e.id === targetEscritorioId);
           if (!targetExists) {
             targetEscritorioId = cloudEscritorios[0].id;
@@ -133,7 +165,8 @@ export function CRMProvider({ children }) {
         storageService.setCurrentEscritorioId(targetEscritorioId);
         setCurrentEscritorioIdState(targetEscritorioId);
 
-        // Auto-recupera qualquer dado que a cliente tenha digitado no navegador local e sincroniza com a nuvem
+        // Auto-recupera dados respeitando estritamente o isolamento de escritório
+        const isDefaultTatiane = (targetEscritorioId === 'escritorio_Tatiane');
         const [
           syncedLeads,
           syncedClients,
@@ -147,17 +180,17 @@ export function CRMProvider({ children }) {
           syncedDocs,
           syncedOfficeSettings
         ] = await Promise.all([
-          storageService.recoverAndSyncLocalData('leads', INITIAL_LEADS, targetEscritorioId),
-          storageService.recoverAndSyncLocalData('clients', INITIAL_CLIENTS, targetEscritorioId),
-          storageService.recoverAndSyncLocalData('contracts', INITIAL_CONTRACTS, targetEscritorioId),
-          storageService.recoverAndSyncLocalData('proposals', INITIAL_PROPOSALS, targetEscritorioId),
-          storageService.recoverAndSyncLocalData('processes', INITIAL_PROCESSES, targetEscritorioId),
-          storageService.recoverAndSyncLocalData('tasks', INITIAL_TASKS, targetEscritorioId),
-          storageService.recoverAndSyncLocalData('appointments', INITIAL_APPOINTMENTS, targetEscritorioId),
-          storageService.recoverAndSyncLocalData('attendances', INITIAL_ATTENDANCES, targetEscritorioId),
-          storageService.recoverAndSyncLocalData('installments', INITIAL_INSTALLMENTS, targetEscritorioId),
-          storageService.recoverAndSyncLocalData('documents', INITIAL_DOCUMENTS, targetEscritorioId),
-          storageService.recoverAndSyncLocalData('office_settings', [INITIAL_OFFICE_SETTINGS], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('leads', isDefaultTatiane ? INITIAL_LEADS : [], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('clients', isDefaultTatiane ? INITIAL_CLIENTS : [], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('contracts', isDefaultTatiane ? INITIAL_CONTRACTS : [], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('proposals', isDefaultTatiane ? INITIAL_PROPOSALS : [], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('processes', isDefaultTatiane ? INITIAL_PROCESSES : [], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('tasks', isDefaultTatiane ? INITIAL_TASKS : [], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('appointments', isDefaultTatiane ? INITIAL_APPOINTMENTS : [], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('attendances', isDefaultTatiane ? INITIAL_ATTENDANCES : [], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('installments', isDefaultTatiane ? INITIAL_INSTALLMENTS : [], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('documents', isDefaultTatiane ? INITIAL_DOCUMENTS : [], targetEscritorioId),
+          storageService.recoverAndSyncLocalData('office_settings', isDefaultTatiane ? [INITIAL_OFFICE_SETTINGS] : [], targetEscritorioId),
         ]);
 
         if (syncedLeads !== undefined) setLeads(syncedLeads);
@@ -177,7 +210,7 @@ export function CRMProvider({ children }) {
         setSupabaseConnected(true);
 
         // --- AUTO-LINK: Associar clientId em contratos e parcelas que possuem apenas clientName ---
-        const allClients = syncedClients || storageService.loadData('clients') || [];
+        const allClients = syncedClients || storageService.loadData('clients', [], targetEscritorioId) || [];
         let allContracts = syncedContracts || storageService.loadData('contracts') || [];
         let contractsUpdated = false;
 
@@ -325,6 +358,14 @@ export function CRMProvider({ children }) {
         }
 
         const activeEscritorio = storageService.getCurrentEscritorioId();
+
+        // ISOLAMENTO MULTI-TENANT ESTRITO EM TEMPO REAL:
+        // Ignora sumariamente qualquer evento gerado por outro escritório
+        const payloadEscritorio = payload.new?.escritorio_id || payload.old?.escritorio_id;
+        if (payloadEscritorio && activeEscritorio && payloadEscritorio !== activeEscritorio) {
+          return;
+        }
+
         const refreshed = await storageService.fetchFromSupabase(table, [], activeEscritorio);
         if (!mounted || !refreshed) return;
 

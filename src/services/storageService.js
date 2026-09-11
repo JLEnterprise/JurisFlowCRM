@@ -833,7 +833,11 @@ export const storageService = {
   getCurrentEscritorioId() {
     try {
       const stored = localStorage.getItem(STORAGE_PREFIX + 'current_escritorio_id');
-      return stored || DEFAULT_ESCRITORIO_ID;
+      if (stored) {
+        const clean = stored.replace(/^"|"$/g, '').trim();
+        if (clean) return clean;
+      }
+      return DEFAULT_ESCRITORIO_ID;
     } catch (e) {
       return DEFAULT_ESCRITORIO_ID;
     }
@@ -841,16 +845,54 @@ export const storageService = {
 
   setCurrentEscritorioId(id) {
     try {
-      localStorage.setItem(STORAGE_PREFIX + 'current_escritorio_id', id);
+      if (!id) return;
+      const clean = String(id).replace(/^"|"$/g, '').trim();
+      localStorage.setItem(STORAGE_PREFIX + 'current_escritorio_id', clean);
     } catch (e) {
       console.error('Erro ao salvar escritorio_id no localStorage:', e);
     }
   },
 
-  loadData(key, fallback) {
+  getTenantStorageKey(key, escritorioId = null) {
+    const escId = escritorioId || this.getCurrentEscritorioId();
+    if (!escId) return STORAGE_PREFIX + key;
+    return `${STORAGE_PREFIX}${escId}_${key}`;
+  },
+
+  clearTenantCache() {
     try {
-      const stored = localStorage.getItem(STORAGE_PREFIX + key);
-      if (!stored) return fallback;
+      localStorage.removeItem(STORAGE_PREFIX + 'current_user');
+      localStorage.removeItem(STORAGE_PREFIX + 'current_escritorio_id');
+      const tables = [
+        'clients', 'contracts', 'proposals', 'leads', 'processes',
+        'tasks', 'appointments', 'attendances', 'installments', 'documents',
+        'office_settings', 'users'
+      ];
+      tables.forEach(t => {
+        localStorage.removeItem(STORAGE_PREFIX + t);
+      });
+    } catch (e) {
+      console.warn('Erro ao limpar cache de tenant:', e);
+    }
+  },
+
+  loadData(key, fallback, escritorioId = null) {
+    try {
+      const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
+      // O fallback inicial com dados mock da Tatiane SÓ É APLICADO para o escritório default de demonstração
+      // Qualquer outro escritório inicia com a base 100% LIMPA e ZERADA
+      const effectiveFallback = (activeEscritorio === DEFAULT_ESCRITORIO_ID) ? fallback : [];
+
+      const tenantKey = this.getTenantStorageKey(key, activeEscritorio);
+      let stored = localStorage.getItem(tenantKey);
+
+      // Compatibilidade legada apenas para o escritório principal da Tatiane
+      if (!stored && activeEscritorio === DEFAULT_ESCRITORIO_ID) {
+        stored = localStorage.getItem(STORAGE_PREFIX + key);
+      }
+
+      if (!stored) return effectiveFallback;
+
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed)) {
         const deletedIds = this.getDeletedIds();
@@ -859,21 +901,32 @@ export const storageService = {
             if (!item) return false;
             const id = String(item.id || '');
             const num = String(item.proposalNumber || item.proposal_number || '');
-            return (!id || !deletedIds.includes(id)) && (!num || !deletedIds.includes(num));
+            if (deletedIds.includes(id) || (num && deletedIds.includes(num))) return false;
+            // ISOLAMENTO ESTRITO: se o item possui escritório_id, ele DEVE pertencer ao tenant ativo
+            const itemEsc = item.escritorio_id || (item.raw_data && item.raw_data.escritorio_id);
+            if (itemEsc && activeEscritorio && itemEsc !== activeEscritorio) return false;
+            return true;
           })
-          .map(item => normalizeRow(key, item, this.getCurrentEscritorioId()));
+          .map(item => normalizeRow(key, item, activeEscritorio));
       }
       return parsed;
     } catch (e) {
       console.error('Erro ao carregar chave ' + key + ' do localStorage:', e);
-      return fallback;
+      return (escritorioId === DEFAULT_ESCRITORIO_ID) ? fallback : [];
     }
   },
 
-  saveData(key, data) {
+  saveData(key, data, escritorioId = null) {
     try {
+      const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
       const sanitized = sanitizePayload(data, false); // false = STRIP dataUrl for localStorage
-      localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(sanitized));
+      const tenantKey = this.getTenantStorageKey(key, activeEscritorio);
+      localStorage.setItem(tenantKey, JSON.stringify(sanitized));
+
+      // Se for o escritório default, espelha na chave legada
+      if (activeEscritorio === DEFAULT_ESCRITORIO_ID) {
+        localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(sanitized));
+      }
     } catch (e) {
       console.warn(`[storageService] Quota no localStorage para ${key}, aplicando compressão segura:`, e.message);
       try {
@@ -885,7 +938,8 @@ export const storageService = {
             }
             return item;
           });
-          localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(stripped));
+          const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
+          localStorage.setItem(this.getTenantStorageKey(key, activeEscritorio), JSON.stringify(stripped));
         }
       } catch (inner) {
         console.error('Falha crítica ao persistir no localStorage:', inner);
@@ -897,11 +951,20 @@ export const storageService = {
     if (!supabase) return fallback;
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
+      const effectiveFallback = (activeEscritorio === DEFAULT_ESCRITORIO_ID) ? fallback : [];
       let query = supabase.from(table).select('*');
       
-      // Se a tabela possui isolamento por escritório
-      if (['users', 'clients', 'processes', 'leads', 'contracts', 'proposals', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications'].includes(table)) {
-        query = query.or(`escritorio_id.eq.${activeEscritorio},escritorio_id.is.null,escritorio_id.eq.escritorio_Tatiane,escritorio_id.eq.escritorio_principal`);
+      // ISOLAMENTO MULTI-TENANT ESTRITO:
+      // Cada escritório só pode ler seus próprios dados!
+      if (['users', 'clients', 'processes', 'leads', 'contracts', 'proposals', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications', 'office_settings'].includes(table)) {
+        if (activeEscritorio) {
+          query = query.eq('escritorio_id', activeEscritorio);
+        }
+      }
+
+      // Se for a tabela de escritórios, retorna apenas o próprio escritório
+      if (table === 'escritorios' && activeEscritorio) {
+        query = query.eq('id', activeEscritorio);
       }
 
       // Ordenação estável por created_at desc se disponível
@@ -911,7 +974,7 @@ export const storageService = {
 
       const { data, error } = await query;
       if (error) throw error;
-      if (!data) return fallback;
+      if (!data) return effectiveFallback;
       
       const deletedIds = this.getDeletedIds();
       const mapped = data
@@ -919,52 +982,59 @@ export const storageService = {
           if (!row || !row.id) return false;
           const id = String(row.id);
           const num = String(row.proposal_number || (row.raw_data && (row.raw_data.proposalNumber || row.raw_data.proposal_number)) || '');
+          // Garante estritamente que pertence ao tenant
+          const rowEsc = row.escritorio_id || (row.raw_data && row.raw_data.escritorio_id);
+          if (rowEsc && activeEscritorio && rowEsc !== activeEscritorio) return false;
           return !deletedIds.includes(id) && (!num || !deletedIds.includes(num));
         })
         .map(row => normalizeRow(table, row, activeEscritorio));
 
-      localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(mapped));
+      this.saveData(table, mapped, activeEscritorio);
       return mapped;
     } catch (e) {
       console.warn('[Supabase Fetch] Usando cache local para ' + table + ':', e.message);
-      return this.loadData(table, fallback);
+      return this.loadData(table, fallback, escritorioId);
     }
   },
 
   async recoverAndSyncLocalData(table, fallback = [], escritorioId = null) {
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-      const localData = this.loadData(table, []);
+      const effectiveFallback = (activeEscritorio === DEFAULT_ESCRITORIO_ID) ? fallback : [];
+      const localData = this.loadData(table, [], activeEscritorio);
       const cloudData = await this.fetchFromSupabase(table, null, activeEscritorio);
       const deletedIds = this.getDeletedIds();
 
-      // Se a nuvem retornou dados, ela é a autoridade central (evita ressuscitar registros que foram excluídos)
+      // Se a nuvem retornou dados para este escritório
       if (Array.isArray(cloudData) && cloudData.length > 0) {
-        localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(cloudData));
+        this.saveData(table, cloudData, activeEscritorio);
         return cloudData;
       }
 
-      // Se a nuvem está vazia mas existem dados locais salvos
+      // Se a nuvem está vazia para este escritório MAS existem dados locais estritamente deste escritório
       if (Array.isArray(localData) && localData.length > 0) {
-        const validLocal = localData.filter(l => l && l.id && !deletedIds.includes(String(l.id)));
+        const validLocal = localData.filter(l => {
+          if (!l || !l.id || deletedIds.includes(String(l.id))) return false;
+          const itemEsc = l.escritorio_id || (l.raw_data && l.raw_data.escritorio_id);
+          return itemEsc === activeEscritorio;
+        });
         if (validLocal.length > 0) {
-          console.info(`[Auto-Recovery] Nuvem vazia para ${table}. Enviando ${validLocal.length} registro(s) locais para o Supabase...`);
+          console.info(`[Auto-Recovery] Enviando ${validLocal.length} registro(s) locais do escritório ${activeEscritorio} para o Supabase...`);
           await this.syncToSupabase(table, validLocal);
-          localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(validLocal));
+          this.saveData(table, validLocal, activeEscritorio);
           return validLocal;
         }
       }
 
       if (Array.isArray(cloudData)) {
-        localStorage.setItem(STORAGE_PREFIX + table, JSON.stringify(fallback));
-        return fallback;
+        this.saveData(table, effectiveFallback, activeEscritorio);
+        return effectiveFallback;
       }
 
-      // Se a nuvem estava inacessível ou falhou, opera com o cache local
-      return localData.length > 0 ? localData : fallback;
+      return localData.length > 0 ? localData : effectiveFallback;
     } catch (err) {
       console.warn(`[Auto-Recovery Falhou em ${table}, fallback ativado]:`, err);
-      return this.loadData(table, fallback);
+      return this.loadData(table, fallback, escritorioId);
     }
   },
 
