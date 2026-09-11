@@ -444,7 +444,7 @@ export function App() {
         if (!permissions?.canAccessFinancial) {
           return renderAccessRestricted('Financeiro & Honorários Globais', 'Sócia Administradora, Controller Financeiro e Dev');
         }
-        return <FinancialOverview onOpenWhatsApp={handleOpenWhatsAppModal} onSelectClient={handleViewClientDetail} onSelectContract={handleViewContractDetail} />;
+        return <FinancialOverview onOpenWhatsApp={handleOpenWhatsAppModal} onSelectClient={handleViewClientDetail} onSelectContract={handleViewContractDetail} onNavigate={handleNavigate} />;
 
       case 'reports':
         return <ReportsView />;
