@@ -46,9 +46,7 @@ export function AuthProvider({ children }) {
               const singleTitle = data.title || raw.title || 'Advogado(a)';
               const assignedTitles = Array.isArray(data.titles) ? data.titles : (Array.isArray(raw.titles) ? raw.titles : [singleTitle]);
 
-              const userEscritorioId = data.escritorio_id || raw.escritorio_id || (
-                email.includes('tatiane') || email === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${session.user.id}`
-              );
+              const userEscritorioId = data.escritorio_id || raw.escritorio_id || `esc_${session.user.id}`;
 
               remoteUser = {
                 id: data.id || session.user.id,
@@ -73,6 +71,7 @@ export function AuthProvider({ children }) {
           if (match) {
             if (match.escritorio_id) {
               storageService.setCurrentEscritorioId(match.escritorio_id);
+              storageService.purgeContaminatedCache(match.escritorio_id);
             }
             setCurrentUser(match);
             setIsAuthenticated(true);
@@ -81,9 +80,7 @@ export function AuthProvider({ children }) {
             const meta = session.user.user_metadata || {};
             const metaRoles = Array.isArray(meta.roles) ? meta.roles : (meta.role ? [meta.role] : ['admin']);
             const primaryRole = metaRoles.includes('dev') ? 'dev' : (metaRoles.includes('admin') ? 'admin' : (meta.role || metaRoles[0] || 'admin'));
-            const userEscritorioId = meta.escritorio_id || (
-              email.includes('tatiane') || email === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${session.user.id}`
-            );
+            const userEscritorioId = meta.escritorio_id || `esc_${session.user.id}`;
             const newUser = {
               id: session.user.id,
               name: meta.name || email.split('@')[0],
@@ -100,6 +97,7 @@ export function AuthProvider({ children }) {
             };
             if (userEscritorioId) {
               storageService.setCurrentEscritorioId(userEscritorioId);
+              storageService.purgeContaminatedCache(userEscritorioId);
             }
             setCurrentUser(newUser);
             setIsAuthenticated(true);
@@ -115,17 +113,12 @@ export function AuthProvider({ children }) {
 
     const { data: authListener } = onAuthStateChange((event, session) => {
       if (!mounted) return;
-      if (event === 'SIGNED_IN' && session?.user) {
-        const email = session.user.email?.toLowerCase();
-        const match = users.find(u => u.email?.toLowerCase() === email);
-        if (match) {
-          if (match.escritorio_id) {
-            storageService.setCurrentEscritorioId(match.escritorio_id);
-          }
-          setCurrentUser(match);
-          setIsAuthenticated(true);
-          storageService.saveData('current_user', match);
-        }
+      if (event === 'SIGNED_OUT') {
+        storageService.saveData('current_user', null);
+        storageService.setCurrentEscritorioId(null);
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+        setUsers([]);
       }
     });
 
@@ -150,17 +143,20 @@ export function AuthProvider({ children }) {
     let mounted = true;
     async function loadCloudUsers() {
       try {
-        const cloudUsers = await storageService.fetchFromSupabase('users', INITIAL_USERS);
+        const currentEscId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId();
+        if (!currentEscId) return;
+
+        const cloudUsers = await storageService.fetchFromSupabase('users', [], currentEscId);
         if (mounted && Array.isArray(cloudUsers) && cloudUsers.length > 0) {
-          setUsers(cloudUsers);
+          const tenantUsers = cloudUsers.filter(u => u.escritorio_id === currentEscId);
+          setUsers(tenantUsers);
 
           // Atualizar currentUser se ele estiver presente nos usuários remotos com dados mais frescos
-          const savedCurrent = storageService.loadData('current_user', null);
-          const emailToMatch = (savedCurrent?.email || currentUser?.email || '').toLowerCase().trim();
+          const emailToMatch = (currentUser?.email || '').toLowerCase().trim();
           if (emailToMatch) {
-            const match = cloudUsers.find(u => u.email?.toLowerCase() === emailToMatch);
+            const match = tenantUsers.find(u => u.email?.toLowerCase() === emailToMatch);
             if (match) {
-              const updated = { ...(savedCurrent || {}), ...match };
+              const updated = { ...(currentUser || {}), ...match };
               setCurrentUser(updated);
               storageService.saveData('current_user', updated);
             }
@@ -172,7 +168,7 @@ export function AuthProvider({ children }) {
     }
     loadCloudUsers();
     return () => { mounted = false; };
-  }, []);
+  }, [currentUser?.escritorio_id]);
 
   // Sincronizar currentUser dinamicamente sempre que a lista global de users mudar
   useEffect(() => {
@@ -219,7 +215,13 @@ export function AuthProvider({ children }) {
           }
 
           if (payload.new) {
+            const currentEscId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId();
             const raw = (payload.new.raw_data && typeof payload.new.raw_data === 'object') ? payload.new.raw_data : {};
+            const userEscritorioId = payload.new.escritorio_id || raw.escritorio_id || `esc_${payload.new.id}`;
+
+            // Ignora usuários de outros escritórios no canal Realtime
+            if (currentEscId && userEscritorioId !== currentEscId) return;
+
             const rawRoles = Array.isArray(payload.new.roles) ? payload.new.roles : (Array.isArray(raw.roles) ? raw.roles : null);
             const singleRole = payload.new.role || raw.role || 'lawyer';
             const assignedRoles = rawRoles && rawRoles.length > 0 ? rawRoles : [singleRole];
@@ -232,10 +234,6 @@ export function AuthProvider({ children }) {
             const rawTitles = Array.isArray(payload.new.titles) ? payload.new.titles : (Array.isArray(raw.titles) ? raw.titles : null);
             const singleTitle = payload.new.title || raw.title || 'Advogado(a)';
             const assignedTitles = rawTitles && rawTitles.length > 0 ? rawTitles : [singleTitle];
-
-            const userEscritorioId = payload.new.escritorio_id || raw.escritorio_id || (
-              payload.new.email?.includes('tatiane') || payload.new.email === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${payload.new.id}`
-            );
 
             const normalizedUser = {
               id: payload.new.id,
@@ -283,7 +281,7 @@ export function AuthProvider({ children }) {
       mounted = false;
       supabase.removeChannel(usersChannel);
     };
-  }, []);
+  }, [currentUser?.escritorio_id]);
 
   // Sincronizar o usuário/perfil na tabela users do Supabase PostgreSQL
   const syncProfileWithSupabase = async (userObj) => {
@@ -363,7 +361,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password, rememberMe = true) => {
     setIsLoading(true);
     setAuthError('');
-    const cleanEmail = (email || '').toLowerCase().trim() || 'admin@jurisflow.adv.br';
+    const cleanEmail = (email || '').toLowerCase().trim();
 
     try {
       // 1. Tentar buscar o perfil do usuario na tabela users do Supabase PostgreSQL
@@ -390,9 +388,7 @@ export function AuthProvider({ children }) {
           const singleTitle = data.title || raw.title || 'Sócio Administrador';
           const assignedTitles = rawTitles && rawTitles.length > 0 ? rawTitles : [singleTitle];
 
-          const userEscritorioId = data.escritorio_id || raw.escritorio_id || (
-            cleanEmail.includes('tatiane') || cleanEmail === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${data.id}`
-          );
+          const userEscritorioId = data.escritorio_id || raw.escritorio_id || `esc_${data.id}`;
 
           remoteProfile = {
             id: data.id,
@@ -416,15 +412,13 @@ export function AuthProvider({ children }) {
 
       // 2. Tentar login nativo via Supabase Auth
       try {
-        const authData = await signIn(cleanEmail, password || '123456');
+        const authData = await signIn(cleanEmail, password);
         if (authData?.user) {
-          const match = remoteProfile || users.find(u => u.email?.toLowerCase() === cleanEmail);
+          const match = remoteProfile;
           const meta = authData.user.user_metadata || {};
           const metaRoles = Array.isArray(meta.roles) ? meta.roles : (meta.role ? [meta.role] : ['admin']);
           const primaryMetaRole = metaRoles.includes('dev') ? 'dev' : (metaRoles.includes('admin') ? 'admin' : (meta.role || metaRoles[0] || 'admin'));
-          const userEscritorioId = match?.escritorio_id || meta.escritorio_id || (
-            cleanEmail.includes('tatiane') || cleanEmail === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${authData.user.id}`
-          );
+          const userEscritorioId = match?.escritorio_id || meta.escritorio_id || `esc_${authData.user.id}`;
 
           const userToSet = match ? {
             ...match,
@@ -444,6 +438,7 @@ export function AuthProvider({ children }) {
           };
           if (userEscritorioId) {
             storageService.setCurrentEscritorioId(userEscritorioId);
+            storageService.purgeContaminatedCache(userEscritorioId);
           }
           setCurrentUser(userToSet);
           setIsAuthenticated(true);
@@ -456,18 +451,18 @@ export function AuthProvider({ children }) {
         console.warn('[Supabase Auth Warning]:', supabaseErr.message);
       }
 
-      // 3. Fallback de login incondicional local e do Supabase
+      // 3. Fallback de login incondicional
       await new Promise(res => setTimeout(res, 150));
       let found = remoteProfile || users.find(u => u.email?.toLowerCase() === cleanEmail);
 
       if (!found) {
         const formattedName = cleanEmail.split('@')[0].replace(/[._-]/g, ' ');
-        const generatedEscId = cleanEmail.includes('tatiane') || cleanEmail === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${Date.now()}`;
+        const generatedEscId = `esc_${Date.now()}`;
         found = {
           id: `usr_${Date.now()}`,
           name: formattedName ? formattedName.charAt(0).toUpperCase() + formattedName.slice(1) : 'Administrador',
           email: cleanEmail,
-          password: password || '123456',
+          password: password || 'senha_nao_definida',
           role: 'admin',
           roles: ['admin'],
           title: 'Sócio Administrador',
@@ -483,12 +478,13 @@ export function AuthProvider({ children }) {
           found = { ...found, password };
         }
         if (!found.escritorio_id) {
-          found.escritorio_id = cleanEmail.includes('tatiane') || cleanEmail === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${Date.now()}`;
+          found.escritorio_id = `esc_${Date.now()}`;
         }
       }
 
       if (found.escritorio_id) {
         storageService.setCurrentEscritorioId(found.escritorio_id);
+        storageService.purgeContaminatedCache(found.escritorio_id);
       }
 
       // 4. Atualizar lista de usuarios e salvar no Supabase PostgreSQL
@@ -511,44 +507,35 @@ export function AuthProvider({ children }) {
       return true;
     } catch (err) {
       console.error('Erro no login:', err);
-      const fallbackUser = {
-        id: `usr_master_${Date.now()}`,
-        name: cleanEmail.split('@')[0] || 'Administrador',
-        email: cleanEmail || 'admin@jurisflow.adv.br',
-        role: 'admin',
-        roles: ['admin'],
-        title: 'Sócio Administrador',
-        titles: ['Sócio Administrador'],
-        status: 'active'
-      };
-      setCurrentUser(fallbackUser);
-      setIsAuthenticated(true);
-      storageService.saveData('current_user', fallbackUser);
       setIsLoading(false);
-      return true;
+      return false;
     }
   };
 
   // Registro de novos usuarios com persistencia no Supabase PostgreSQL e login automatico
-  const registerUser = async ({ name, email, password, role = 'lawyer', roles = null, title = 'Advogado(a)', titles = null, firmName = 'JurisFlow Advocacia', escritorio_id = null }) => {
+  const registerUser = async ({ name, email, password, role = 'admin', roles = null, title = 'Sócio Administrador', titles = null, firmName = 'Meu Escritório', escritorio_id = null }) => {
     setIsLoading(true);
     setAuthError('');
-    const cleanEmail = (email || '').toLowerCase().trim() || 'usuario@escritorio.adv.br';
+    const cleanEmail = (email || '').toLowerCase().trim();
+    if (!cleanEmail) {
+      setIsLoading(false);
+      return false;
+    }
 
     try {
-      const assignedRoles = Array.isArray(roles) && roles.length > 0 ? roles : [role || 'lawyer'];
+      const assignedRoles = Array.isArray(roles) && roles.length > 0 ? roles : [role || 'admin'];
       const primaryRole = assignedRoles.includes('dev')
         ? 'dev'
         : assignedRoles.includes('admin')
         ? 'admin'
-        : (role || assignedRoles[0] || 'lawyer');
+        : (role || assignedRoles[0] || 'admin');
 
-      const assignedTitles = Array.isArray(titles) && titles.length > 0 ? titles : [title || 'Advogado(a)'];
+      const assignedTitles = Array.isArray(titles) && titles.length > 0 ? titles : [title || 'Sócio Administrador'];
       const primaryTitle = title || assignedTitles.join(' • ');
 
       let supabaseUserId = null;
       try {
-        const authData = await signUp(cleanEmail, password || '123456', {
+        const authData = await signUp(cleanEmail, password, {
           name,
           role: primaryRole,
           roles: assignedRoles,
@@ -567,18 +554,37 @@ export function AuthProvider({ children }) {
       if (!finalEscritorioId) {
         finalEscritorioId = `esc_${Date.now()}`;
         try {
+          // 1. Cria a entidade do Escritório no Supabase
           await supabase.from('escritorios').insert({
             id: finalEscritorioId,
-            nome: firmName || 'JurisFlow Advocacia',
+            nome: firmName || 'Meu Escritório',
             email: cleanEmail,
             status: 'active',
             plano: 'trial'
           });
+
+          // 2. Cria as configurações institucionais isoladas do novo Escritório no Supabase
+          await supabase.from('office_settings').insert({
+            id: `settings_${finalEscritorioId}`,
+            escritorio_id: finalEscritorioId,
+            office_name: firmName || 'Meu Escritório',
+            email: cleanEmail,
+            phone: '',
+            address: '',
+            raw_data: {
+              officeName: firmName || 'Meu Escritório',
+              tradeName: firmName || 'JurisFlow CRM',
+              email: cleanEmail,
+              escritorio_id: finalEscritorioId,
+            }
+          });
         } catch(e) {
-          console.warn('[Supabase Escritorios Warning]:', e.message);
+          console.warn('[Supabase Escritorios Setup Warning]:', e.message);
         }
       }
+
       storageService.setCurrentEscritorioId(finalEscritorioId);
+      storageService.purgeContaminatedCache(finalEscritorioId);
 
       const userId = supabaseUserId || `usr_${Date.now()}`;
       const newUser = {
@@ -592,7 +598,7 @@ export function AuthProvider({ children }) {
         titles: assignedTitles,
         oab: '',
         phone: '',
-        firmName: firmName || 'JurisFlow Advocacia',
+        firmName: firmName || 'Meu Escritório',
         avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
         status: 'active',
         escritorio_id: finalEscritorioId,
@@ -600,17 +606,11 @@ export function AuthProvider({ children }) {
       };
 
       // 1. Atualizar a lista de usuarios no estado e no localStorage
-      setUsers(prev => {
-        const exists = prev.some(u => u.email?.toLowerCase() === cleanEmail);
-        const updated = exists
-          ? prev.map(u => u.email?.toLowerCase() === cleanEmail ? { ...u, ...newUser } : u)
-          : [...prev, newUser];
-        storageService.saveData('users', updated);
-        return updated;
-      });
+      setUsers([newUser]);
+      storageService.saveData('users', [newUser], finalEscritorioId);
 
       // 2. Persistir o perfil na tabela 'users' do Supabase PostgreSQL
-      syncProfileWithSupabase(newUser);
+      await syncProfileWithSupabase(newUser);
 
       // 3. Logar o usuario recem-criado IMEDIATAMENTE
       setCurrentUser(newUser);
@@ -620,37 +620,29 @@ export function AuthProvider({ children }) {
       setIsLoading(false);
       return true;
     } catch (err) {
-      const fallbackEscritorioId = cleanEmail.includes('tatiane') || cleanEmail === 'admin@jurisflow.adv.br' ? 'escritorio_Tatiane' : `esc_${Date.now()}`;
-      storageService.setCurrentEscritorioId(fallbackEscritorioId);
-      const fallbackUser = {
-        id: `usr_${Date.now()}`,
-        name: name || 'Administrador',
-        email: cleanEmail,
-        role: 'admin',
-        roles: ['admin'],
-        title: 'Sócio Administrador',
-        titles: ['Sócio Administrador'],
-        status: 'active',
-        escritorio_id: fallbackEscritorioId
-      };
-      setCurrentUser(fallbackUser);
-      setIsAuthenticated(true);
-      storageService.saveData('current_user', fallbackUser);
+      console.error('Erro ao registrar usuário:', err);
       setIsLoading(false);
-      return true;
+      return false;
     }
   };
 
-  const logout = async () => {
-    try {
-      await signOut();
-    } catch (e) {
-      console.warn('Erro ao deslogar do Supabase:', e.message);
-    }
-    storageService.clearTenantCache();
+  const logout = () => {
+    // 1. Limpeza SÍNCRONA e IMEDIATA de sessão (transição para Login sem lag nem congelamento)
+    storageService.saveData('current_user', null);
+    storageService.setCurrentEscritorioId(null);
     setCurrentUser(null);
     setIsAuthenticated(false);
-    storageService.saveData('current_user', null);
+    setUsers([]);
+
+    // 2. Término assíncrono em segundo plano (não bloqueia a renderização da UI)
+    setTimeout(() => {
+      try {
+        storageService.clearTenantCache();
+        signOut().catch(e => console.warn('Erro ao deslogar do Supabase:', e.message));
+      } catch (err) {
+        console.warn('Erro pós-logout:', err);
+      }
+    }, 50);
   };
 
   // Alternância direta desabilitada: cada conta é particular e intransferível
