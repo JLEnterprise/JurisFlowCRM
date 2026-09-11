@@ -17,34 +17,9 @@ import {
 import { INITIAL_LEGAL_AREAS, INITIAL_LEAD_SOURCES } from '../data/legalAreas';
 
 const STORAGE_PREFIX = 'jurisflow_';
-export const DEFAULT_ESCRITORIO_ID = 'escritorio_Tatiane';
+export const DEFAULT_ESCRITORIO_ID = null;
 
-export const INITIAL_ESCRITORIOS = [
-  {
-    id: 'escritorio_Tatiane',
-    nome: 'Tatiane Camargo Advocacia',
-    cnpj: '',
-    email: 'tatianecamargo@adv.oabsp.org.br',
-    telefone: '(11) 98289-9672',
-    endereco: 'Escritório Home - N/A',
-    cidade: 'Jandira',
-    estado: 'SP',
-    plano: 'Anual',
-    status: 'active'
-  },
-  {
-    id: 'escritorio_principal',
-    nome: 'JurisFlow Advocacia Matriz',
-    cnpj: '',
-    email: 'contato@jurisflow.adv.br',
-    telefone: '(11) 99999-9999',
-    endereco: 'Av. Paulista, 1000 - Bela Vista',
-    cidade: 'São Paulo',
-    estado: 'SP',
-    plano: 'enterprise',
-    status: 'active'
-  }
-];
+export const INITIAL_ESCRITORIOS = [];
 
 function normalizeRow(table, row, activeEscritorio) {
   if (!row) return row;
@@ -835,17 +810,20 @@ export const storageService = {
       const stored = localStorage.getItem(STORAGE_PREFIX + 'current_escritorio_id');
       if (stored) {
         const clean = stored.replace(/^"|"$/g, '').trim();
-        if (clean) return clean;
+        if (clean && clean !== 'null' && clean !== 'undefined') return clean;
       }
-      return DEFAULT_ESCRITORIO_ID;
+      return null;
     } catch (e) {
-      return DEFAULT_ESCRITORIO_ID;
+      return null;
     }
   },
 
   setCurrentEscritorioId(id) {
     try {
-      if (!id) return;
+      if (!id) {
+        localStorage.removeItem(STORAGE_PREFIX + 'current_escritorio_id');
+        return;
+      }
       const clean = String(id).replace(/^"|"$/g, '').trim();
       localStorage.setItem(STORAGE_PREFIX + 'current_escritorio_id', clean);
     } catch (e) {
@@ -855,39 +833,78 @@ export const storageService = {
 
   getTenantStorageKey(key, escritorioId = null) {
     const escId = escritorioId || this.getCurrentEscritorioId();
-    if (!escId) return STORAGE_PREFIX + key;
+    if (!escId) return `${STORAGE_PREFIX}anonymous_${key}`;
     return `${STORAGE_PREFIX}${escId}_${key}`;
   },
 
   clearTenantCache() {
     try {
-      localStorage.removeItem(STORAGE_PREFIX + 'current_user');
-      localStorage.removeItem(STORAGE_PREFIX + 'current_escritorio_id');
-      const tables = [
-        'clients', 'contracts', 'proposals', 'leads', 'processes',
-        'tasks', 'appointments', 'attendances', 'installments', 'documents',
-        'office_settings', 'users'
-      ];
-      tables.forEach(t => {
-        localStorage.removeItem(STORAGE_PREFIX + t);
-      });
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX)) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
     } catch (e) {
       console.warn('Erro ao limpar cache de tenant:', e);
     }
   },
 
-  loadData(key, fallback, escritorioId = null) {
+  purgeContaminatedCache(activeEscritorio) {
+    try {
+      if (!activeEscritorio) return;
+
+      const tables = [
+        'clients', 'contracts', 'proposals', 'leads', 'processes',
+        'tasks', 'appointments', 'attendances', 'installments', 'documents',
+        'office_settings', 'users'
+      ];
+
+      // Se NÃO for o escritório de demonstração da Tatiane, expurga chaves legadas e itens de outros escritórios
+      if (activeEscritorio !== 'escritorio_Tatiane') {
+        tables.forEach(table => {
+          localStorage.removeItem(STORAGE_PREFIX + table);
+        });
+
+        tables.forEach(table => {
+          const tenantKey = this.getTenantStorageKey(table, activeEscritorio);
+          const raw = localStorage.getItem(tenantKey);
+          if (raw) {
+            try {
+              const items = JSON.parse(raw);
+              if (Array.isArray(items)) {
+                const cleaned = items.filter(item => {
+                  if (!item) return false;
+                  const itemEsc = item.escritorio_id || (item.raw_data && item.raw_data.escritorio_id);
+                  return itemEsc === activeEscritorio;
+                });
+                if (cleaned.length !== items.length) {
+                  localStorage.setItem(tenantKey, JSON.stringify(cleaned));
+                }
+              }
+            } catch (err) {}
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Erro na purificação de cache:', e);
+    }
+  },
+
+  loadData(key, fallback = [], escritorioId = null) {
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-      // O fallback inicial com dados mock da Tatiane SÓ É APLICADO para o escritório default de demonstração
-      // Qualquer outro escritório inicia com a base 100% LIMPA e ZERADA
-      const effectiveFallback = (activeEscritorio === DEFAULT_ESCRITORIO_ID) ? fallback : [];
+      if (!activeEscritorio) return [];
+
+      const effectiveFallback = (activeEscritorio === 'escritorio_Tatiane') ? fallback : [];
 
       const tenantKey = this.getTenantStorageKey(key, activeEscritorio);
       let stored = localStorage.getItem(tenantKey);
 
       // Compatibilidade legada apenas para o escritório principal da Tatiane
-      if (!stored && activeEscritorio === DEFAULT_ESCRITORIO_ID) {
+      if (!stored && activeEscritorio === 'escritorio_Tatiane') {
         stored = localStorage.getItem(STORAGE_PREFIX + key);
       }
 
@@ -902,9 +919,12 @@ export const storageService = {
             const id = String(item.id || '');
             const num = String(item.proposalNumber || item.proposal_number || '');
             if (deletedIds.includes(id) || (num && deletedIds.includes(num))) return false;
-            // ISOLAMENTO ESTRITO: se o item possui escritório_id, ele DEVE pertencer ao tenant ativo
+            
+            // ISOLAMENTO ESTRITO: se o tenant não for da Tatiane, o item deve pertencer estritamente a ele
             const itemEsc = item.escritorio_id || (item.raw_data && item.raw_data.escritorio_id);
-            if (itemEsc && activeEscritorio && itemEsc !== activeEscritorio) return false;
+            if (activeEscritorio !== 'escritorio_Tatiane' && itemEsc !== activeEscritorio) {
+              return false;
+            }
             return true;
           })
           .map(item => normalizeRow(key, item, activeEscritorio));
@@ -912,38 +932,25 @@ export const storageService = {
       return parsed;
     } catch (e) {
       console.error('Erro ao carregar chave ' + key + ' do localStorage:', e);
-      return (escritorioId === DEFAULT_ESCRITORIO_ID) ? fallback : [];
+      return (escritorioId === 'escritorio_Tatiane') ? fallback : [];
     }
   },
 
   saveData(key, data, escritorioId = null) {
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-      const sanitized = sanitizePayload(data, false); // false = STRIP dataUrl for localStorage
+      if (!activeEscritorio) return;
+
+      const sanitized = sanitizePayload(data, false);
       const tenantKey = this.getTenantStorageKey(key, activeEscritorio);
       localStorage.setItem(tenantKey, JSON.stringify(sanitized));
 
-      // Se for o escritório default, espelha na chave legada
-      if (activeEscritorio === DEFAULT_ESCRITORIO_ID) {
+      // Espelha na chave legada apenas se for o escritório da Tatiane
+      if (activeEscritorio === 'escritorio_Tatiane') {
         localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(sanitized));
       }
     } catch (e) {
-      console.warn(`[storageService] Quota no localStorage para ${key}, aplicando compressão segura:`, e.message);
-      try {
-        if (Array.isArray(data)) {
-          const stripped = data.map(item => {
-            if (!item || typeof item !== 'object') return item;
-            if (Array.isArray(item.attachments)) {
-              return { ...item, attachments: [] };
-            }
-            return item;
-          });
-          const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-          localStorage.setItem(this.getTenantStorageKey(key, activeEscritorio), JSON.stringify(stripped));
-        }
-      } catch (inner) {
-        console.error('Falha crítica ao persistir no localStorage:', inner);
-      }
+      console.warn(`[storageService] Quota no localStorage para ${key}:`, e.message);
     }
   },
 
@@ -951,19 +958,18 @@ export const storageService = {
     if (!supabase) return fallback;
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-      const effectiveFallback = (activeEscritorio === DEFAULT_ESCRITORIO_ID) ? fallback : [];
+      if (!activeEscritorio) return [];
+
+      const effectiveFallback = (activeEscritorio === 'escritorio_Tatiane') ? fallback : [];
       let query = supabase.from(table).select('*');
       
       // ISOLAMENTO MULTI-TENANT ESTRITO:
-      // Cada escritório só pode ler seus próprios dados!
       if (['users', 'clients', 'processes', 'leads', 'contracts', 'proposals', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications', 'office_settings'].includes(table)) {
-        if (activeEscritorio) {
-          query = query.eq('escritorio_id', activeEscritorio);
-        }
+        query = query.eq('escritorio_id', activeEscritorio);
       }
 
       // Se for a tabela de escritórios, retorna apenas o próprio escritório
-      if (table === 'escritorios' && activeEscritorio) {
+      if (table === 'escritorios') {
         query = query.eq('id', activeEscritorio);
       }
 
@@ -1000,18 +1006,27 @@ export const storageService = {
   async recoverAndSyncLocalData(table, fallback = [], escritorioId = null) {
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-      const effectiveFallback = (activeEscritorio === DEFAULT_ESCRITORIO_ID) ? fallback : [];
+      if (!activeEscritorio) return [];
+
+      // ISOLAMENTO TOTAL:
+      // Para qualquer escritório comercial ou nova conta, o Supabase é a autoridade absoluta.
+      // Auto-recuperação de dados locais nunca é executada para contas de clientes.
+      if (activeEscritorio !== 'escritorio_Tatiane') {
+        const cloudData = await this.fetchFromSupabase(table, [], activeEscritorio);
+        return Array.isArray(cloudData) ? cloudData : [];
+      }
+
+      // Legado apenas para escritório_Tatiane
+      const effectiveFallback = fallback;
       const localData = this.loadData(table, [], activeEscritorio);
       const cloudData = await this.fetchFromSupabase(table, null, activeEscritorio);
       const deletedIds = this.getDeletedIds();
 
-      // Se a nuvem retornou dados para este escritório
       if (Array.isArray(cloudData) && cloudData.length > 0) {
         this.saveData(table, cloudData, activeEscritorio);
         return cloudData;
       }
 
-      // Se a nuvem está vazia para este escritório MAS existem dados locais estritamente deste escritório
       if (Array.isArray(localData) && localData.length > 0) {
         const validLocal = localData.filter(l => {
           if (!l || !l.id || deletedIds.includes(String(l.id))) return false;
@@ -1019,21 +1034,15 @@ export const storageService = {
           return itemEsc === activeEscritorio;
         });
         if (validLocal.length > 0) {
-          console.info(`[Auto-Recovery] Enviando ${validLocal.length} registro(s) locais do escritório ${activeEscritorio} para o Supabase...`);
           await this.syncToSupabase(table, validLocal);
           this.saveData(table, validLocal, activeEscritorio);
           return validLocal;
         }
       }
 
-      if (Array.isArray(cloudData)) {
-        this.saveData(table, effectiveFallback, activeEscritorio);
-        return effectiveFallback;
-      }
-
-      return localData.length > 0 ? localData : effectiveFallback;
+      return Array.isArray(cloudData) ? cloudData : effectiveFallback;
     } catch (err) {
-      console.warn(`[Auto-Recovery Falhou em ${table}, fallback ativado]:`, err);
+      console.warn(`[Auto-Recovery Falhou em ${table}]:`, err);
       return this.loadData(table, fallback, escritorioId);
     }
   },

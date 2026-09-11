@@ -459,7 +459,9 @@ export function SettingsView() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {escritorios.map((esc) => (
+              {(escritorios || [])
+                .filter(esc => esc.id === currentEscritorioId || (esc.parent_id && esc.parent_id === currentEscritorioId))
+                .map((esc) => (
                 <div
                   key={esc.id}
                   className={`rounded-2xl border p-4 transition-all ${
