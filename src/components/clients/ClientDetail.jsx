@@ -25,6 +25,8 @@ import {
   UploadCloud,
   Undo2,
   X,
+  Paperclip,
+  FileCheck,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
@@ -66,6 +68,7 @@ export function ClientDetail({
     clients,
     deleteClient,
     contracts,
+    updateContract,
     processes,
     documents,
     addDocument,
@@ -87,6 +90,8 @@ export function ClientDetail({
   const { users } = useAuth();
 
   const docFileInputRef = useRef(null);
+  const contractFileInputRef = useRef(null);
+  const [contractForUpload, setContractForUpload] = useState(null);
 
   // Delete Modals
   const [deleteClientModalOpen, setDeleteClientModalOpen] = useState(false);
@@ -178,6 +183,71 @@ export function ClientDetail({
       showToast('Erro ao carregar documento: ' + err.message, 'danger');
     } finally {
       if (docFileInputRef.current) docFileInputRef.current.value = '';
+    }
+  };
+
+  const handleContractFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !contractForUpload) return;
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const rawAtt = {
+        id: `att_ctr_${Date.now()}`,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        dataUrl,
+        uploadedAt: new Date().toISOString(),
+        category: 'Contratos',
+      };
+      const safeAtt = await sanitizeAttachmentForStorage(rawAtt);
+      
+      const currentAttachments = Array.isArray(contractForUpload.attachments) ? contractForUpload.attachments : [];
+      const updatedAttachments = [safeAtt, ...currentAttachments];
+
+      if (updateContract) {
+        updateContract(contractForUpload.id, {
+          attachments: updatedAttachments,
+          fileUrl: safeAtt.dataUrl || '',
+          fileName: file.name,
+        });
+      }
+
+      if (client) {
+        addDocument({
+          id: safeAtt.id,
+          title: `Contrato Oficial: ${file.name}`,
+          category: 'Contratos',
+          clientId: client.id,
+          clientName: client.name,
+          fileName: file.name,
+          fileSize: typeof safeAtt.size === 'number' ? formatFileSize(safeAtt.size) : (safeAtt.size || '1.0 MB'),
+          uploadedBy: 'Advocacia',
+          uploadedAt: safeAtt.uploadedAt,
+          dataUrl: safeAtt.dataUrl,
+        });
+      }
+
+      showToast(`Contrato oficial "${file.name}" anexado com sucesso!`);
+      setContractForUpload(null);
+    } catch (err) {
+      showToast('Erro ao anexar contrato: ' + err.message, 'danger');
+    } finally {
+      if (contractFileInputRef.current) contractFileInputRef.current.value = '';
+    }
+  };
+
+  const handleAccessContractFile = (targetContract) => {
+    if (!targetContract) return;
+    const atts = Array.isArray(targetContract.attachments) ? targetContract.attachments : [];
+    if (atts.length > 0) {
+      downloadAttachment(atts[0]);
+    } else {
+      setContractForUpload(targetContract);
+      if (contractFileInputRef.current) {
+        contractFileInputRef.current.click();
+      }
     }
   };
 
@@ -627,12 +697,26 @@ export function ClientDetail({
                     </div>
                     <div className="text-right">
                       <div className="font-extrabold text-emerald-600 dark:text-emerald-400 text-sm">{formatCurrency(c.value)}</div>
-                      <button
-                        onClick={() => pdfService.printContract(c, officeSettings)}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:underline mt-1"
-                      >
-                        <Printer className="h-3 w-3" /> Imprimir Minuta
-                      </button>
+                      {Array.isArray(c.attachments) && c.attachments.length > 0 ? (
+                        <button
+                          onClick={() => handleAccessContractFile(c)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline mt-1"
+                          title="Baixar contrato oficial verídico anexado"
+                        >
+                          <Download className="h-3 w-3" /> Baixar Contrato Oficial
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setContractForUpload(c);
+                            if (contractFileInputRef.current) contractFileInputRef.current.click();
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-gold-400 hover:underline mt-1"
+                          title="Anexar arquivo oficial deste contrato com sua lauda"
+                        >
+                          <Paperclip className="h-3 w-3" /> Anexar Contrato Oficial
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -832,13 +916,38 @@ export function ClientDetail({
                             {formatCurrency(ctr.value || 0)}
                           </span>
                         </div>
-                        <button
-                          onClick={() => pdfService.printContract(ctr, officeSettings)}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-brand-200 dark:border-brand-800/60 bg-brand-50 dark:bg-brand-950/40 px-3 py-1.5 text-xs font-bold text-brand-700 dark:text-gold-300 hover:bg-brand-100 transition-colors"
-                          title="Visualizar e Imprimir Minuta do Contrato"
-                        >
-                          <Printer className="h-3.5 w-3.5" /> Acessar Contrato
-                        </button>
+                        {Array.isArray(ctr.attachments) && ctr.attachments.length > 0 ? (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleAccessContractFile(ctr)}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-colors shadow-sm"
+                              title={`Baixar contrato oficial: ${ctr.attachments[0].name || 'documento'}`}
+                            >
+                              <Download className="h-3.5 w-3.5" /> Baixar Contrato Oficial
+                            </button>
+                            <button
+                              onClick={() => {
+                                setContractForUpload(ctr);
+                                if (contractFileInputRef.current) contractFileInputRef.current.click();
+                              }}
+                              className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-brand-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                              title="Substituir ou anexar nova via do contrato"
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setContractForUpload(ctr);
+                              if (contractFileInputRef.current) contractFileInputRef.current.click();
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-brand-200 dark:border-brand-800/60 bg-brand-50 dark:bg-brand-950/40 px-3 py-1.5 text-xs font-bold text-brand-700 dark:text-gold-300 hover:bg-brand-100 transition-colors shadow-sm"
+                            title="Anexar contrato oficial ou lauda verdadeira do escritório"
+                          >
+                            <Paperclip className="h-3.5 w-3.5" /> Anexar Contrato Oficial
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -961,13 +1070,26 @@ export function ClientDetail({
                                 Recibo
                               </button>
                               {relatedContract && (
-                                <button
-                                  onClick={() => pdfService.printContract(relatedContract, officeSettings)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-gold-300 font-bold hover:bg-brand-100 transition-colors"
-                                  title="Acessar Minuta do Contrato"
-                                >
-                                  <Printer className="h-3 w-3" /> Contrato
-                                </button>
+                                Array.isArray(relatedContract.attachments) && relatedContract.attachments.length > 0 ? (
+                                  <button
+                                    onClick={() => handleAccessContractFile(relatedContract)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold hover:bg-emerald-100 transition-colors"
+                                    title={`Baixar contrato oficial: ${relatedContract.attachments[0].name || 'documento'}`}
+                                  >
+                                    <Download className="h-3 w-3" /> Contrato Oficial
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setContractForUpload(relatedContract);
+                                      if (contractFileInputRef.current) contractFileInputRef.current.click();
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-gold-300 font-bold hover:bg-brand-100 transition-colors"
+                                    title="Anexar arquivo oficial deste contrato com sua lauda"
+                                  >
+                                    <Paperclip className="h-3 w-3" /> Anexar Contrato
+                                  </button>
+                                )
                               )}
                             </div>
                           )}
@@ -1156,6 +1278,14 @@ export function ClientDetail({
         attendanceToEdit={attendanceToEdit}
       />
 
+      {/* Input oculto para upload de arquivo oficial verídico de contrato */}
+      <input
+        type="file"
+        ref={contractFileInputRef}
+        onChange={handleContractFileUpload}
+        accept=".pdf,.doc,.docx"
+        className="hidden"
+      />
     </div>
   );
 }

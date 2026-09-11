@@ -115,15 +115,16 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
     showToast('Contrato duplicado com sucesso!');
   };
 
-  const handlePrint = (contract) => {
+  const handleAccessContractFile = (contract) => {
     if (!contract) return;
-    const client = clients.find(c => c.id === (contract.clientId || contract.client_id)) || {
-      name: contract.clientName || contract.client_name || 'Cliente',
-      address: 'Endereço Principal',
-      city: officeSettings?.city || 'São Paulo',
-      state: officeSettings?.state || 'SP',
-    };
-    pdfService.printContract(contract, client, officeSettings);
+    const atts = Array.isArray(contract.attachments) ? contract.attachments : [];
+    if (atts.length > 0) {
+      downloadAttachment(atts[0]);
+      showToast(`Baixando contrato oficial: ${atts[0].name || 'documento'}`);
+    } else {
+      setQuickAttachOpen(true);
+      showToast('Nenhum arquivo anexado a este contrato ainda. Anexe a lauda oficial.', 'info');
+    }
   };
 
   const handleRequestDelete = (contract) => {
@@ -365,19 +366,21 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
 
                           {hasAttachments ? (
                             <button
-                              onClick={() => downloadAttachment(attachments[0])}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors"
-                              title={`Baixar anexo: ${attachments[0]?.name}`}
+                              onClick={() => handleAccessContractFile(contract)}
+                              className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+                              title={`Baixar contrato oficial: ${attachments[0]?.name || 'arquivo'}`}
                             >
                               <Download className="h-3.5 w-3.5" />
                             </button>
                           ) : (
                             <button
-                              onClick={() => handlePrint(contract)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                              title="Imprimir / PDF"
+                              onClick={() => {
+                                setQuickAttachOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800 transition-colors"
+                              title="Anexar contrato oficial (PDF/Word) com a lauda do escritório"
                             >
-                              <Printer className="h-3.5 w-3.5" />
+                              <Paperclip className="h-3.5 w-3.5" />
                             </button>
                           )}
 
