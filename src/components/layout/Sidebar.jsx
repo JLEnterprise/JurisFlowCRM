@@ -32,11 +32,20 @@ export function Sidebar({
   isOpen: mobileOpen,
   setIsOpen: setMobileOpen,
   onOpenCopilot,
+  onOpenProfile,
 }) {
   const { currentUser, permissions } = useAuth();
   const { tasks = [], appointments = [], leads = [] } = useCRM();
   const [collapsed, setCollapsed] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [localProfileModalOpen, setLocalProfileModalOpen] = useState(false);
+
+  const handleOpenProfileModal = () => {
+    if (onOpenProfile) {
+      onOpenProfile();
+    } else {
+      setLocalProfileModalOpen(true);
+    }
+  };
 
   const pendingTasksCount = (tasks || []).filter(t => t && t.status !== 'completed').length;
   const newLeadsCount = (leads || []).filter(l => l && (l.stage === 'novo_lead' || l.stage === 'novo')).length;
@@ -202,7 +211,7 @@ export function Sidebar({
         <div className="border-t border-slate-200/80 dark:border-white/[0.08] p-3">
           <button
             type="button"
-            onClick={() => setProfileModalOpen(true)}
+            onClick={handleOpenProfileModal}
             className={`w-full flex items-center gap-3 rounded-2xl bg-slate-50 hover:bg-emerald-500/10 dark:bg-white/[0.03] dark:hover:bg-emerald-500/10 border border-slate-200/60 hover:border-emerald-500/30 dark:border-white/[0.05] dark:hover:border-emerald-500/30 p-2.5 transition-all text-left group cursor-pointer ${
               collapsed ? 'justify-center p-2' : ''
             }`}
@@ -228,10 +237,10 @@ export function Sidebar({
         </div>
       </aside>
 
-      {/* Modal de Perfil Pessoal */}
+      {/* Modal de Perfil Pessoal (Fallback local) */}
       <UserProfileModal
-        isOpen={profileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
+        isOpen={localProfileModalOpen}
+        onClose={() => setLocalProfileModalOpen(false)}
       />
     </>
   );

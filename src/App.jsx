@@ -50,6 +50,7 @@ import { SettingsView } from './components/settings/SettingsView';
 // Enterprise Power-Ups
 import { LegalCopilotModal } from './components/ai/LegalCopilotModal';
 import { WhatsAppModal } from './components/whatsapp/WhatsAppModal';
+import { UserProfileModal } from './components/common/UserProfileModal';
 
 export function App() {
   const { isAuthenticated, currentUser, permissions } = useAuth();
@@ -110,6 +111,8 @@ export function App() {
 
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
   const [contractForSignature, setContractForSignature] = useState(null);
+
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   // If not logged in, render Login View
   if (!isAuthenticated) {
@@ -464,6 +467,7 @@ export function App() {
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
         onOpenCopilot={() => handleOpenCopilotModal('intimacoes')}
+        onOpenProfile={() => setProfileModalOpen(true)}
       />
 
       {/* Main Workspace */}
@@ -474,6 +478,7 @@ export function App() {
           onOpenSearch={() => setIsSearchOpen(true)}
           onOpenCopilot={handleOpenCopilotModal}
           onOpenWhatsApp={handleOpenWhatsAppModal}
+          onOpenProfile={() => setProfileModalOpen(true)}
           currentTab={currentTab}
           onNavigate={handleNavigate}
         />
@@ -601,6 +606,12 @@ export function App() {
         isOpen={signatureModalOpen}
         onClose={() => setSignatureModalOpen(false)}
         contract={contractForSignature}
+      />
+
+      {/* 4. Modal de Perfil Pessoal & Foto */}
+      <UserProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
       />
 
       {/* Toast Notification Container */}

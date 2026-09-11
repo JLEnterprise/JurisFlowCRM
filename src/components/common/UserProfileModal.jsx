@@ -21,7 +21,15 @@ import { compressAvatarImage } from '../../utils/imageUtils';
 
 export function UserProfileModal({ isOpen, onClose }) {
   const { currentUser, updateProfile, permissions } = useAuth();
-  const { showToast, logActivity } = useCRM();
+  const {
+    showToast,
+    logActivity,
+    officeSettings,
+    updateOfficeSettings,
+    currentEscritorio,
+    currentEscritorioId,
+    updateEscritorio,
+  } = useCRM();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -44,11 +52,11 @@ export function UserProfileModal({ isOpen, onClose }) {
         phone: currentUser.phone || '',
         oab: currentUser.oab || '',
         title: currentUser.title || 'Advogado(a)',
-        firmName: currentUser.firmName || 'JurisFlow Advocacia',
+        firmName: currentUser.firmName || currentEscritorio?.nome || officeSettings?.officeName || officeSettings?.tradeName || 'JurisFlow Advocacia',
         avatar: currentUser.avatar || '',
       });
     }
-  }, [currentUser, isOpen]);
+  }, [currentUser, isOpen, currentEscritorio, officeSettings]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -82,6 +90,8 @@ export function UserProfileModal({ isOpen, onClose }) {
 
     setIsSaving(true);
     try {
+      const cleanFirm = formData.firmName?.trim();
+
       if (updateProfile) {
         await updateProfile({
           ...formData,
@@ -90,13 +100,29 @@ export function UserProfileModal({ isOpen, onClose }) {
           phone: formData.phone.trim(),
           oab: formData.oab.trim(),
           title: formData.title.trim(),
-          firmName: formData.firmName.trim(),
+          firmName: cleanFirm || 'JurisFlow Advocacia',
         });
       }
+
+      // Se alterou a Banca / Escritório, sincroniza também no officeSettings e na filial ativa
+      if (cleanFirm) {
+        if (updateOfficeSettings) {
+          updateOfficeSettings({
+            officeName: cleanFirm,
+            tradeName: cleanFirm,
+          });
+        }
+        if (currentEscritorioId && updateEscritorio) {
+          updateEscritorio(currentEscritorioId, {
+            nome: cleanFirm,
+          });
+        }
+      }
+
       if (logActivity) {
         logActivity('Perfil de Usuário', formData.name, 'Informações pessoais e foto de perfil atualizadas.');
       }
-      showToast('Perfil atualizado com sucesso no sistema e no Supabase!', 'success');
+      showToast('Perfil e Escritório atualizados com sucesso!', 'success');
       onClose();
     } catch (err) {
       console.error('Erro ao atualizar perfil:', err);

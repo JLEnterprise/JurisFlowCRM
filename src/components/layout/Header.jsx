@@ -31,13 +31,23 @@ export function Header({
   currentTab,
   currentViewTitle,
   onNavigate,
+  onOpenProfile,
 }) {
   const { currentUser, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
-  const { periodFilter, setPeriodFilter, currentEscritorio, escritorios = [], switchEscritorio, currentEscritorioId } = useCRM();
+  const { periodFilter, setPeriodFilter, currentEscritorio, escritorios = [], switchEscritorio, currentEscritorioId, officeSettings } = useCRM();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [localProfileModalOpen, setLocalProfileModalOpen] = useState(false);
   const userMenuRef = useRef(null);
+
+  const handleOpenProfileModal = () => {
+    setShowUserMenu(false);
+    if (onOpenProfile) {
+      onOpenProfile();
+    } else {
+      setLocalProfileModalOpen(true);
+    }
+  };
 
   const toggleSidebarFn = onToggleSidebar || onToggleMobileSidebar || (() => {});
 
@@ -216,11 +226,21 @@ export function Header({
                   {currentUser?.email}
                 </div>
                 
-                {/* Identificação do Escritório / Banca */}
-                <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  <Building2 className="h-3.5 w-3.5 text-gold-500 shrink-0" />
-                  <span className="truncate">{currentEscritorio?.nome || 'JurisFlow Advocacia'}</span>
-                </div>
+                {/* Identificação do Escritório / Banca - Clicável para edição */}
+                <button
+                  type="button"
+                  onClick={handleOpenProfileModal}
+                  className="mt-2 w-full flex items-center justify-between gap-1.5 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-left group"
+                  title="Clique para editar o nome da Banca / Escritório"
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Building2 className="h-3.5 w-3.5 text-gold-500 shrink-0" />
+                    <span className="truncate">{currentEscritorio?.nome || officeSettings?.officeName || officeSettings?.tradeName || 'JurisFlow Advocacia'}</span>
+                  </div>
+                  <span className="text-[10px] text-brand-600 dark:text-gold-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    Alterar
+                  </span>
+                </button>
               </div>
 
               {/* Informações da Conta */}
@@ -255,10 +275,7 @@ export function Header({
 
                 {/* Botão Meu Perfil Pessoal & Foto */}
                 <button
-                  onClick={() => {
-                    setShowUserMenu(false);
-                    setProfileModalOpen(true);
-                  }}
+                  onClick={handleOpenProfileModal}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-xl transition-colors font-semibold btn-tactile"
                 >
                   <User className="h-4 w-4 text-brand-600 dark:text-gold-400" />
@@ -295,10 +312,10 @@ export function Header({
         </div>
       </div>
 
-      {/* Modal de Perfil Pessoal & Foto */}
+      {/* Modal de Perfil Pessoal & Foto (Fallback local caso onOpenProfile não seja passado) */}
       <UserProfileModal
-        isOpen={profileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
+        isOpen={localProfileModalOpen}
+        onClose={() => setLocalProfileModalOpen(false)}
       />
     </header>
   );

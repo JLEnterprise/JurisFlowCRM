@@ -359,7 +359,15 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
 
       {/* Edit Installment Modal */}
       {editModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setEditModalOpen(false);
+              setInstallmentToEdit(null);
+            }
+          }}
+        >
           <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl dark:bg-navy-900 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-navy-950/50 shrink-0">
               <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">

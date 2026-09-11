@@ -1,6 +1,10 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
+
+// Contador global para rastrear modais abertos e evitar remoção prematura do overflow:hidden
+let openModalCount = 0;
 
 export function Modal({
   isOpen,
@@ -18,31 +22,35 @@ export function Modal({
       }
     };
     if (isOpen) {
+      openModalCount += 1;
       document.body.style.overflow = 'hidden';
       window.addEventListener('keydown', handleKeyDown);
-    } else {
-      document.body.style.overflow = 'unset';
     }
     return () => {
-      document.body.style.overflow = 'unset';
-      window.removeEventListener('keydown', handleKeyDown);
+      if (isOpen) {
+        openModalCount = Math.max(0, openModalCount - 1);
+        if (openModalCount === 0) {
+          document.body.style.overflow = '';
+        }
+        window.removeEventListener('keydown', handleKeyDown);
+      }
     };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+  const modalElement = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-200"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity duration-200"
       />
 
       {/* Modal Card */}
       <div
         className={clsx(
-          'relative w-full overflow-hidden rounded-2xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800 shadow-2xl transition-all duration-200 animate-fade-in my-8 max-h-[90vh] flex flex-col',
+          'relative w-full overflow-hidden rounded-2xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800 shadow-2xl transition-all duration-200 animate-fade-in my-8 max-h-[90vh] flex flex-col z-10',
           maxWidth
         )}
       >
@@ -75,4 +83,9 @@ export function Modal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalElement, document.body)
+    : modalElement;
 }
+
