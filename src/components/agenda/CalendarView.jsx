@@ -16,37 +16,69 @@ import { formatDate } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 
 export const PRESET_EVENT_LABELS = {
-  consulta: 'Consulta Jurídica',
-  reuniao: 'Reunião Estratégica',
+  // Jurídico & Processual
   audiencia: 'Audiência Judicial',
-  prazo: 'Prazo Processual',
+  prazo: 'Prazo Processual Fatal',
+  diligencia: 'Diligência Externa / Cartório',
+  sustentacao: 'Sessão / Sustentação Oral',
+  pericia: 'Perícia Judicial',
+  // Atendimento & Comercial
+  consulta: 'Consulta Jurídica',
+  reuniao: 'Reunião com Cliente',
   retorno: 'Retorno de Caso',
+  fechamento: 'Fechamento de Contrato',
   'follow-up': 'Follow-up Comercial',
-  diligencia: 'Diligência Externa',
   atendimento: 'Atendimento Geral',
+  // Interno & Escritório
+  reuniao_interna: 'Reunião de Equipe / Sócios',
+  estudo: 'Estudo Jurídico / Pesquisa',
+  administrativo: 'Gestão Administrativa',
+  // Pessoal & Particular
+  medico: 'Consulta Médica / Saúde',
+  pessoal: 'Compromisso Pessoal',
+  curso: 'Curso / Congresso',
+  viagem: 'Viagem / Deslocamento',
+  outro: 'Outro Compromisso',
 };
 
 export const formatEventType = (type) => {
   if (!type) return 'Compromisso';
-  const clean = String(type).trim();
-  if (PRESET_EVENT_LABELS[clean.toLowerCase()]) {
-    return PRESET_EVENT_LABELS[clean.toLowerCase()];
+  const clean = String(type).trim().toLowerCase();
+  if (PRESET_EVENT_LABELS[clean]) {
+    return PRESET_EVENT_LABELS[clean];
   }
-  return clean.charAt(0).toUpperCase() + clean.slice(1);
+  return type.charAt(0).toUpperCase() + type.slice(1);
 };
 
 export const getEventTypeColor = (type) => {
   const t = (type || '').toLowerCase().trim();
+  // Jurídico & Processual
+  if (t === 'audiencia' || t.includes('audiência') || t.includes('audiencia')) return 'bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200 border-amber-300 dark:border-amber-800 font-bold';
+  if (t === 'prazo') return 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-200 border-rose-300 dark:border-rose-800 font-bold';
+  if (t === 'diligencia' || t.includes('diligência') || t.includes('diligencia')) return 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border-teal-300 dark:border-teal-800';
+  if (t === 'sustentacao' || t.includes('sustentação') || t.includes('sustentacao')) return 'bg-orange-100 text-orange-900 dark:bg-orange-950/70 dark:text-orange-200 border-orange-400 dark:border-orange-800 font-bold';
+  if (t === 'pericia' || t.includes('perícia') || t.includes('pericia')) return 'bg-cyan-100 text-cyan-900 dark:bg-cyan-950/60 dark:text-cyan-200 border-cyan-300 dark:border-cyan-800';
+
+  // Atendimento & Comercial
   if (t === 'consulta') return 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-800';
   if (t === 'reuniao') return 'bg-brand-100 text-brand-800 dark:bg-brand-950/60 dark:text-brand-300 border-brand-300 dark:border-brand-800';
-  if (t === 'audiencia' || t.includes('audiência') || t.includes('audiencia')) return 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-800';
-  if (t === 'prazo') return 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-800';
+  if (t === 'fechamento') return 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/70 dark:text-emerald-200 border-emerald-400 dark:border-emerald-700 font-bold';
   if (t === 'follow-up') return 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-300 dark:border-blue-800';
-  if (t === 'retorno') return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800';
-  if (t === 'diligencia' || t.includes('diligência') || t.includes('diligencia')) return 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border-teal-300 dark:border-teal-800';
+  if (t === 'retorno') return 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-300 dark:border-sky-800';
   if (t === 'atendimento') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800';
+
+  // Pessoal & Saúde
+  if (t === 'medico' || t.includes('médico') || t.includes('medico') || t.includes('saude') || t.includes('saúde')) return 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700';
+  if (t === 'pessoal' || t.includes('particular')) return 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800';
+  if (t === 'curso' || t.includes('congresso') || t.includes('palestra')) return 'bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300 border-violet-300 dark:border-violet-800';
+  if (t === 'viagem') return 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border-amber-300 dark:border-amber-800';
+
+  // Interno
+  if (t === 'reuniao_interna') return 'bg-slate-100 text-slate-800 dark:bg-slate-800/80 dark:text-slate-200 border-slate-300 dark:border-slate-700';
+  if (t === 'estudo') return 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/60 dark:text-fuchsia-300 border-fuchsia-300 dark:border-fuchsia-800';
+  if (t === 'administrativo') return 'bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-300 border-slate-300 dark:border-slate-700';
   
-  // Estilo dourado premium para qualquer tipo personalizado
+  // Estilo dourado para tipos livres
   return 'bg-gradient-to-r from-gold-500/15 to-amber-500/15 text-gold-800 dark:text-gold-300 border-gold-400/50 dark:border-gold-500/50';
 };
 
@@ -304,7 +336,9 @@ export function CalendarView({ onOpenNewEvent }) {
                 </div>
                 <div className="flex items-center gap-1.5 truncate">
                   <User className="h-3.5 w-3.5 text-purple-500" />
-                  <span className="truncate">{evt.clientName}</span>
+                  <span className="truncate text-slate-700 dark:text-slate-300">
+                    {evt.clientName || 'Compromisso Geral / Pessoal'}
+                  </span>
                 </div>
               </div>
 

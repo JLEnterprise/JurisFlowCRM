@@ -1522,14 +1522,18 @@ export function CRMProvider({ children }) {
     let resolvedClientId = aptData.clientId || null;
     let autoCreatedClient = null;
 
-    // Se informou nome de cliente e não vinculou ID existente, verifica se já existe ou cria
-    if (aptData.clientName && aptData.clientName.trim()) {
+    // Lista de tipos estritamente pessoais/saúde/internos que NUNCA criam clientes na base
+    const eventType = (aptData.type || '').toLowerCase().trim();
+    const isPersonalOrHealth = ['medico', 'médico', 'saude', 'saúde', 'pessoal', 'particular', 'curso', 'palestra', 'viagem', 'outro', 'reuniao_interna', 'estudo', 'administrativo'].some(k => eventType.includes(k));
+
+    // Se informou nome de cliente e não vinculou ID existente, verifica se já existe
+    if (aptData.clientName && aptData.clientName.trim() && !isPersonalOrHealth) {
       const cleanName = aptData.clientName.trim();
       const existingClient = clients.find(c => (c.name || '').toLowerCase() === cleanName.toLowerCase());
       if (existingClient) {
         resolvedClientId = existingClient.id;
-      } else {
-        // Auto-cria cliente na base do CRM para sincronização imediata
+      } else if (aptData.saveAsNewClient === true) {
+        // Auto-cria cliente na base do CRM apenas se o usuário marcou expressamente
         autoCreatedClient = {
           id: `cli_${Date.now()}`,
           escritorio_id: currentEscritorioId,
@@ -1546,7 +1550,7 @@ export function CRMProvider({ children }) {
           totalContracted: 0,
           totalPaid: 0,
           createdAt: new Date().toISOString().split('T')[0],
-          notes: `Cliente cadastrado automaticamente via agendamento de ${aptData.title || 'compromisso'}.`
+          notes: `Cliente cadastrado via agendamento de ${aptData.title || 'compromisso'}.`
         };
         resolvedClientId = autoCreatedClient.id;
         setClients(prev => {

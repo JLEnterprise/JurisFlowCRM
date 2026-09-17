@@ -2,18 +2,72 @@ import React, { useState, useEffect } from 'react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, UserCheck, UserPlus, Info, CheckCircle2 } from 'lucide-react';
 
-const PRESET_EVENT_TYPES = [
-  { value: 'consulta', label: 'Consulta Jurídica' },
-  { value: 'reuniao', label: 'Reunião Estratégica' },
-  { value: 'audiencia', label: 'Audiência Judicial' },
-  { value: 'prazo', label: 'Prazo Processual' },
-  { value: 'retorno', label: 'Retorno de Caso' },
-  { value: 'follow-up', label: 'Follow-up Comercial' },
-  { value: 'diligencia', label: 'Diligência Externa / Cartório' },
-  { value: 'atendimento', label: 'Atendimento Geral' },
+export const PRESET_EVENT_GROUPS = [
+  {
+    group: '⚖️ Jurídico & Processual',
+    options: [
+      { value: 'audiencia', label: 'Audiência Judicial' },
+      { value: 'prazo', label: 'Prazo Processual Fatal' },
+      { value: 'diligencia', label: 'Diligência em Fórum / Cartório' },
+      { value: 'sustentacao', label: 'Sessão de Julgamento / Sustentação Oral' },
+      { value: 'pericia', label: 'Perícia Judicial / Assistência Técnica' },
+    ]
+  },
+  {
+    group: '🤝 Atendimento a Clientes & Comercial',
+    options: [
+      { value: 'consulta', label: 'Consulta Jurídica Inicial' },
+      { value: 'reuniao', label: 'Reunião com Cliente' },
+      { value: 'retorno', label: 'Retorno de Caso / Feedback' },
+      { value: 'fechamento', label: 'Fechamento de Contrato / Assinatura' },
+      { value: 'follow-up', label: 'Follow-up Comercial' },
+      { value: 'atendimento', label: 'Atendimento Geral' },
+    ]
+  },
+  {
+    group: '🏢 Interno & Gestão do Escritório',
+    options: [
+      { value: 'reuniao_interna', label: 'Reunião Interna de Equipe / Sócios' },
+      { value: 'estudo', label: 'Estudo de Caso / Pesquisa Jurídica' },
+      { value: 'administrativo', label: 'Gestão Administrativa / Financeira' },
+    ]
+  },
+  {
+    group: '☕ Pessoal & Particular',
+    options: [
+      { value: 'medico', label: 'Consulta Médica / Exames / Saúde' },
+      { value: 'pessoal', label: 'Compromisso Pessoal / Particular' },
+      { value: 'curso', label: 'Curso / Congresso / Palestra' },
+      { value: 'viagem', label: 'Viagem / Deslocamento' },
+      { value: 'outro', label: 'Outro Compromisso' },
+    ]
+  }
 ];
+
+// Helper para saber se um tipo de evento é pessoal ou interno
+export const isPersonalOrInternalEvent = (type) => {
+  const t = (type || '').toLowerCase().trim();
+  return [
+    'medico', 'médico', 'saude', 'saúde',
+    'pessoal', 'particular',
+    'curso', 'palestra', 'congresso',
+    'viagem', 'deslocamento',
+    'outro',
+    'reuniao_interna', 'equipe', 'socios', 'sócios',
+    'estudo', 'pesquisa',
+    'administrativo', 'financeiro_interno'
+  ].some(k => t.includes(k));
+};
+
+// Helper para saber se é explicitamente voltado a atendimento/cliente
+export const isClientFacingEvent = (type) => {
+  const t = (type || '').toLowerCase().trim();
+  return [
+    'consulta', 'reuniao', 'retorno', 'fechamento', 'follow-up', 'atendimento'
+  ].some(k => t.includes(k)) && !isPersonalOrInternalEvent(type);
+};
 
 export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = null }) {
   const { addAppointment, updateAppointment, clients, leads } = useCRM();
@@ -21,6 +75,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
 
   const [isCustomType, setIsCustomType] = useState(false);
   const [customTypeName, setCustomTypeName] = useState('');
+  const [saveAsNewClient, setSaveAsNewClient] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -35,10 +90,12 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
     notes: '',
   });
 
+  const allPresetValues = PRESET_EVENT_GROUPS.flatMap(g => g.options.map(o => o.value));
+
   useEffect(() => {
     if (eventToEdit) {
       setFormData(eventToEdit);
-      const isPreset = PRESET_EVENT_TYPES.some(p => p.value === eventToEdit.type);
+      const isPreset = allPresetValues.includes(eventToEdit.type);
       if (!isPreset && eventToEdit.type) {
         setIsCustomType(true);
         setCustomTypeName(eventToEdit.type);
@@ -46,6 +103,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
         setIsCustomType(false);
         setCustomTypeName('');
       }
+      setSaveAsNewClient(false);
     } else {
       setFormData({
         title: '',
@@ -61,8 +119,20 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
       });
       setIsCustomType(false);
       setCustomTypeName('');
+      setSaveAsNewClient(false);
     }
   }, [eventToEdit, defaultDate, isOpen, users]);
+
+  const resolvedCurrentType = isCustomType
+    ? (customTypeName.trim() || 'Compromisso Personalizado')
+    : formData.type;
+
+  const isPersonal = isPersonalOrInternalEvent(resolvedCurrentType);
+
+  const trimmedClientName = (formData.clientName || '').trim();
+  const matchedExistingClient = clients.find(
+    c => (c.name || '').toLowerCase() === trimmedClientName.toLowerCase()
+  );
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -70,10 +140,6 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
       alert('Por favor, informe o título e a data do compromisso.');
       return;
     }
-
-    const resolvedType = isCustomType
-      ? (customTypeName.trim() || 'Compromisso Personalizado')
-      : formData.type;
 
     if (isCustomType && !customTypeName.trim()) {
       alert('Por favor, informe o nome do evento personalizado.');
@@ -83,7 +149,11 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
     const lawyer = users.find(u => u.id === formData.responsibleId);
     const finalData = {
       ...formData,
-      type: resolvedType,
+      type: resolvedCurrentType,
+      clientName: trimmedClientName,
+      clientId: matchedExistingClient ? matchedExistingClient.id : (formData.clientId || null),
+      // Só cadastra novo cliente se NÃO for pessoal/interno E usuário tiver marcado expressamente o checkbox
+      saveAsNewClient: !isPersonal && !matchedExistingClient && saveAsNewClient,
       responsibleName: lawyer ? lawyer.name : (users[0]?.name || 'Advogado Responsável'),
     };
 
@@ -100,7 +170,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
       isOpen={isOpen}
       onClose={onClose}
       title={eventToEdit ? 'Editar Evento da Agenda' : 'Agendar Novo Compromisso'}
-      subtitle="Agendamento de reuniões, consultas, audiências, prazos e eventos personalizados"
+      subtitle="Agendamento de reuniões, consultas, audiências, compromissos pessoais e eventos"
       maxWidth="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -115,7 +185,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Ex: Consulta Inicial — Guarda e Partilha de Bens"
+              placeholder={isPersonal ? 'Ex: Consulta com Cardiologista / Dentista' : 'Ex: Audiência de Instrução — 2ª Vara Cível'}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
             />
           </div>
@@ -152,14 +222,22 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
                     setFormData({ ...formData, type: e.target.value });
                   }
                 }}
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none cursor-pointer"
               >
-                {PRESET_EVENT_TYPES.map(p => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
+                {PRESET_EVENT_GROUPS.map((group) => (
+                  <optgroup key={group.group} label={group.group} className="font-bold text-slate-700 dark:text-slate-200">
+                    {group.options.map((opt) => (
+                      <option key={opt.value} value={opt.value} className="font-normal text-slate-900 dark:text-slate-100">
+                        {opt.label}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
-                <option value="custom" className="font-bold text-brand-600 dark:text-gold-400">
-                  ✨ Outro (Digitar personalizado...)
-                </option>
+                <optgroup label="✨ Opção Livre">
+                  <option value="custom" className="font-bold text-brand-600 dark:text-gold-400">
+                    Outro (Digitar personalizado...)
+                  </option>
+                </optgroup>
               </select>
             ) : (
               <div className="space-y-1">
@@ -169,38 +247,38 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
                   autoFocus
                   value={customTypeName}
                   onChange={(e) => setCustomTypeName(e.target.value)}
-                  placeholder="Ex: Sustentação Oral, Perícia..."
+                  placeholder="Ex: Sustentação Oral, Reunião de Família..."
                   className="w-full rounded-xl border-2 border-brand-500/60 dark:border-gold-500/60 bg-brand-50/20 dark:bg-gold-500/5 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 dark:focus:border-gold-400 focus:outline-none placeholder:text-slate-400 font-medium"
                 />
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Evento livre sem restrição de lista
+                  Evento livre sem restrição de categoria
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Cliente & Responsável */}
+        {/* Cliente / Participante & Responsável */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Cliente / Participante *
+              {isPersonal ? 'Participante ou Terceiro (Opcional)' : 'Cliente / Interessado *'}
             </label>
             <input
               type="text"
-              required
+              required={!isPersonal}
               list="clients-leads-list"
               value={formData.clientName}
               onChange={(e) => {
                 const val = e.target.value;
-                const matchedClient = clients.find(c => c.name === val || `${c.name} (${c.cpf || c.phone || 'Cliente'})` === val);
-                if (matchedClient) {
-                  setFormData({ ...formData, clientName: matchedClient.name, clientId: matchedClient.id });
+                const matched = clients.find(c => c.name === val || `${c.name} (${c.cpf || c.phone || 'Cliente'})` === val);
+                if (matched) {
+                  setFormData({ ...formData, clientName: matched.name, clientId: matched.id });
                 } else {
                   setFormData({ ...formData, clientName: val, clientId: '' });
                 }
               }}
-              placeholder="Digite o nome ou selecione um cliente..."
+              placeholder={isPersonal ? 'Ex: Dr. Carlos (Médico), Clínica São Paulo (ou deixe vazio)' : 'Digite o nome ou selecione da base...'}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
             />
             <datalist id="clients-leads-list">
@@ -211,11 +289,49 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
                 <option key={l.id} value={l.name}>{l.phone ? `Lead • ${l.phone}` : 'Lead Comercial'}</option>
               ))}
             </datalist>
-            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              {clients.some(c => c.name?.toLowerCase() === (formData.clientName || '').toLowerCase().trim())
-                ? '✓ Cliente vinculado da base'
-                : (formData.clientName?.trim() ? '✨ Novo cliente (será salvo automaticamente na base de Clientes)' : 'Selecione ou digite um novo cliente')}
-            </p>
+
+            {/* Feedback e Controle de Salvamento como Cliente */}
+            <div className="mt-1.5 space-y-1.5">
+              {isPersonal ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/30 p-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/50">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  <span>Compromisso pessoal/interno — <strong>não gera cadastro</strong> na base de clientes.</span>
+                </div>
+              ) : matchedExistingClient ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-brand-700 dark:text-brand-300 bg-brand-50/60 dark:bg-brand-950/30 p-1.5 rounded-lg border border-brand-200 dark:border-brand-800/50">
+                  <UserCheck className="h-3.5 w-3.5 shrink-0" />
+                  <span>Cliente vinculado: <strong>{matchedExistingClient.name}</strong></span>
+                </div>
+              ) : trimmedClientName ? (
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-navy-900/90 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                    <Info className="h-3.5 w-3.5 text-brand-500 shrink-0" />
+                    <span>Nome não encontrado na base de clientes.</span>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer pt-1 border-t border-slate-200 dark:border-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={saveAsNewClient}
+                      onChange={(e) => setSaveAsNewClient(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                    />
+                    <span className="flex items-center gap-1 text-[11px]">
+                      <UserPlus className="h-3 w-3 text-gold-500" />
+                      Cadastrar também como novo cliente na base do CRM
+                    </span>
+                  </label>
+                  {!saveAsNewClient && (
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 italic">
+                      * O nome ficará registrado apenas no card deste agendamento, mantendo sua base limpa.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                  Selecione um cliente existente ou digite o nome do interessado.
+                </p>
+              )}
+            </div>
           </div>
 
           <div>
@@ -277,13 +393,13 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
         {/* Local / Link */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-            Localização / Link da Videoconferência
+            Localização / Endereço / Link da Videoconferência
           </label>
           <input
             type="text"
             value={formData.location}
             onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            placeholder="Ex: Google Meet, Zoom ou Sala de Reuniões 01"
+            placeholder={isPersonal ? 'Ex: Hospital São Luiz, Consultório Dr. Marcos ou Residência' : 'Ex: Fórum Central, Google Meet ou Sala 01'}
             className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
           />
         </div>
@@ -297,7 +413,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
             rows={2}
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            placeholder="Itens a serem abordados na reunião..."
+            placeholder={isPersonal ? 'Anotações particulares, exames a levar, preparos...' : 'Pauta da reunião, documentos a serem analisados, testemunhas...'}
             className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 p-2.5 text-xs text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
           />
         </div>
@@ -315,7 +431,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
             type="submit"
             className="rounded-xl bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-brand-700 transition-colors"
           >
-            {eventToEdit ? 'Salvar Compromisso' : 'Confirmar Agendamento'}
+            {eventToEdit ? 'Salvar Alterações' : 'Confirmar Agendamento'}
           </button>
         </div>
       </form>
