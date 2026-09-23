@@ -1,7 +1,7 @@
 /**
- * JurisFlow Multi-Provider AI Service
- * Integração completa com Google Gemini API, OpenAI ChatGPT API e Motor Cognitivo AdvJuris Local.
+ * JurisFlow Multi-Provider AI Service & Agente AdvJuris Autônomo
  * Atuação como Consultor Jurídico Sênior, Legal Engineer e Assistente Operacional de Escritório.
+ * Suporte Híbrido: Agente Nativo Integrado (Padrão 100% Gratuito/Sem Chave) + Modo Turbo Nuvem (Opcional).
  */
 
 import { ADVJURIS_SYSTEM_PROMPT, ADVJURIS_PROMPTS } from '../agents/advJurisPrompt.js';
@@ -9,7 +9,7 @@ import { generateDeepLegalAnswer } from './deepLegalEngine.js';
 
 const GEMINI_STORAGE_KEY = 'jurisflow_gemini_api_key';
 const OPENAI_STORAGE_KEY = 'jurisflow_openai_api_key';
-const AI_PROVIDER_KEY = 'jurisflow_ai_provider'; // 'gemini' | 'openai' | 'local'
+const AI_PROVIDER_KEY = 'jurisflow_ai_provider'; // 'local' | 'gemini' | 'openai'
 const SELECTED_MODEL_KEY = 'jurisflow_ai_model';
 
 // ============================================================================
@@ -20,7 +20,17 @@ const isBrowser = typeof window !== 'undefined' && typeof window.localStorage !=
 
 export function getGeminiApiKey() {
   if (!isBrowser) return '';
-  return window.localStorage.getItem(GEMINI_STORAGE_KEY) || '';
+  const stored = window.localStorage.getItem(GEMINI_STORAGE_KEY);
+  if (stored) return stored.trim();
+  // Suporte a chave de ambiente corporativa opcional
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) {
+      return import.meta.env.VITE_GEMINI_API_KEY.trim();
+    }
+  } catch (e) {
+    // ignora
+  }
+  return '';
 }
 
 export function setGeminiApiKey(key) {
@@ -34,7 +44,16 @@ export function setGeminiApiKey(key) {
 
 export function getOpenAiApiKey() {
   if (!isBrowser) return '';
-  return window.localStorage.getItem(OPENAI_STORAGE_KEY) || '';
+  const stored = window.localStorage.getItem(OPENAI_STORAGE_KEY);
+  if (stored) return stored.trim();
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_OPENAI_API_KEY) {
+      return import.meta.env.VITE_OPENAI_API_KEY.trim();
+    }
+  } catch (e) {
+    // ignora
+  }
+  return '';
 }
 
 export function setOpenAiApiKey(key) {
@@ -46,9 +65,25 @@ export function setOpenAiApiKey(key) {
   }
 }
 
+/**
+ * Retorna o provedor de IA atual. Padrão: 'local' (Agente AdvJuris Nativo),
+ * garantindo que nenhum cliente do CRM seja travado por falta de chave de API.
+ */
 export function getAiProvider() {
   if (!isBrowser) return 'local';
-  return window.localStorage.getItem(AI_PROVIDER_KEY) || 'gemini';
+  const saved = window.localStorage.getItem(AI_PROVIDER_KEY);
+  // Se for explicitamente local, retorna local
+  if (saved === 'local') return 'local';
+  // Se for gemini mas não tem chave salva, limpa para local
+  if (saved === 'gemini') {
+    return getGeminiApiKey() ? 'gemini' : 'local';
+  }
+  // Se for openai mas não tem chave salva, limpa para local
+  if (saved === 'openai') {
+    return getOpenAiApiKey() ? 'openai' : 'local';
+  }
+  // Padrão absoluto: Agente AdvJuris Nativo 100% incluso
+  return 'local';
 }
 
 export function setAiProvider(provider) {
@@ -196,7 +231,7 @@ Instruções de Resposta para a IA:
 }
 
 // ============================================================================
-// EXECUÇÃO MULTI-PROVEDOR (GEMINI, OPENAI & ADVJURIS LOCAL)
+// EXECUÇÃO MULTI-PROVEDOR COM FALLBACK SILENCIOSO & ELEGANTE
 // ============================================================================
 
 export async function callMultiProviderAi(prompt, systemInstruction = ADVJURIS_SYSTEM_PROMPT, conversationHistory = [], crmContext = null) {
@@ -204,23 +239,37 @@ export async function callMultiProviderAi(prompt, systemInstruction = ADVJURIS_S
   const crmSnippet = buildCrmContextPrompt(crmContext);
   const fullSystemPrompt = crmSnippet ? `${systemInstruction}\n\n${crmSnippet}` : systemInstruction;
 
-  // Se for explicitamente local, retorna null para forçar o fallback
+  // Se for explicitamente o motor local / nativo, retorna null para ativar o deepLegalEngine
   if (provider === 'local') return null;
 
   if (provider === 'openai') {
     const openAiKey = getOpenAiApiKey();
     if (!openAiKey) {
-      throw new Error('Chave de API OpenAI não configurada. Clique na engrenagem ⚙️ (canto superior direito) e insira sua chave para ativar a IA.');
+      // Em vez de estourar erro, faz fallback para o Agente Nativo sem trauma
+      console.info('Chave OpenAI não informada. Acionando Agente Nativo AdvJuris.');
+      return null;
     }
-    return await callOpenAiApi(prompt, fullSystemPrompt, openAiKey, conversationHistory);
+    try {
+      return await callOpenAiApi(prompt, fullSystemPrompt, openAiKey, conversationHistory);
+    } catch (err) {
+      console.warn('Falha na chamada OpenAI, utilizando Agente Nativo AdvJuris:', err.message);
+      return null;
+    }
   }
 
   if (provider === 'gemini') {
     const geminiKey = getGeminiApiKey();
     if (!geminiKey) {
-      throw new Error('Chave de API do Google Gemini não configurada. Clique na engrenagem ⚙️ (canto superior direito) e insira sua chave para ativar a IA avançada (gratuita no Google AI Studio).');
+      // Em vez de estourar erro, faz fallback para o Agente Nativo sem trauma
+      console.info('Chave Gemini não informada. Acionando Agente Nativo AdvJuris.');
+      return null;
     }
-    return await callGeminiApi(prompt, fullSystemPrompt, geminiKey, conversationHistory);
+    try {
+      return await callGeminiApi(prompt, fullSystemPrompt, geminiKey, conversationHistory);
+    } catch (err) {
+      console.warn('Falha na chamada Gemini, utilizando Agente Nativo AdvJuris:', err.message);
+      return null;
+    }
   }
 
   return null;
@@ -272,23 +321,18 @@ export async function callOpenAiApi(prompt, systemInstruction, key, conversation
       if (content && content.trim().length > 0) {
         return content.trim();
       }
-    } else {
-      const errData = await response.json().catch(() => ({}));
-      const errMsg = errData.error?.message || response.statusText;
-      throw new Error(`OpenAI API Erro: ${errMsg}`);
     }
   } catch (err) {
     console.warn('Falha na chamada OpenAI:', err.message);
-    throw new Error(`Falha na API da OpenAI: ${err.message}`);
   }
   return null;
 }
 
 export async function callGeminiApi(prompt, systemInstruction = ADVJURIS_SYSTEM_PROMPT, key = '', conversationHistory = []) {
   const currentKey = key || getGeminiApiKey();
-  if (!currentKey) throw new Error('Chave de API do Gemini não configurada.');
+  if (!currentKey) return null;
 
-  const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'];
+  const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
   const contents = [];
   if (Array.isArray(conversationHistory) && conversationHistory.length > 0) {
@@ -309,8 +353,6 @@ export async function callGeminiApi(prompt, systemInstruction = ADVJURIS_SYSTEM_
   }
 
   contents.push({ role: 'user', parts: [{ text: prompt }] });
-
-  let lastError = null;
 
   for (const model of candidateModels) {
     try {
@@ -338,32 +380,17 @@ export async function callGeminiApi(prompt, systemInstruction = ADVJURIS_SYSTEM_
         if (text && text.trim().length > 0) {
           return text.trim();
         }
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        lastError = errData.error?.message || `Erro HTTP ${response.status}: ${response.statusText}`;
-        console.warn(`Erro no modelo Gemini ${model}:`, lastError);
-        
-        // Se for erro de API key inválida (400), aborta tudo
-        if (response.status === 400 && lastError.toLowerCase().includes('api key')) {
-          throw new Error(`A Chave de API do Gemini fornecida é inválida. Verifique na engrenagem ⚙️. (${lastError})`);
-        }
       }
     } catch (err) {
-      lastError = err.message;
       console.warn(`Erro na requisição Gemini ${model}:`, err.message);
-      if (err.message.includes('A Chave de API')) throw err;
     }
-  }
-
-  if (lastError) {
-    throw new Error(`Falha ao gerar resposta com a IA do Google Gemini. Erro: ${lastError}`);
   }
 
   return null;
 }
 
 // ============================================================================
-// CONSULTORIA ESTRATÉGICA ADVJURIS (CHAT)
+// CONSULTORIA ESTRATÉGICA ADVJURIS (CHAT) - GARANTIA 100% OPERACIONAL
 // ============================================================================
 
 export async function consultAdvJuris(question, chatHistory = [], crmContext = null) {
@@ -371,30 +398,27 @@ export async function consultAdvJuris(question, chatHistory = [], crmContext = n
     throw new Error('Pergunta não informada.');
   }
 
+  // 1. Tenta o provedor externo se configurado (Gemini / OpenAI)
   try {
     const externalResult = await callMultiProviderAi(question, ADVJURIS_SYSTEM_PROMPT, chatHistory, crmContext);
     if (externalResult) {
       return {
         text: externalResult,
-        provider: getAiProvider() === 'openai' ? 'OpenAI ChatGPT' : 'Google Gemini',
+        provider: getAiProvider() === 'openai' ? 'OpenAI ChatGPT (Nuvem Turbo)' : 'Google Gemini (Nuvem Turbo)',
         timestamp: new Date().toISOString()
       };
     }
   } catch (error) {
-    return {
-      text: `⚠️ **Atenção: A Inteligência Artificial requer configuração**\n\nNão foi possível obter uma resposta da IA devido ao seguinte erro:\n\n> \`${error.message}\`\n\n**Como resolver:**\n1. Clique no botão de engrenagem ⚙️ (Configurações) no canto superior direito do chat.\n2. Insira a sua chave da **Google Gemini API** (gratuita no Google AI Studio) ou **OpenAI API**.\n3. Salve e teste a conexão.\n\n*Sem a chave, o sistema operará apenas com respostas limitadas do motor local.*`,
-      provider: 'Sistema JurisFlow (Erro de IA)',
-      timestamp: new Date().toISOString()
-    };
+    console.warn('Erro ao consultar IA em nuvem:', error.message);
   }
 
-  // 2. Motor Cognitivo Local AdvJuris Especialista (Fallback Explícito)
+  // 2. Motor Cognitivo Nativo AdvJuris Especialista (Incluso no CRM - Sem dependência de chave)
   await new Promise(r => setTimeout(r, 200));
   const localAnswer = generateDeepLegalAnswer(question, chatHistory, crmContext);
 
   return {
     text: localAnswer,
-    provider: 'AdvJuris Cognitivo Local (Offline)',
+    provider: 'Agente AdvJuris Nativo (Incluso)',
     timestamp: new Date().toISOString()
   };
 }
@@ -415,11 +439,10 @@ ${JSON.stringify(data, null, 2)}`;
       return { success: true, draft: externalResult };
     }
   } catch (err) {
-    // Se der erro, cai pro local abaixo
-    console.warn("Erro ao gerar minuta com IA, usando modelo local: ", err.message);
+    console.warn("Erro ao gerar minuta com IA nuvem, usando modelo nativo: ", err.message);
   }
 
-  await new Promise(r => setTimeout(r, 300));
+  await new Promise(r => setTimeout(r, 200));
   const today = new Date();
   const dateStr = today.toLocaleDateString('pt-BR');
 
@@ -457,6 +480,43 @@ c) A juntada dos documentos comprobatórios anexos.
 
 Nestes termos, pede e espera deferimento.
 
+[Cidade/UF], ${dateStr}.
+
+___________________________________________________
+Advogado(a) — OAB/[UF] nº [NÚMERO DA OAB]`
+    };
+  }
+
+  // Peça: Contestação Cível com Preliminares
+  if (draftType === 'contestacao' || draftType === 'contestacao_civel') {
+    return {
+      success: true,
+      draft: `EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) DE DIREITO DA [VARA CÍVEL] DA COMARCA DE [CIDADE/UF]
+
+Autos do Processo nº: [NÚMERO DO PROCESSO CNJ]
+
+${data.clientName || '[NOME DO REQUERIDO/RÉU]'}, brasileiro(a), inscrito(a) no CPF/CNPJ sob o nº ${data.cpf || '[CPF/CNPJ]'}, com domicílio em [ENDEREÇO], por seus advogados infra-assinados (procuração anexa), vem, tempestivamente, à presença de Vossa Excelência, com fulcro nos Arts. 335 e seguintes do Código de Processo Civil, apresentar
+
+CONTESTAÇÃO CÍVEL COM PRELIMINARES
+
+em face da Ação proposta por [NOME DO AUTOR], consubstanciada nas seguintes razões:
+
+I. DAS PRELIMINARES PROCESSUAIS (ART. 337 DO CPC)
+1. Da Inépcia da Petição Inicial (Art. 337, IV, c/c Art. 330, § 1º, do CPC): A exordial não preenche os requisitos legais essenciais, porquanto da narração dos fatos não decorre logicamente a conclusão pretendida.
+2. Da Ilegitimidade Passiva Ad Causam (Art. 337, XI, do CPC): O Contestante não possui vínculo jurídico material com a alegada relação obrigacional descrita pelo Autor.
+
+II. DA REALIDADE DOS FATOS E DO MÉRITO
+No mérito, restam integralmente impugnadas todas as alegações autorais com fulcro no Art. 341 do CPC. A obrigação contratual discutida (${data.subject || 'relação contratual'}) sempre observou a estrita boa-fé objetiva (Art. 422 do Código Civil)...
+
+III. DOS PEDIDOS
+Diante de todo o exposto, requer a Vossa Excelência:
+a) O ACOLHIMENTO das preliminares suscitadas, extinguindo-se o feito sem resolução de mérito (Art. 485, CPC);
+b) No mérito, a TOTAL IMPROCEDÊNCIA dos pedidos formulados na inicial;
+c) A condenação do Autor ao pagamento das custas processuais e honorários advocatícios sucumbenciais de 20% (Art. 85, § 2º, CPC).
+
+Protesta provar o alegado por todos os meios de prova em direito admitidos.
+
+Nestes termos, pede deferimento.
 [Cidade/UF], ${dateStr}.
 
 ___________________________________________________
@@ -662,8 +722,12 @@ export async function analyzeContractWithAdvJuris(contractText, contractType = '
   const prompt = `Faça uma auditoria minuciosa deste contrato de ${contractType} com base nas normas do Código Civil, Código de Defesa do Consumidor e Estatuto da OAB (Art. 50 do CED):
 ${contractText}`;
 
-  const externalResult = await callMultiProviderAi(prompt, ADVJURIS_PROMPTS.CONTRACT_REVIEW, [], crmContext);
-  if (externalResult) return externalResult;
+  try {
+    const externalResult = await callMultiProviderAi(prompt, ADVJURIS_PROMPTS.CONTRACT_REVIEW, [], crmContext);
+    if (externalResult) return externalResult;
+  } catch (err) {
+    console.warn("Erro na auditoria em nuvem:", err.message);
+  }
 
   await new Promise(r => setTimeout(r, 200));
   return `### 📑 AUDITORIA CONTRATUAL — ADVJURIS

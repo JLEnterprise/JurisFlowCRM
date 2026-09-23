@@ -184,7 +184,7 @@ export function SettingsView() {
   // Lista de abas com controle estrito de RBAC
   const availableTabs = [
     { id: 'office', label: 'Dados do Escritório', icon: Building2 },
-    { id: 'ai', label: 'IA & AdvJuris (Gemini API)', icon: Sparkles },
+    { id: 'ai', label: 'Agente AdvJuris & IA', icon: Sparkles },
     ...(isDevUser ? [{ id: 'multitenant', label: 'Multi-Escritórios (Exclusivo Dev/TI)', icon: Layers }] : []),
     { id: 'areas', label: 'Áreas Jurídicas', icon: Scale },
     { id: 'sources', label: 'Origens de Leads', icon: Share2 },
@@ -362,29 +362,45 @@ export function SettingsView() {
       {activeTab === 'ai' && (
         <form onSubmit={handleSaveGeminiKey} className="space-y-6 animate-fade-in">
           <div className="rounded-3xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-amber-500" />
-                  Inteligência Artificial Jurídica — ADVJURIS & Google Gemini API
+                  Agente Jurídico AdvJuris & Inteligência Artificial
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Configure a chave de API para habilitar os modelos de linguagem Google GenAI ou use o motor local especializado
+                  Agente autônomo nativo 100% incluso no CRM para consultoria, prazos, gestão e minutas blindadas
                 </p>
               </div>
-              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                AdvJuris 52 Regras
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Agente Nativo Ativo
+                </span>
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  AdvJuris 52 Regras
+                </span>
+              </div>
             </div>
 
             <div className="space-y-4">
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-50/50 p-4 dark:border-emerald-500/10 dark:bg-emerald-950/20">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Agente Nativo Disponível para Todos os Usuários do Escritório</span>
+                </div>
+                <p className="text-[11px] text-emerald-800/80 dark:text-emerald-400/80 mt-1 leading-relaxed">
+                  Não é necessário adquirir ou inserir nenhuma chave de API externa para utilizar o CRM. O Agente AdvJuris já opera localmente com conhecimento do CPC, CLT, CPP, cálculo de prazos e templates de peças processuais.
+                </p>
+              </div>
+
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-navy-950">
                 <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                  Google Gemini API Key (Opcional para Modo Turbo em Nuvem):
+                  Google Gemini API Key (Opcional — Modo Turbo em Nuvem):
                 </label>
                 <p className="text-[11px] text-slate-500 mb-3">
-                  Obtenha gratuitamente no Google AI Studio (<a href="https://aistudio.google.com" target="_blank" rel="noreferrer" className="text-brand-600 underline">aistudio.google.com</a>). Se deixado em branco, o CRM utilizará o motor de raciocínio jurídico local com precisão 100% offline.
+                  Caso o seu escritório queira utilizar respostas generativas em nuvem de forma ilimitada com a conta do Google, insira a chave obtida no Google AI Studio (<a href="https://aistudio.google.com" target="_blank" rel="noreferrer" className="text-brand-600 underline">aistudio.google.com</a>). Se deixado em branco, o sistema utilizará o Agente Nativo sem nenhum bloqueio.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input

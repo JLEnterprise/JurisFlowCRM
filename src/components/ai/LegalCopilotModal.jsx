@@ -215,8 +215,8 @@ export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = nu
   const [isFullScreen, setIsFullScreen] = useState(false);
   const chatEndRef = useRef(null);
 
-  // Multi-Provider state
-  const [currentProvider, setCurrentProvider] = useState('gemini'); // 'gemini' | 'openai' | 'local'
+  // Multi-Provider state (Padrão: Agente AdvJuris Nativo 100% incluso)
+  const [currentProvider, setCurrentProvider] = useState(() => getAiProvider() || 'local');
   const [geminiKeyInput, setGeminiKeyInput] = useState('');
   const [openAiKeyInput, setOpenAiKeyInput] = useState('');
   const [showKeyConfig, setShowKeyConfig] = useState(false);
@@ -245,19 +245,19 @@ export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = nu
   const [chatHistory, setChatHistory] = useState([
     {
       role: 'assistant',
-      content: `Olá, **${currentUser?.name?.split(' ')[0] || 'Doutor(a)'}**! Sou o **Copiloto Jurídico & AdvJuris IA (Legal Engineer)**.
+      content: `Olá, **${currentUser?.name?.split(' ')[0] || 'Doutor(a)'}**! Sou o **Agente AdvJuris**, copiloto jurídico e assistente operacional nativo do **${officeSettings.officeName || 'JurisFlow Advocacia'}**.
 
-Estou conectado em tempo real à base de dados do escritório (**${officeSettings.officeName || 'JurisFlow Advocacia'}**), aos seus clientes, processos judiciais, prazos fatais, audiências e contratos.
+Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de clientes, processos judiciais, prazos fatais, audiências e contratos — **sem exigir nenhuma chave de API externa**.
 
 ### ⚖️ Em que posso te auxiliar estrategicamente agora?
-* 🏛️ **Processo Civil (CPC/STJ):** *"Qual a contagem de prazo para Agravo de Instrumento e hipóteses do Art. 1.015?"*
+* 📱 **Uso do CRM:** *"Como cadastrar clientes e processos?"* ou *"Como criar prazos fatais?"*
+* 🏛️ **Processo Civil (CPC/STJ):** *"Qual o prazo de Agravo de Instrumento e hipóteses do Art. 1.015?"*
 * 💼 **Direito do Trabalho (CLT/TST):** *"Requisitos para rescisão indireta por falta de FGTS e Art. 775 da CLT?"*
-* 🛡️ **Execuções & SISBAJUD:** *"Como solicitar o desbloqueio de salário ou de reserva de até 40 salários mínimos?"*
-* 📅 **Prazos & Briefing:** *"Quais são os prazos fatais e audiências agendadas para esta semana no CRM?"*
-* 📝 **Minutas & Peças:** *"Redija uma peça de contestação com preliminares de inépcia e ilegitimidade"*
-* 💬 **WhatsApp de Clientes:** *"Traduza um despacho de especificação de provas para linguagem amigável"*
+* 🛡️ **Execuções & SISBAJUD:** *"Como solicitar desbloqueio urgente de salário ou de reserva de até 40 salários mínimos?"*
+* 📅 **Prazos & Briefing:** *"Quais são os prazos fatais e tarefas agendadas para hoje no CRM?"*
+* 📝 **Minutas & Peças:** *"Redija uma peça de contestação cível com preliminares de inépcia e ilegitimidade"*
 
-*Selecione um dos atalhos abaixo ou faça sua pergunta jurídica ou operacional livremente!*`
+*Basta clicar em um dos atalhos rápidos abaixo ou digitar qualquer dúvida jurídica ou operacional livremente!*`
     }
   ]);
 
@@ -281,8 +281,17 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
   const handleProviderChange = (prov) => {
     setCurrentProvider(prov);
     setAiProvider(prov);
-    const provName = prov === 'gemini' ? 'Google Gemini ⚡' : prov === 'openai' ? 'OpenAI ChatGPT 🤖' : 'AdvJuris Local 🛡️';
-    showToast(`Provedor de IA alterado para: ${provName}`, 'info');
+    if (prov === 'local') {
+      showToast('Agente AdvJuris Nativo ativado (100% Incluso / Sem Chave).', 'success');
+    } else {
+      const hasKey = prov === 'gemini' ? !!geminiKeyInput : !!openAiKeyInput;
+      const provName = prov === 'gemini' ? 'Google Gemini ⚡' : 'OpenAI ChatGPT 🤖';
+      if (!hasKey) {
+        showToast(`${provName} selecionado. Sem chave configurada, o Agente AdvJuris fará o atendimento nativo.`, 'info');
+      } else {
+        showToast(`Modo Turbo Nuvem ativado com ${provName}!`, 'success');
+      }
+    }
   };
 
   const handleCopy = (text, idx = null) => {
@@ -606,16 +615,20 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
               <Bot className="h-5 w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-bold text-base sm:text-lg text-white tracking-tight flex items-center gap-1.5">
-                  Copiloto Jurídico & AdvJuris IA
+                  Copiloto & Agente AdvJuris
                 </h3>
-                <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-300 ring-1 ring-amber-400/40">
+                <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-300 ring-1 ring-emerald-400/40 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Agente Ativo (Incluso)
+                </span>
+                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-400/30">
                   Advogado Sênior • Legal Engineer
                 </span>
               </div>
-              <p className="text-[11px] text-slate-300">
-                Consultor sênior em tempo real, integrado à base do escritório ({officeSettings.officeName || 'JurisFlow Advocacia'}), CPC, CLT e Tribunais
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                Inteligência jurídica e operacional para dúvidas, gestão do CRM ({officeSettings.officeName || 'JurisFlow Advocacia'}), prazos e minutas
               </p>
             </div>
           </div>
@@ -624,15 +637,26 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
             {/* Seletor de Provedor de IA */}
             <div className="flex items-center rounded-xl bg-slate-800/90 p-1 border border-slate-700 shadow-inner">
               <button
+                onClick={() => handleProviderChange('local')}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                  currentProvider === 'local'
+                    ? 'bg-amber-500 text-slate-950 shadow-sm'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title="Agente AdvJuris Nativo (100% Incluso / Sem necessidade de chave)"
+              >
+                <span>🛡️</span> AdvJuris Nativo
+              </button>
+              <button
                 onClick={() => handleProviderChange('gemini')}
                 className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
                   currentProvider === 'gemini'
                     ? 'bg-amber-500 text-slate-950 shadow-sm'
                     : 'text-slate-300 hover:text-white'
                 }`}
-                title="Google Gemini API (Gemini 2.5 Flash / 2.0 Flash)"
+                title="Google Gemini (Nuvem Turbo Opcional)"
               >
-                <span>⚡</span> Gemini
+                <span>⚡</span> Gemini Nuvem
               </button>
               <button
                 onClick={() => handleProviderChange('openai')}
@@ -641,28 +665,17 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
                     ? 'bg-emerald-500 text-white shadow-sm'
                     : 'text-slate-300 hover:text-white'
                 }`}
-                title="OpenAI ChatGPT (GPT-4o / GPT-4o-mini)"
+                title="OpenAI ChatGPT (Nuvem Turbo Opcional)"
               >
-                <span>🤖</span> ChatGPT
-              </button>
-              <button
-                onClick={() => handleProviderChange('local')}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                  currentProvider === 'local'
-                    ? 'bg-indigo-500 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title="Motor Cognitivo AdvJuris Local (Sem limites / Ilimitado)"
-              >
-                <span>🛡️</span> Local
+                <span>🤖</span> ChatGPT Nuvem
               </button>
             </div>
 
-            {/* Configurar Chaves */}
+            {/* Configurar Conexão / Chaves Opcionais */}
             <button
               onClick={() => setShowKeyConfig(!showKeyConfig)}
               className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800/90 text-slate-300 hover:bg-slate-700 hover:text-white transition-all border border-slate-700 btn-tactile"
-              title="Configurar Chaves de API (Gemini / OpenAI)"
+              title="Configurações de Conexão / Modo Turbo (Opcional)"
             >
               <Settings className="h-4 w-4" />
             </button>
@@ -708,14 +721,14 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
           </div>
         </div>
 
-        {/* Painel de Configuração de Chaves de API */}
+        {/* Painel de Configuração de Chaves de API (Opcional) */}
         {showKeyConfig && (
-          <div className="border-b border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-slate-800/70 animate-fade-in">
-            <div className="flex items-center justify-between pb-3">
+          <div className="border-b border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-slate-800/70 animate-fade-in space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-2">
-                <Key className="h-4 w-4 text-amber-500" />
+                <ShieldCheck className="h-4 w-4 text-emerald-500" />
                 <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200">
-                  Configuração de Chaves de API de Inteligência Artificial
+                  Conexões de IA: Agente Nativo (Incluso) vs Modo Turbo em Nuvem (Opcional)
                 </h4>
               </div>
               <div className="flex gap-2">
@@ -725,7 +738,7 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
                     activeKeyTab === 'gemini' ? 'bg-amber-500 text-slate-950' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                 >
-                  Google Gemini
+                  Google Gemini (Opcional)
                 </button>
                 <button
                   onClick={() => setActiveKeyTab('openai')}
@@ -733,9 +746,16 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
                     activeKeyTab === 'openai' ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                 >
-                  OpenAI (ChatGPT)
+                  OpenAI ChatGPT (Opcional)
                 </button>
               </div>
+            </div>
+
+            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+              <span>
+                <strong>Nenhuma chave é obrigatória para usar o CRM.</strong> O Agente AdvJuris já vem 100% ativo para responder dúvidas jurídicas, consultar clientes/processos e gerar minutas. As chaves abaixo são exclusivamente para escritórios que desejam usar seus próprios créditos em nuvem.
+              </span>
             </div>
 
             {activeKeyTab === 'gemini' ? (
@@ -744,7 +764,7 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
                   type="password"
                   value={geminiKeyInput}
                   onChange={(e) => setGeminiKeyInput(e.target.value)}
-                  placeholder="Cole sua Gemini API Key (ex: AIzaSy...)"
+                  placeholder="Cole sua Gemini API Key (ex: AIzaSy... - Opcional)"
                   className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
                 <button
@@ -753,7 +773,7 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
                   className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-all shadow-sm btn-tactile"
                 >
                   {testingKey ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  Testar & Salvar Gemini
+                  Salvar Chave Gemini
                 </button>
               </div>
             ) : (
@@ -762,7 +782,7 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
                   type="password"
                   value={openAiKeyInput}
                   onChange={(e) => setOpenAiKeyInput(e.target.value)}
-                  placeholder="Cole sua OpenAI API Key (ex: sk-proj-...)"
+                  placeholder="Cole sua OpenAI API Key (ex: sk-proj-... - Opcional)"
                   className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
                 <button
@@ -771,7 +791,7 @@ Estou conectado em tempo real à base de dados do escritório (**${officeSetting
                   className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-400 disabled:opacity-50 transition-all shadow-sm btn-tactile"
                 >
                   {testingKey ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  Testar & Salvar OpenAI
+                  Salvar Chave OpenAI
                 </button>
               </div>
             )}

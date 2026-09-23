@@ -1,18 +1,19 @@
 /**
  * JurisFlow AI Agent Engine - LegalSpecialistAgent
- * Exemplo de Agente Especialista Jurídico que combina ferramentas e raciocínio.
+ * Agente Especialista Jurídico & Operacional Integrado ao Motor Cognitivo AdvJuris.
  */
 
 import { BaseAgent } from '../core/BaseAgent';
 import { CoreTools } from '../tools/ToolRegistry';
 import { AgentPrompts } from '../prompts/systemPrompts';
 import { AgentMemory } from '../memory/AgentMemory';
+import { generateDeepLegalAnswer } from '../../services/deepLegalEngine';
 
 export class LegalSpecialistAgent extends BaseAgent {
   constructor() {
     super({
       name: 'LegalSpecialistAgent',
-      role: 'Especialista em Análise de Intimações e Prazos Processuais',
+      role: 'Especialista em Análise de Intimações, Prazos Processuais e Consultoria Jurídica',
       systemPrompt: AgentPrompts.LEGAL_ADVISOR,
       memory: new AgentMemory(15),
       maxIterations: 4
@@ -29,10 +30,10 @@ export class LegalSpecialistAgent extends BaseAgent {
    * Execução da tarefa recebida
    */
   async run(input, context = {}) {
-    const { iteration, lastObservation } = context;
+    const { iteration, lastObservation, crmContext } = context;
 
     // Se houver texto de publicação e ainda não analisou
-    if (iteration === 1 && input.publicationText) {
+    if (iteration === 1 && input?.publicationText) {
       return {
         isFinished: false,
         toolCall: {
@@ -45,7 +46,7 @@ export class LegalSpecialistAgent extends BaseAgent {
     // Se obteve o resultado da análise de publicação
     if (lastObservation && lastObservation.success) {
       const data = lastObservation.data;
-      const output = `Análise Concluída:\n- Tipo de Ato: ${data.actType}\n- Prazo: ${data.businessDays} dias úteis (Fatal: ${data.deadlineDate})\n- Providência Sugerida: ${data.recommendedAction}\n- Resumo: ${data.summary}`;
+      const output = `Análise Concluída:\n- Tipo de Ato: ${data.actType || 'Intimação Judicial'}\n- Prazo: ${data.businessDays || data.days || 15} dias (Fatal: ${data.deadlineDate || 'Ver no CRM'})\n- Providência Sugerida: ${data.recommendedAction || data.action || 'Manifestação tempestiva'}\n- Resumo: ${data.summary || data.text?.slice(0, 200)}`;
 
       return {
         isFinished: true,
@@ -53,10 +54,13 @@ export class LegalSpecialistAgent extends BaseAgent {
       };
     }
 
-    // Resposta padrão caso receba apenas texto livre
+    // Se for pergunta jurídica ou solicitação operacional em texto livre
+    const query = typeof input === 'string' ? input : input?.query || JSON.stringify(input);
+    const deepAnswer = generateDeepLegalAnswer(query, [], crmContext || {});
+
     return {
       isFinished: true,
-      output: `Recebido pedido: "${typeof input === 'string' ? input : JSON.stringify(input)}". Agente pronto para processar.`
+      output: deepAnswer
     };
   }
 }
