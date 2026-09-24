@@ -1,35 +1,32 @@
-# JurisFlow CRM — Cópia de Backup Completa
+# JurisFlow CRM
 
-Este diretório contém a cópia integral de segurança do **JurisFlow CRM** (Sistema de Gestão Comercial e CRM Jurídico para Escritórios de Advocacia).
+CRM jurídico SaaS multi-escritório (multi-tenant) para escritórios de advocacia.
 
-## Estrutura do Projeto
-- `src/`: Código-fonte completo (React 18, Tailwind CSS, Lucide Icons, Recharts, jsPDF, Canvas Confetti).
-- `dist/`: Build de produção pré-compilado e otimizado.
-- `package.json` & `package-lock.json`: Dependências e configurações de build.
-- `vite.config.js`, `tailwind.config.js`, `postcss.config.js`: Configurações de desenvolvimento e estilização.
+- **Produção:** https://juris-flow-adv.vercel.app (deploy automático da Vercel a partir da branch `main`)
+- **Stack:** React 18 + Vite 6 + Tailwind CSS 3 + Supabase (Postgres, Auth, Storage)
 
-## Como Executar este Backup
-Para rodar este projeto a partir deste diretório `E:\jurisflow-crm`:
+## Rodar localmente
+1. Copie `.env.example` para `.env` e preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+2. `npm install`
+3. `npm run dev` (ou dois cliques em `INICIAR_JURISFLOW.bat`) → http://localhost:3000
 
-1. Abra o terminal nesta pasta:
-   ```bash
-   cd E:\jurisflow-crm
-   ```
+## Publicar
+Dois cliques em `PUBLICAR.bat` (testa o build, faz commit e push para o GitHub; a Vercel publica).
 
-2. Instale as dependências:
-   ```bash
-   npm install
-   ```
+## Estrutura
+| Pasta | Conteúdo |
+|---|---|
+| `src/` | Código do app (componentes, contextos, serviços, agente AdvJuris) |
+| `public/` | Arquivos estáticos (logo) |
+| `supabase/migrations/` | Migrações SQL do banco (novas mudanças entram aqui) |
+| `supabase/sql-legado/` | Scripts SQL antigos, aplicados manualmente na época do Antigravity |
+| `docs/` | Arquitetura multi-tenant e material do agente jurídico AdvJuris |
+| `.claude/skills/` | Skills do Claude Code (Supabase) |
 
-3. Inicie o servidor de desenvolvimento:
-   ```bash
-   npm run dev
-   ```
+Guia de desenvolvimento: [CLAUDE.md](CLAUDE.md).
 
-4. Para gerar uma nova compilação de produção:
-   ```bash
-   npm run build
-   ```
-
----
-*Backup criado em 03/09/2026.*
+## Backup do período Antigravity
+O estado completo do projeto antes da migração para o Claude Code (incluindo arquivos que foram
+removidos daqui) está preservado no GitHub:
+- branch `backup/antigravity-2026-09-24`
+- tag `antigravity-final`

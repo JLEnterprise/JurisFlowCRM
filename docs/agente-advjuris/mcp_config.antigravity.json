@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "gemini-api": {
+      "command": "npx",
+      "args": ["-y", "@google/gemini-mcp@latest"],
+      "env": {
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+      },
+      "description": "Google Gemini API MCP Server para raciocínio jurídico avançado e multimodalidade."
+    },
+    "openai-chat": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-openai@latest"],
+      "env": {
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}"
+      },
+      "description": "OpenAI ChatGPT MCP Server para GPT-4o e GPT-4o-mini."
+    },
+    "jurisflow-legal-tools": {
+      "command": "node",
+      "args": ["src/agents/tools/ToolRegistry.js"],
+      "description": "Servidor MCP de ferramentas jurídicas nativas (DataJud/CNJ, BrasilAPI, Calculadora de Prazos CPC/CLT, Assinador ICP e WhatsApp Engine)."
+    }
+  }
+}

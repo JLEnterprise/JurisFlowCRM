@@ -1,7 +1,7 @@
 /**
  * ADVJURIS - Advogado Sênior Multidisciplinar & Legal Engineer
  * Base de conhecimento, personas e diretrizes do Agente Jurídico JurisFlow.
- * Fonte: AGENTS.md (Diretrizes de Excelência Jurídica Brasileira)
+ * Fonte: docs/agente-advjuris/AdvJuris.md (Diretrizes de Excelência Jurídica Brasileira)
  */
 
 export const ADVJURIS_SYSTEM_PROMPT = `Você é o ADVJURIS: Advogado Sênior Multidisciplinar, Legal Engineer de elite e Consultor Estratégico integrado ao JurisFlow CRM.

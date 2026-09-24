@@ -2,7 +2,7 @@
  * Advanced Brazilian Legal NLP & Knowledge Engine (AdvJuris Engine)
  * Motor Cognitivo Jurídico Sênior & Agente Autônomo Integrado ao JurisFlow CRM.
  * Atuação como Consultor Especialista, Legal Engineer e Orientador de Rotinas Forenses e Operacionais.
- * Em conformidade irrestrita com as 52 regras de excelência do AGENTS.md e das 7 skills especializadas.
+ * Em conformidade irrestrita com as 52 regras de excelência do docs/agente-advjuris/AdvJuris.md e das 7 skills especializadas.
  */
 
 export function generateDeepLegalAnswer(query, chatHistory = [], customContext = null) {
