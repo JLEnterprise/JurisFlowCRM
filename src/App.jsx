@@ -6,6 +6,7 @@ import { Header } from './components/layout/Header';
 import { GlobalSearchModal } from './components/layout/GlobalSearchModal';
 import { Toast } from './components/common/Toast';
 import { LoginView } from './components/auth/LoginView';
+import { PasswordRecoveryModal } from './components/auth/PasswordRecoveryModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Modules
@@ -634,6 +635,7 @@ export function App() {
       />
 
       {/* Toast Notification Container */}
+      <PasswordRecoveryModal />
       <Toast toast={toast} onClose={hideToast} />
     </div>
   );

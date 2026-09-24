@@ -61,33 +61,24 @@ export function LoginView() {
     e.preventDefault();
     if (!regName || !regEmail || !regPassword) return;
 
-    if (regPassword.length < 4) {
-      showToast('A senha deve conter no mínimo 4 caracteres.', 'warning');
+    if (regPassword.length < 8) {
+      showToast('A senha deve conter no mínimo 8 caracteres.', 'warning');
       return;
     }
 
-    const titleMap = {
-      lawyer: 'Advogado(a)',
-      financial: 'Financeiro',
-      secretary: 'Administrativo',
-      sales: 'Comercial / SDR',
-    };
-
-    const chosenTitle = titleMap[regRole] || 'Advogado(a)';
-
-    const success = await registerUser({
+    const result = await registerUser({
       name: regName,
       email: regEmail,
       password: regPassword,
-      role: regRole,
-      roles: [regRole],
-      title: chosenTitle,
-      titles: [chosenTitle],
       firmName: regFirmName || 'JurisFlow Advocacia',
-      escritorio_id: inviteCode || null // Atribui ao escritório que convidou, se houver
+      escritorio_id: inviteCode || null // convite: o admin precisa ter cadastrado este e-mail em Equipe
     });
 
-    if (success) {
+    if (result?.ok && result.needsConfirmation) {
+      showToast('Conta criada! Enviamos um link de confirmação para o seu e-mail. Confirme e depois clique em Entrar.', 'success');
+      setIsRegisterMode(false);
+      setLoginEmail(regEmail);
+    } else if (result?.ok) {
       showToast('Conta criada com sucesso! Acessando a plataforma...', 'success');
     }
   };
