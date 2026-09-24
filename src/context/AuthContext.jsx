@@ -9,11 +9,19 @@ export function AuthProvider({ children }) {
   const [users, setUsers] = useState(() => {
     const loaded = storageService.loadData('users', INITIAL_USERS);
     if (!Array.isArray(loaded)) return [];
-    return loaded;
+    // remove senhas que versões antigas deixavam salvas no navegador
+    return loaded.map(u => {
+      if (!u || typeof u !== 'object') return u;
+      const { password, senha, ...rest } = u;
+      return rest;
+    });
   });
 
   const [currentUser, setCurrentUser] = useState(() => {
-    return storageService.loadData('current_user', null);
+    const saved = storageService.loadData('current_user', null);
+    if (!saved || typeof saved !== 'object') return saved;
+    const { password, senha, ...rest } = saved;
+    return rest;
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -23,6 +31,24 @@ export function AuthProvider({ children }) {
 
   const [authError, setAuthError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // true quando o usuário chega pelo link "Esqueceu a senha" do e-mail
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+
+  // Remove qualquer sessão local (localStorage) — o acesso depende SEMPRE do Supabase Auth
+  function clearLocalSession() {
+    storageService.saveData('current_user', null);
+    storageService.setCurrentEscritorioId(null);
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    setUsers([]);
+  }
+
+  // Remove campos sensíveis antes de salvar/sincronizar
+  function stripSecrets(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    const { password, senha, ...rest } = obj;
+    return rest;
+  }
 
   // Escutar mudancas de sessao no Supabase e carregar perfil completo
   useEffect(() => {
@@ -46,7 +72,7 @@ export function AuthProvider({ children }) {
               const singleTitle = data.title || raw.title || 'Advogado(a)';
               const assignedTitles = Array.isArray(data.titles) ? data.titles : (Array.isArray(raw.titles) ? raw.titles : [singleTitle]);
 
-              const userEscritorioId = data.escritorio_id || raw.escritorio_id || `esc_${session.user.id}`;
+              const userEscritorioId = data.escritorio_id || null;
 
               remoteUser = {
                 id: data.id || session.user.id,
@@ -67,42 +93,22 @@ export function AuthProvider({ children }) {
             console.warn('Erro ao consultar perfil inicial no Supabase:', err.message);
           }
 
-          const match = remoteUser || users.find(u => u.email?.toLowerCase() === email);
-          if (match) {
-            if (match.escritorio_id) {
-              storageService.setCurrentEscritorioId(match.escritorio_id);
-              storageService.purgeContaminatedCache(match.escritorio_id);
-            }
+          // [Segurança] Só entra quem tem perfil vinculado a um escritório no banco
+          const match = remoteUser;
+          if (match && match.escritorio_id) {
+            storageService.setCurrentEscritorioId(match.escritorio_id);
+            storageService.purgeContaminatedCache(match.escritorio_id);
             setCurrentUser(match);
             setIsAuthenticated(true);
             storageService.saveData('current_user', match);
-          } else {
-            const meta = session.user.user_metadata || {};
-            const metaRoles = Array.isArray(meta.roles) ? meta.roles : (meta.role ? [meta.role] : ['admin']);
-            const primaryRole = metaRoles.includes('dev') ? 'dev' : (metaRoles.includes('admin') ? 'admin' : (meta.role || metaRoles[0] || 'admin'));
-            const userEscritorioId = meta.escritorio_id || `esc_${session.user.id}`;
-            const newUser = {
-              id: session.user.id,
-              name: meta.name || email.split('@')[0],
-              email: email,
-              role: primaryRole,
-              roles: metaRoles,
-              title: meta.title || 'Advogado(a)',
-              titles: Array.isArray(meta.titles) ? meta.titles : [meta.title || 'Advogado(a)'],
-              oab: meta.oab || '',
-              phone: meta.phone || '',
-              avatar: meta.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
-              status: 'active',
-              escritorio_id: userEscritorioId
-            };
-            if (userEscritorioId) {
-              storageService.setCurrentEscritorioId(userEscritorioId);
-              storageService.purgeContaminatedCache(userEscritorioId);
-            }
-            setCurrentUser(newUser);
-            setIsAuthenticated(true);
-            storageService.saveData('current_user', newUser);
+          } else if (mounted) {
+            setAuthError('Seu acesso ainda não foi liberado. Peça ao administrador do escritório para cadastrar seu e-mail em Equipe.');
+            clearLocalSession();
+            signOut().catch(() => {});
           }
+        } else if (mounted) {
+          // [Segurança] Sem sessão válida no Supabase Auth = sem acesso (limpa sessão local antiga)
+          clearLocalSession();
         }
       } catch (e) {
         console.warn('Sessao Supabase nao disponivel no inicio:', e.message);
@@ -114,11 +120,10 @@ export function AuthProvider({ children }) {
     const { data: authListener } = onAuthStateChange((event, session) => {
       if (!mounted) return;
       if (event === 'SIGNED_OUT') {
-        storageService.saveData('current_user', null);
-        storageService.setCurrentEscritorioId(null);
-        setCurrentUser(null);
-        setIsAuthenticated(false);
-        setUsers([]);
+        clearLocalSession();
+      }
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true);
       }
     });
 
@@ -313,7 +318,7 @@ export function AuthProvider({ children }) {
       status: userObj.status || 'active',
       escritorio_id: userObj.escritorio_id || storageService.getCurrentEscritorioId(),
       raw_data: {
-        ...userObj,
+        ...stripSecrets(userObj),
         id: cleanId,
         email: cleanEmail,
         name: userObj.name || cleanEmail.split('@')[0],
@@ -364,7 +369,30 @@ export function AuthProvider({ children }) {
     const cleanEmail = (email || '').toLowerCase().trim();
 
     try {
-      // 1. Tentar buscar o perfil do usuario na tabela users do Supabase PostgreSQL
+      // 1. Autenticação REAL no Supabase Auth (senha conferida no servidor)
+      let authData = null;
+      try {
+        authData = await signIn(cleanEmail, password);
+      } catch (supabaseErr) {
+        const msg = (supabaseErr?.message || '').toLowerCase();
+        if (msg.includes('email not confirmed')) {
+          setAuthError('Confirme seu e-mail pelo link que enviamos antes de entrar.');
+        } else if (msg.includes('invalid login credentials')) {
+          setAuthError('E-mail ou senha incorretos. Se esqueceu a senha, clique em "Esqueceu a senha?".');
+        } else {
+          setAuthError('Não foi possível entrar agora. Verifique sua conexão e tente novamente.');
+        }
+        setIsLoading(false);
+        return false;
+      }
+
+      if (!authData?.user) {
+        setAuthError('E-mail ou senha incorretos.');
+        setIsLoading(false);
+        return false;
+      }
+
+      // 2. Com a sessão ativa, busca o perfil (o RLS só devolve o próprio escritório)
       let remoteProfile = null;
       try {
         const { data, error } = await supabase
@@ -376,7 +404,7 @@ export function AuthProvider({ children }) {
         if (data && !error) {
           const raw = (data.raw_data && typeof data.raw_data === 'object') ? data.raw_data : {};
           const rawRoles = Array.isArray(data.roles) ? data.roles : (Array.isArray(raw.roles) ? raw.roles : null);
-          const singleRole = data.role || raw.role || 'admin';
+          const singleRole = data.role || raw.role || 'lawyer';
           const assignedRoles = rawRoles && rawRoles.length > 0 ? rawRoles : [singleRole];
           const primaryRole = assignedRoles.includes('dev')
             ? 'dev'
@@ -385,10 +413,8 @@ export function AuthProvider({ children }) {
             : singleRole;
 
           const rawTitles = Array.isArray(data.titles) ? data.titles : (Array.isArray(raw.titles) ? raw.titles : null);
-          const singleTitle = data.title || raw.title || 'Sócio Administrador';
+          const singleTitle = data.title || raw.title || 'Advogado(a)';
           const assignedTitles = rawTitles && rawTitles.length > 0 ? rawTitles : [singleTitle];
-
-          const userEscritorioId = data.escritorio_id || raw.escritorio_id || `esc_${data.id}`;
 
           remoteProfile = {
             id: data.id,
@@ -403,106 +429,32 @@ export function AuthProvider({ children }) {
             firmName: raw.firmName || 'JurisFlow Advocacia',
             avatar: data.avatar || raw.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
             status: data.status || 'active',
-            escritorio_id: userEscritorioId
+            escritorio_id: data.escritorio_id || null
           };
         }
       } catch (dbErr) {
         console.warn('[Supabase Users Query Warning]:', dbErr.message);
       }
 
-      // 2. Tentar login nativo via Supabase Auth
-      try {
-        const authData = await signIn(cleanEmail, password);
-        if (authData?.user) {
-          const match = remoteProfile;
-          const meta = authData.user.user_metadata || {};
-          const metaRoles = Array.isArray(meta.roles) ? meta.roles : (meta.role ? [meta.role] : ['admin']);
-          const primaryMetaRole = metaRoles.includes('dev') ? 'dev' : (metaRoles.includes('admin') ? 'admin' : (meta.role || metaRoles[0] || 'admin'));
-          const userEscritorioId = match?.escritorio_id || meta.escritorio_id || `esc_${authData.user.id}`;
-
-          const userToSet = match ? {
-            ...match,
-            id: authData.user.id || match.id,
-            escritorio_id: userEscritorioId
-          } : {
-            id: authData.user.id,
-            name: meta.name || cleanEmail.split('@')[0],
-            email: cleanEmail,
-            role: primaryMetaRole,
-            roles: metaRoles,
-            title: meta.title || 'Sócio Administrador',
-            titles: Array.isArray(meta.titles) ? meta.titles : [meta.title || 'Sócio Administrador'],
-            avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
-            status: 'active',
-            escritorio_id: userEscritorioId
-          };
-          if (userEscritorioId) {
-            storageService.setCurrentEscritorioId(userEscritorioId);
-            storageService.purgeContaminatedCache(userEscritorioId);
-          }
-          setCurrentUser(userToSet);
-          setIsAuthenticated(true);
-          storageService.saveData('current_user', userToSet);
-          syncProfileWithSupabase(userToSet);
-          setIsLoading(false);
-          return true;
-        }
-      } catch (supabaseErr) {
-        console.warn('[Supabase Auth Warning]:', supabaseErr.message);
+      // 3. Sem perfil vinculado a um escritório = sem acesso
+      if (!remoteProfile || !remoteProfile.escritorio_id) {
+        setAuthError('Seu acesso ainda não foi liberado. Peça ao administrador do escritório para cadastrar seu e-mail em Equipe.');
+        signOut().catch(() => {});
+        setIsLoading(false);
+        return false;
+      }
+      if (remoteProfile.status && remoteProfile.status !== 'active') {
+        setAuthError('Seu usuário está inativo. Fale com o administrador do escritório.');
+        signOut().catch(() => {});
+        setIsLoading(false);
+        return false;
       }
 
-      // 3. Fallback de login incondicional
-      await new Promise(res => setTimeout(res, 150));
-      let found = remoteProfile || users.find(u => u.email?.toLowerCase() === cleanEmail);
-
-      if (!found) {
-        const formattedName = cleanEmail.split('@')[0].replace(/[._-]/g, ' ');
-        const generatedEscId = `esc_${Date.now()}`;
-        found = {
-          id: `usr_${Date.now()}`,
-          name: formattedName ? formattedName.charAt(0).toUpperCase() + formattedName.slice(1) : 'Administrador',
-          email: cleanEmail,
-          password: password || 'senha_nao_definida',
-          role: 'admin',
-          roles: ['admin'],
-          title: 'Sócio Administrador',
-          titles: ['Sócio Administrador'],
-          firmName: 'JurisFlow Advocacia',
-          avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
-          status: 'active',
-          escritorio_id: generatedEscId,
-          created_at: new Date().toISOString()
-        };
-      } else {
-        if (password) {
-          found = { ...found, password };
-        }
-        if (!found.escritorio_id) {
-          found.escritorio_id = `esc_${Date.now()}`;
-        }
-      }
-
-      if (found.escritorio_id) {
-        storageService.setCurrentEscritorioId(found.escritorio_id);
-        storageService.purgeContaminatedCache(found.escritorio_id);
-      }
-
-      // 4. Atualizar lista de usuarios e salvar no Supabase PostgreSQL
-      setUsers(prev => {
-        const exists = prev.some(u => u.email?.toLowerCase() === cleanEmail);
-        const updated = exists
-          ? prev.map(u => u.email?.toLowerCase() === cleanEmail ? found : u)
-          : [...prev, found];
-        storageService.saveData('users', updated);
-        return updated;
-      });
-
-      syncProfileWithSupabase(found);
-
-      setCurrentUser(found);
+      storageService.setCurrentEscritorioId(remoteProfile.escritorio_id);
+      storageService.purgeContaminatedCache(remoteProfile.escritorio_id);
+      setCurrentUser(remoteProfile);
       setIsAuthenticated(true);
-      storageService.saveData('current_user', found);
-
+      storageService.saveData('current_user', remoteProfile);
       setIsLoading(false);
       return true;
     } catch (err) {
@@ -513,117 +465,57 @@ export function AuthProvider({ children }) {
   };
 
   // Registro de novos usuarios com persistencia no Supabase PostgreSQL e login automatico
-  const registerUser = async ({ name, email, password, role = 'admin', roles = null, title = 'Sócio Administrador', titles = null, firmName = 'Meu Escritório', escritorio_id = null }) => {
+  // Cadastro via Supabase Auth.
+  // O escritório + perfil de administrador são criados NO BANCO (trigger) quando o e-mail é confirmado.
+  // Convite (?invite=...) só funciona se o administrador já tiver cadastrado o e-mail em Equipe.
+  // Retorna: { ok: boolean, needsConfirmation?: boolean }
+  const registerUser = async ({ name, email, password, firmName = 'Meu Escritório', escritorio_id = null }) => {
     setIsLoading(true);
     setAuthError('');
     const cleanEmail = (email || '').toLowerCase().trim();
-    if (!cleanEmail) {
+    if (!cleanEmail || !password) {
       setIsLoading(false);
-      return false;
+      return { ok: false };
     }
 
     try {
-      const assignedRoles = Array.isArray(roles) && roles.length > 0 ? roles : [role || 'admin'];
-      const primaryRole = assignedRoles.includes('dev')
-        ? 'dev'
-        : assignedRoles.includes('admin')
-        ? 'admin'
-        : (role || assignedRoles[0] || 'admin');
-
-      const assignedTitles = Array.isArray(titles) && titles.length > 0 ? titles : [title || 'Sócio Administrador'];
-      const primaryTitle = title || assignedTitles.join(' • ');
-
-      let supabaseUserId = null;
-      try {
-        const authData = await signUp(cleanEmail, password, {
-          name,
-          role: primaryRole,
-          roles: assignedRoles,
-          title: primaryTitle,
-          titles: assignedTitles,
-          firmName
-        });
-        if (authData?.user?.id) {
-          supabaseUserId = authData.user.id;
-        }
-      } catch (supabaseErr) {
-        console.warn('[Supabase SignUp Warning]:', supabaseErr.message);
-      }
-
-      let finalEscritorioId = escritorio_id;
-      if (!finalEscritorioId) {
-        finalEscritorioId = `esc_${Date.now()}`;
-        try {
-          // 1. Cria a entidade do Escritório no Supabase
-          await supabase.from('escritorios').insert({
-            id: finalEscritorioId,
-            nome: firmName || 'Meu Escritório',
-            email: cleanEmail,
-            status: 'active',
-            plano: 'trial'
-          });
-
-          // 2. Cria as configurações institucionais isoladas do novo Escritório no Supabase
-          await supabase.from('office_settings').insert({
-            id: `settings_${finalEscritorioId}`,
-            escritorio_id: finalEscritorioId,
-            office_name: firmName || 'Meu Escritório',
-            email: cleanEmail,
-            phone: '',
-            address: '',
-            raw_data: {
-              officeName: firmName || 'Meu Escritório',
-              tradeName: firmName || 'JurisFlow CRM',
-              email: cleanEmail,
-              escritorio_id: finalEscritorioId,
-            }
-          });
-        } catch(e) {
-          console.warn('[Supabase Escritorios Setup Warning]:', e.message);
-        }
-      }
-
-      storageService.setCurrentEscritorioId(finalEscritorioId);
-      storageService.purgeContaminatedCache(finalEscritorioId);
-
-      const userId = supabaseUserId || `usr_${Date.now()}`;
-      const newUser = {
-        id: userId,
-        name: (name || cleanEmail.split('@')[0]).trim(),
-        email: cleanEmail,
-        password: password || '123456',
-        role: primaryRole,
-        roles: assignedRoles,
-        title: primaryTitle,
-        titles: assignedTitles,
-        oab: '',
-        phone: '',
+      const authData = await signUp(cleanEmail, password, {
+        name: (name || '').trim(),
         firmName: firmName || 'Meu Escritório',
-        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
-        status: 'active',
-        escritorio_id: finalEscritorioId,
-        created_at: new Date().toISOString()
-      };
+        invite: escritorio_id || null,
+      });
 
-      // 1. Atualizar a lista de usuarios no estado e no localStorage
-      setUsers([newUser]);
-      storageService.saveData('users', [newUser], finalEscritorioId);
+      // Projeto com confirmação de e-mail: não há sessão até o usuário clicar no link
+      if (!authData?.session) {
+        setIsLoading(false);
+        return { ok: true, needsConfirmation: true };
+      }
 
-      // 2. Persistir o perfil na tabela 'users' do Supabase PostgreSQL
-      await syncProfileWithSupabase(newUser);
-
-      // 3. Logar o usuario recem-criado IMEDIATAMENTE
-      setCurrentUser(newUser);
-      setIsAuthenticated(true);
-      storageService.saveData('current_user', newUser);
-
+      // Confirmação desativada: a sessão já existe → faz o login normal
       setIsLoading(false);
-      return true;
+      const logged = await login(cleanEmail, password);
+      return { ok: logged };
     } catch (err) {
+      const msg = (err?.message || '').toLowerCase();
+      if (msg.includes('already registered') || msg.includes('already been registered')) {
+        setAuthError('Este e-mail já possui cadastro. Use "Entrar" ou "Esqueceu a senha?".');
+      } else if (msg.includes('password')) {
+        setAuthError('Senha fraca: use pelo menos 8 caracteres, com letras e números.');
+      } else {
+        setAuthError('Não foi possível criar a conta agora. Tente novamente.');
+      }
       console.error('Erro ao registrar usuário:', err);
       setIsLoading(false);
-      return false;
+      return { ok: false };
     }
+  };
+
+  // Define a nova senha após o usuário abrir o link de redefinição recebido por e-mail
+  const updatePassword = async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    setPasswordRecovery(false);
+    return true;
   };
 
   const logout = () => {
@@ -666,7 +558,7 @@ export function AuthProvider({ children }) {
       : (userData.title ? [userData.title] : ['Advogado(a)']);
 
     const newUser = {
-      ...userData,
+      ...stripSecrets(userData),
       id: userData.id || `usr_${Date.now()}`,
       role: primaryRole,
       roles: assignedRoles,
@@ -901,6 +793,8 @@ export function AuthProvider({ children }) {
         updateProfile,
         deleteUser,
         resetPassword,
+        updatePassword,
+        passwordRecovery,
         permissions,
       }}
     >

@@ -6,7 +6,6 @@ import { Header } from './components/layout/Header';
 import { GlobalSearchModal } from './components/layout/GlobalSearchModal';
 import { Toast } from './components/common/Toast';
 import { LoginView } from './components/auth/LoginView';
-import { PasswordRecoveryModal } from './components/auth/PasswordRecoveryModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Modules
@@ -51,11 +50,10 @@ import { SettingsView } from './components/settings/SettingsView';
 // Enterprise Power-Ups
 import { LegalCopilotModal } from './components/ai/LegalCopilotModal';
 import { WhatsAppModal } from './components/whatsapp/WhatsAppModal';
-import { UserProfileModal } from './components/common/UserProfileModal';
 
 export function App() {
   const { isAuthenticated, currentUser, permissions } = useAuth();
-  const { toast, hideToast, initialSupabaseSyncDone, currentEscritorioId } = useCRM();
+  const { toast, hideToast } = useCRM();
 
   // Navigation state
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -64,7 +62,6 @@ export function App() {
 
   // Selected Detail Views
   const [selectedClientId, setSelectedClientId] = useState(null);
-  const [activeClientTab, setActiveClientTab] = useState('overview');
   const [selectedContractId, setSelectedContractId] = useState(null);
 
   // Lead view mode (kanban vs list)
@@ -79,7 +76,6 @@ export function App() {
 
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [contractToEdit, setContractToEdit] = useState(null);
-  const [contractPrefill, setContractPrefill] = useState(null);
 
   const [closeContractModalOpen, setCloseContractModalOpen] = useState(false);
   const [leadForContractClosing, setLeadForContractClosing] = useState(null);
@@ -102,19 +98,16 @@ export function App() {
 
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [attendancePrefill, setAttendancePrefill] = useState(null);
-  const [attendanceToEdit, setAttendanceToEdit] = useState(null);
 
   // Power-Ups Modals
   const [copilotModalOpen, setCopilotModalOpen] = useState(false);
-  const [copilotInitialTab, setCopilotInitialTab] = useState('chat');
+  const [copilotInitialTab, setCopilotInitialTab] = useState('intimacoes');
 
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
   const [whatsAppData, setWhatsAppData] = useState({});
 
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
   const [contractForSignature, setContractForSignature] = useState(null);
-
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   // If not logged in, render Login View
   if (!isAuthenticated) {
@@ -123,26 +116,6 @@ export function App() {
         <LoginView />
         <Toast toast={toast} onClose={hideToast} />
       </>
-    );
-  }
-
-  // Tela de carregamento intermediária: aguarda o primeiro sync do tenant antes de renderizar o dashboard.
-  // Isso garante que NUNCA serão exibidos dados do escritório anterior ou uma tela vazia/incorreta.
-  if (!initialSupabaseSyncDone && isAuthenticated) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-navy-950">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <div className="relative h-16 w-16">
-            <div className="absolute inset-0 rounded-full border-4 border-brand-200 dark:border-brand-900" />
-            <div className="absolute inset-0 rounded-full border-4 border-brand-600 dark:border-brand-400 border-t-transparent animate-spin" />
-          </div>
-          <div>
-            <p className="text-base font-semibold text-slate-800 dark:text-white">Carregando seu escritório…</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Sincronizando dados com segurança</p>
-          </div>
-        </div>
-        <Toast toast={toast} onClose={hideToast} />
-      </div>
     );
   }
 
@@ -180,22 +153,18 @@ export function App() {
     setClientModalOpen(true);
   };
 
-  const handleViewClientDetail = (clientId, tab = 'overview') => {
+  const handleViewClientDetail = (clientId) => {
     const id = typeof clientId === 'object' ? clientId.id : clientId;
     setSelectedClientId(id);
-    setActiveClientTab(tab);
-    setCurrentTab('clients');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleOpenNewContract = (prefill) => {
-    setContractToEdit(null);
-    setContractPrefill(prefill || null);
+    setContractToEdit(prefill || null);
     setContractModalOpen(true);
   };
 
   const handleEditContract = (contract) => {
-    setContractPrefill(null);
     setContractToEdit(contract);
     setContractModalOpen(true);
   };
@@ -203,7 +172,6 @@ export function App() {
   const handleViewContractDetail = (contractOrId) => {
     const id = typeof contractOrId === 'object' ? contractOrId.id : contractOrId;
     setSelectedContractId(id);
-    setCurrentTab('contracts');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -217,7 +185,7 @@ export function App() {
     setWhatsAppModalOpen(true);
   };
 
-  const handleOpenCopilotModal = (tab = 'chat') => {
+  const handleOpenCopilotModal = (tab = 'intimacoes') => {
     setCopilotInitialTab(tab);
     setCopilotModalOpen(true);
   };
@@ -235,16 +203,12 @@ export function App() {
   };
 
   const handleConvertProposalToContract = (proposal) => {
-    const val = Number(proposal.value || proposal.feeValue) || 0;
     handleOpenNewContract({
       title: `Contrato de Honorários - ${proposal.serviceName || proposal.title || 'Serviço Jurídico'}`,
-      clientId: proposal.clientId || proposal.client_id,
-      clientName: proposal.clientName || proposal.client_name || proposal.leadName || proposal.lead_name,
-      value: val,
-      feeValue: val,
-      legalArea: proposal.legalArea || proposal.legal_area || 'civil',
-      serviceDescription: proposal.description || proposal.serviceDescription || `Prestação de serviços jurídicos conforme proposta ${proposal.proposalNumber || ''}.`,
-      status: 'assinado',
+      clientId: proposal.clientId,
+      clientName: proposal.clientName || proposal.leadName,
+      value: proposal.value,
+      legalArea: proposal.legalArea,
     });
   };
 
@@ -279,14 +243,7 @@ export function App() {
   };
 
   const handleOpenNewAttendance = (prefill) => {
-    setAttendanceToEdit(null);
     setAttendancePrefill(prefill || null);
-    setAttendanceModalOpen(true);
-  };
-
-  const handleEditAttendance = (attendance) => {
-    setAttendancePrefill(null);
-    setAttendanceToEdit(attendance);
     setAttendanceModalOpen(true);
   };
 
@@ -310,18 +267,16 @@ export function App() {
   // Router for Main Content
   const renderContent = () => {
     // Detail Views have priority
-    if (selectedClientId && (currentTab === 'clients' || currentTab === 'clientes')) {
+    if (selectedClientId && currentTab === 'clients') {
       return (
         <ClientDetail
           clientId={selectedClientId}
-          initialTab={activeClientTab}
-          onBack={() => { setSelectedClientId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          onBack={() => setSelectedClientId(null)}
           onEditClient={handleEditClient}
           onOpenNewContract={handleOpenNewContract}
           onOpenNewProcess={handleOpenNewProcess}
-          onOpenNewAttendance={handleOpenNewAttendance}
           onOpenNewTask={handleOpenNewTask}
-          onOpenNewProposal={handleOpenNewProposal}
+          onOpenNewAttendance={handleOpenNewAttendance}
         />
       );
     }
@@ -417,7 +372,6 @@ export function App() {
         return (
           <AttendanceList
             onOpenNewAttendance={() => handleOpenNewAttendance()}
-            onEditAttendance={handleEditAttendance}
           />
         );
 
@@ -445,7 +399,7 @@ export function App() {
         if (!permissions?.canAccessFinancial) {
           return renderAccessRestricted('Financeiro & Honorários Globais', 'Sócia Administradora, Controller Financeiro e Dev');
         }
-        return <FinancialOverview onOpenWhatsApp={handleOpenWhatsAppModal} onSelectClient={handleViewClientDetail} onSelectContract={handleViewContractDetail} onNavigate={handleNavigate} />;
+        return <FinancialOverview onOpenWhatsApp={handleOpenWhatsAppModal} />;
 
       case 'reports':
         return <ReportsView />;
@@ -487,7 +441,6 @@ export function App() {
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
         onOpenCopilot={() => handleOpenCopilotModal('intimacoes')}
-        onOpenProfile={() => setProfileModalOpen(true)}
       />
 
       {/* Main Workspace */}
@@ -498,7 +451,6 @@ export function App() {
           onOpenSearch={() => setIsSearchOpen(true)}
           onOpenCopilot={handleOpenCopilotModal}
           onOpenWhatsApp={handleOpenWhatsAppModal}
-          onOpenProfile={() => setProfileModalOpen(true)}
           currentTab={currentTab}
           onNavigate={handleNavigate}
         />
@@ -546,13 +498,8 @@ export function App() {
       {/* Contract Modal */}
       <ContractModal
         isOpen={contractModalOpen}
-        onClose={() => {
-          setContractModalOpen(false);
-          setContractToEdit(null);
-          setContractPrefill(null);
-        }}
+        onClose={() => setContractModalOpen(false)}
         contractToEdit={contractToEdit}
-        prefillData={contractPrefill}
       />
 
       {/* Close Contract Modal (Workflow Lead -> Contract + Client) */}
@@ -597,13 +544,8 @@ export function App() {
       {/* Attendance Modal */}
       <AttendanceModal
         isOpen={attendanceModalOpen}
-        onClose={() => {
-          setAttendanceModalOpen(false);
-          setAttendanceToEdit(null);
-          setAttendancePrefill(null);
-        }}
+        onClose={() => setAttendanceModalOpen(false)}
         prefillData={attendancePrefill}
-        attendanceToEdit={attendanceToEdit}
       />
 
       {/* POWER-UPS MODALS */}
@@ -628,14 +570,7 @@ export function App() {
         contract={contractForSignature}
       />
 
-      {/* 4. Modal de Perfil Pessoal & Foto */}
-      <UserProfileModal
-        isOpen={profileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
-      />
-
       {/* Toast Notification Container */}
-      <PasswordRecoveryModal />
       <Toast toast={toast} onClose={hideToast} />
     </div>
   );

@@ -25,10 +25,6 @@ export function LoginView() {
   // Modo: false = Login ("Entrar"), true = Cadastro ("Criar Conta")
   const [isRegisterMode, setIsRegisterMode] = useState(false);
 
-  // Captura código de convite da URL (ex: ?invite=escritorio_Tatiane)
-  const urlParams = new URLSearchParams(window.location.search);
-  const inviteCode = urlParams.get('invite');
-
   // Campos de Login
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -61,24 +57,32 @@ export function LoginView() {
     e.preventDefault();
     if (!regName || !regEmail || !regPassword) return;
 
-    if (regPassword.length < 8) {
-      showToast('A senha deve conter no mínimo 8 caracteres.', 'warning');
+    if (regPassword.length < 4) {
+      showToast('A senha deve conter no mínimo 4 caracteres.', 'warning');
       return;
     }
 
-    const result = await registerUser({
+    const titleMap = {
+      lawyer: 'Advogado(a)',
+      financial: 'Financeiro',
+      secretary: 'Administrativo',
+      sales: 'Comercial / SDR',
+    };
+
+    const chosenTitle = titleMap[regRole] || 'Advogado(a)';
+
+    const success = await registerUser({
       name: regName,
       email: regEmail,
       password: regPassword,
-      firmName: regFirmName || 'JurisFlow Advocacia',
-      escritorio_id: inviteCode || null // convite: o admin precisa ter cadastrado este e-mail em Equipe
+      role: regRole,
+      roles: [regRole],
+      title: chosenTitle,
+      titles: [chosenTitle],
+      firmName: regFirmName || 'JurisFlow Advocacia'
     });
 
-    if (result?.ok && result.needsConfirmation) {
-      showToast('Conta criada! Enviamos um link de confirmação para o seu e-mail. Confirme e depois clique em Entrar.', 'success');
-      setIsRegisterMode(false);
-      setLoginEmail(regEmail);
-    } else if (result?.ok) {
+    if (success) {
       showToast('Conta criada com sucesso! Acessando a plataforma...', 'success');
     }
   };
@@ -242,15 +246,6 @@ export function LoginView() {
           ) : (
             /* FORMULARIO DE REGISTRO / CADASTRO */
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5 animate-fade-in">
-              {inviteCode && (
-                <div className="rounded-xl bg-brand-500/10 border border-brand-500/20 p-3 text-xs text-brand-300 font-medium flex items-start gap-2 mb-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-                  <div>
-                    Você foi convidado(a) para ingressar em um escritório. Complete seu cadastro abaixo.
-                  </div>
-                </div>
-              )}
-              
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Nome Completo
