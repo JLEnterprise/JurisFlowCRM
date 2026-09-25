@@ -11,6 +11,8 @@ import {
   ArrowRight,
   Sparkles,
   Eye,
+  List,
+  LayoutGrid,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -28,6 +30,16 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
+  // Visualização em lista ou em blocos (lembrada entre sessões)
+  const [viewMode, setViewModeState] = useState(() => {
+    try { return window.localStorage.getItem('jurisflow_propostas_visao') || 'list'; } catch { return 'list'; }
+  });
+  const setViewMode = (mode) => {
+    setViewModeState(mode);
+    try { window.localStorage.setItem('jurisflow_propostas_visao', mode); } catch { /* sem storage */ }
+  };
+  const valueOf = (p) => Number(p.value ?? p.feeValue ?? p.fee_value) || 0;
+  const areaName = (id) => legalAreas.find(a => a.id === id)?.name?.replace('Direito ', '') || id || '—';
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -191,9 +203,18 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
           </button>
         )}
 
+        <div className="funil-tabs ml-auto">
+          <button type="button" onClick={() => setViewMode('list')} className={`funil-tab ${viewMode === 'list' ? 'is-active' : ''}`}>
+            <List className="h-3.5 w-3.5" /> Lista
+          </button>
+          <button type="button" onClick={() => setViewMode('grid')} className={`funil-tab ${viewMode === 'grid' ? 'is-active' : ''}`}>
+            <LayoutGrid className="h-3.5 w-3.5" /> Blocos
+          </button>
+        </div>
+
         <button
           onClick={onOpenNewProposal}
-          className="ml-auto inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 transition-all btn-tactile"
+          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 transition-all btn-tactile"
         >
           <Plus className="h-4 w-4" /> Nova Proposta
         </button>
@@ -208,6 +229,61 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
           actionLabel="Nova Proposta"
           onAction={onOpenNewProposal}
         />
+      ) : viewMode === 'list' ? (
+        /* Lista: uma linha por proposta */
+        <div className="dash-panel !p-0 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200/80 bg-slate-50/70 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-400">
+                  <th className="px-5 py-3 font-label">Cliente / Lead</th>
+                  <th className="px-4 py-3 font-label">Serviço</th>
+                  <th className="px-4 py-3 font-label">Área</th>
+                  <th className="px-4 py-3 font-label text-right">Valor</th>
+                  <th className="px-4 py-3 font-label">Validade</th>
+                  <th className="px-4 py-3 font-label">Status</th>
+                  <th className="px-5 py-3 font-label text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+                {filteredProposals.map((prop) => (
+                  <tr key={prop.id} onClick={() => setSelectedProposalForView(prop)} className="group cursor-pointer transition-colors hover:bg-gold-500/[0.035]">
+                    <td className="px-5 py-3">
+                      <div className="font-semibold text-slate-900 transition-colors group-hover:text-gold-700 dark:text-white dark:group-hover:text-gold-300">
+                        {prop.clientName || prop.client_name || prop.leadName || prop.lead_name || 'Cliente'}
+                      </div>
+                      <div className="font-mono text-[11px] text-slate-400">{prop.proposalNumber || prop.proposal_number || 'S/N'}</div>
+                    </td>
+                    <td className="max-w-[16rem] px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
+                      <span className="line-clamp-2">{prop.serviceName || prop.service_name || prop.title || 'Honorários advocatícios'}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">{areaName(prop.legalArea || prop.legal_area)}</td>
+                    <td className="px-4 py-3 text-right font-numeric font-semibold text-slate-900 dark:text-white whitespace-nowrap">{formatCurrency(valueOf(prop))}</td>
+                    <td className="px-4 py-3 font-numeric text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                      {prop.validityDate ? formatDate(prop.validityDate) : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={getStatusBadgeVariant(prop.status)}>{String(prop.status || 'rascunho').replace(/_/g, ' ')}</Badge>
+                    </td>
+                    <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-0.5">
+                        {onConvertToContract && (
+                          <button onClick={() => onConvertToContract(prop)} className="mr-1 inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-300" title="Gerar contrato">
+                            <Sparkles className="h-3 w-3" /> Contrato
+                          </button>
+                        )}
+                        <button onClick={() => handlePrint(prop)} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white" title="Imprimir / PDF"><Printer className="h-4 w-4" /></button>
+                        <button onClick={() => handleDuplicate(prop)} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white" title="Duplicar"><Copy className="h-4 w-4" /></button>
+                        <button onClick={() => onEditProposal && onEditProposal(prop)} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white" title="Editar"><Edit className="h-4 w-4" /></button>
+                        <button onClick={() => handleRequestDelete(prop)} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-500/10 hover:text-rose-600" title="Excluir"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredProposals.map((prop) => (
@@ -241,7 +317,7 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
                 <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.02] p-3 border border-slate-100 dark:border-white/[0.04]">
                   <div className="text-[10px] text-slate-400 font-semibold uppercase">Valor da Proposta</div>
                   <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    {formatCurrency(prop.value || 0)}
+                    {formatCurrency(valueOf(prop))}
                   </div>
                   {Number(prop.successFeePercent) > 0 && (
                     <div className="text-[10px] text-gold-600 dark:text-gold-400 font-semibold mt-0.5">
