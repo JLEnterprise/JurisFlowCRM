@@ -129,7 +129,7 @@ export function Sidebar({
       id: 'grp_juridico', label: 'Jurídico', icon: Scale, children: [
         { id: 'processes', label: 'Processos', icon: Gavel, show: permissions?.canAccessProcesses },
         { id: 'contracts', label: 'Contratos & Minutas', icon: FileCheck, show: permissions?.canAccessContracts },
-        // Documentos saiu do menu: os anexos ficam direto na ficha do cliente
+        { id: 'documents', label: 'Documentos', icon: FolderLock, show: permissions?.canAccessDocuments },
       ],
     },
     {

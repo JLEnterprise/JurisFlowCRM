@@ -67,27 +67,14 @@ export function Header({
     };
   }, [showUserMenu]);
 
-  const tabTitles = {
-    dashboard: 'Painel Executivo & BI',
-    kanban: 'Funil Comercial & Conversão',
-    leads: 'Gestão de Leads & Oportunidades',
-    clients: 'Base de Clientes & Relacionamento',
-    proposals: 'Propostas de Honorários',
-    contracts: 'Contratos & Minutas',
-    processes: 'Dossiês & Processos Judiciais (CNJ)',
-    agenda: 'Agenda Jurídica & Audiências',
-    tasks: 'Tarefas & Prazos Fatais',
-    attendance: 'Central de Atendimento Multicanal',
-    documents: 'Documentos & GED Inteligente',
-    financial: 'Contas a Receber & Honorários',
-    reports: 'Relatórios & Inteligência Jurídica',
-    team: 'Equipe & Performance da Banca',
-    security: 'Trilha de Auditoria & LGPD',
-    settings: 'Configurações do Escritório',
-  };
-
-  const titleToDisplay = currentViewTitle || tabTitles[currentTab] || 'Dashboard Executivo';
-  const todayLabel = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  // Relógio do topo: atualiza a cada 15 s
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+  const dateLabel = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const timeLabel = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
   const roleLabels = {
     dev: 'Dev / TI (Infra & Engenharia)',
@@ -112,14 +99,17 @@ export function Header({
           <Menu className="h-5 w-5" />
         </button>
 
+        {/* Usuário logado + data e hora (o nome da área já aparece marcado no menu lateral) */}
         <div className="min-w-0">
-          <p className="hidden sm:flex items-center gap-2 whitespace-nowrap text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-gold-700/80 dark:text-gold-300/60">
+          <div className="truncate font-display text-lg sm:text-xl font-semibold leading-tight text-slate-900 dark:text-white">
+            {currentUser?.name || 'Usuário'}
+          </div>
+          <p className="flex items-center gap-2 whitespace-nowrap text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-gold-700/80 dark:text-gold-300/60 mt-0.5">
             <span className="h-1 w-1 rotate-45 bg-gold-500/70" aria-hidden="true" />
-            {todayLabel}
+            <span className="first-letter:uppercase">{dateLabel}</span>
+            <span className="text-slate-300 dark:text-white/20">·</span>
+            <span className="tabular-nums">{timeLabel}</span>
           </p>
-          <h1 className="truncate text-xl sm:text-[1.6rem] text-slate-900 dark:text-white leading-tight sm:mt-0.5">
-            {titleToDisplay}
-          </h1>
         </div>
       </div>
 
@@ -192,16 +182,8 @@ export function Header({
               name={currentUser?.name || 'Helena Prado'}
               size="sm"
             />
-            <div className="hidden text-left xl:block">
-              <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                {currentUser?.name?.split(' ')[0]}
-                {(currentUser?.role === 'admin' || currentUser?.roles?.includes('admin')) && <Shield className="h-3 w-3 text-gold-500" />}
-              </div>
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[140px]">
-                {currentUser?.title || roleLabels[currentUser?.role] || 'Usuário'}
-              </div>
-            </div>
-            <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 xl:block" />
+            {/* O nome já aparece à esquerda; aqui fica só a foto com o menu da conta */}
+            <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 sm:block" />
           </button>
 
           {/* Dropdown Menu */}

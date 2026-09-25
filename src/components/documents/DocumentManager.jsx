@@ -36,11 +36,20 @@ import {
 } from '../../utils/fileHelper';
 import { Select } from '../common/Select';
 
+const NO_CLIENT = '__sem_cliente';
+
 export function DocumentManager() {
   const { documents = [], addDocument, deleteDocument, clients = [], showToast, logActivity } = useCRM();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedClient, setSelectedClient] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+
+  // Clientes para o filtro, em ordem alfabética
+  const clientOptions = [...(clients || [])]
+    .filter(c => c && c.id)
+    .map(c => ({ id: String(c.id), name: c.name || 'Cliente sem nome' }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
   // Deletion confirm modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -82,7 +91,17 @@ export function DocumentManager() {
 
     const matchesCat = !selectedCategory || (d.category || 'Outros') === selectedCategory;
 
-    return matchesSearch && matchesCat;
+    const docClientId = String(d.clientId || d.client_id || '');
+    let matchesClient = true;
+    if (selectedClient === NO_CLIENT) {
+      matchesClient = !docClientId && !clientName;
+    } else if (selectedClient) {
+      const client = clientOptions.find(c => c.id === selectedClient);
+      matchesClient = docClientId === selectedClient ||
+        (!!client && clientName === String(client.name || '').toLowerCase());
+    }
+
+    return matchesSearch && matchesCat && matchesClient;
   });
 
   // Função auxiliar para detectar categoria inteligente pelo nome do arquivo
@@ -287,10 +306,24 @@ export function DocumentManager() {
           ))}
         </Select>
 
-        {(selectedCategory || search) && (
+        <Select
+          value={selectedClient}
+          onChange={(e) => setSelectedClient(e.target.value)}
+          aria-label="Filtrar por cliente"
+          className="px-3 py-1.5 text-xs"
+        >
+          <option value="">Todos os Clientes</option>
+          <option value={NO_CLIENT}>Sem cliente vinculado</option>
+          {clientOptions.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </Select>
+
+        {(selectedCategory || selectedClient || search) && (
           <button
             onClick={() => {
               setSelectedCategory('');
+              setSelectedClient('');
               setSearch('');
             }}
             className="text-xs text-rose-600 dark:text-rose-400 hover:underline px-2"
