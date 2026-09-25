@@ -56,6 +56,7 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
         dueDate: taskToEdit.dueDate || taskToEdit.due_date || new Date().toISOString().split('T')[0],
         dueTime: taskToEdit.dueTime || taskToEdit.due_time || '14:00',
         priority: taskToEdit.priority || 'media',
+        status: taskToEdit.status || 'pending',
         taskType: isCustom ? 'personalizado' : (taskToEdit.taskType || 'peticao'),
         customType: taskToEdit.customType || (isCustom ? taskToEdit.taskType : ''),
       });
@@ -289,8 +290,8 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
           />
         </div>
 
-        {/* Responsável & Prioridade */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Responsável, Prioridade & Status */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Responsável pela Execução *
@@ -318,6 +319,22 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
               {TASK_PRIORITIES.map(p => (
                 <option key={p.id} value={p.id}>{p.label}</option>
               ))}
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Status
+            </label>
+            <Select
+              value={formData.status || 'pending'}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="w-full"
+            >
+              <option value="pending">Pendente</option>
+              <option value="in_progress">Em andamento</option>
+              <option value="blocked">Travada</option>
+              <option value="completed">Concluída</option>
             </Select>
           </div>
         </div>
