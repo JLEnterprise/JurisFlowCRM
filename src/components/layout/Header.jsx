@@ -113,7 +113,7 @@ export function Header({
         </button>
 
         <div className="min-w-0">
-          <p className="hidden sm:flex items-center gap-2 text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-gold-700/80 dark:text-gold-300/60">
+          <p className="hidden sm:flex items-center gap-2 whitespace-nowrap text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-gold-700/80 dark:text-gold-300/60">
             <span className="h-1 w-1 rotate-45 bg-gold-500/70" aria-hidden="true" />
             {todayLabel}
           </p>
@@ -128,7 +128,7 @@ export function Header({
         {/* Busca global */}
         <button
           onClick={onOpenSearch}
-          className="hidden md:flex w-52 lg:w-64 items-center gap-2 rounded-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.07] px-4 py-2 text-xs text-slate-400 hover:border-gold-500/40 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+          className="hidden xl:flex w-60 2xl:w-72 items-center gap-2 rounded-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.07] px-4 py-2 text-xs text-slate-400 hover:border-gold-500/40 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
         >
           <Search className="h-3.5 w-3.5 shrink-0" />
           <span className="flex-1 truncate text-left">Buscar clientes, processos...</span>
@@ -136,7 +136,7 @@ export function Header({
             Ctrl K
           </kbd>
         </button>
-        <button onClick={onOpenSearch} className="header-icon-btn md:hidden" aria-label="Buscar" data-tip="Buscar">
+        <button onClick={onOpenSearch} className="header-icon-btn xl:hidden" aria-label="Buscar" data-tip="Buscar">
           <Search className="h-[18px] w-[18px]" />
         </button>
 
