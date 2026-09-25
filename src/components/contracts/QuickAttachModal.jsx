@@ -13,6 +13,7 @@ import {
 import { Modal } from '../common/Modal';
 import { useCRM } from '../../context/CRMContext';
 import { readFileAsDataUrl, formatFileSize, getFileTypeInfo, sanitizeAttachmentForStorage } from '../../utils/fileHelper';
+import { Select } from '../common/Select';
 
 export function QuickAttachModal({ isOpen, onClose, onContractCreated }) {
   const { contracts = [], updateContract, addContract, clients = [], showToast, logActivity } = useCRM();
@@ -221,7 +222,7 @@ export function QuickAttachModal({ isOpen, onClose, onContractCreated }) {
                 <span>Nenhum contrato cadastrado ainda. Mude para a opção "Criar Novo Contrato com este Arquivo".</span>
               </div>
             ) : (
-              <select
+              <Select
                 value={selectedContractId}
                 onChange={(e) => setSelectedContractId(e.target.value)}
                 required
@@ -232,7 +233,7 @@ export function QuickAttachModal({ isOpen, onClose, onContractCreated }) {
                     {c.contractNumber || c.contract_number || 'S/N'} — {c.clientName || c.client_name || 'Cliente'} ({c.title || 'Contrato'})
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
           </div>
         ) : (
@@ -241,7 +242,7 @@ export function QuickAttachModal({ isOpen, onClose, onContractCreated }) {
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Cliente Contratante *
               </label>
-              <select
+              <Select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 required
@@ -251,7 +252,7 @@ export function QuickAttachModal({ isOpen, onClose, onContractCreated }) {
                 {clients.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">

@@ -27,6 +27,7 @@ import { pdfService } from '../../services/pdfService';
 import { CONTRACT_STATUSES } from '../../data/legalAreas';
 import { QuickAttachModal } from './QuickAttachModal';
 import { formatFileSize, getFileTypeInfo, downloadAttachment, openAttachment } from '../../utils/fileHelper';
+import { Select } from '../common/Select';
 
 export function ContractList({ onOpenNewContract, onEditContract, onSelectContract, onOpenContractDetail, onNavigate, onSignContract }) {
   const { contracts = [], deleteContract, clients = [], legalAreas = [], officeSettings = {}, addContract, showToast, logActivity } = useCRM();
@@ -182,7 +183,7 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           />
         </div>
 
-        <select
+        <Select
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -191,9 +192,9 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           {CONTRACT_STATUSES.map(s => (
             <option key={s.id} value={s.id}>{s.label}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={selectedArea}
           onChange={(e) => setSelectedArea(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -202,9 +203,9 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           {legalAreas.map(a => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={selectedLawyer}
           onChange={(e) => setSelectedLawyer(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -213,7 +214,7 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
-        </select>
+        </Select>
 
         {(selectedStatus || selectedArea || selectedLawyer || search) && (
           <button

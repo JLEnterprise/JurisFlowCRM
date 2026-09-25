@@ -21,6 +21,7 @@ import { Badge, TemperatureBadge } from '../common/Badge';
 import { EmptyState } from '../common/EmptyState';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { KANBAN_STAGES } from '../../data/legalAreas';
+import { Select } from '../common/Select';
 
 export function LeadList({ onOpenNewLead, onEditLead, onCloseContract, onNavigate }) {
   const { leads, deleteLead, legalAreas, showToast, logActivity } = useCRM();
@@ -126,7 +127,7 @@ export function LeadList({ onOpenNewLead, onEditLead, onCloseContract, onNavigat
         </span>
 
         {/* Área jurídica */}
-        <select
+        <Select
           value={selectedArea}
           onChange={(e) => setSelectedArea(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-sm focus:outline-none"
@@ -135,10 +136,10 @@ export function LeadList({ onOpenNewLead, onEditLead, onCloseContract, onNavigat
           {legalAreas.map(a => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
-        </select>
+        </Select>
 
         {/* Etapa do Funil */}
-        <select
+        <Select
           value={selectedStage}
           onChange={(e) => setSelectedStage(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-sm focus:outline-none"
@@ -147,10 +148,10 @@ export function LeadList({ onOpenNewLead, onEditLead, onCloseContract, onNavigat
           {KANBAN_STAGES.map(s => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
-        </select>
+        </Select>
 
         {/* Temperatura */}
-        <select
+        <Select
           value={selectedTemp}
           onChange={(e) => setSelectedTemp(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-sm focus:outline-none"
@@ -159,10 +160,10 @@ export function LeadList({ onOpenNewLead, onEditLead, onCloseContract, onNavigat
           <option value="hot">Quente 🔥</option>
           <option value="warm">Morno ⚡</option>
           <option value="cold">Frio ❄️</option>
-        </select>
+        </Select>
 
         {/* Responsável */}
-        <select
+        <Select
           value={selectedAssignee}
           onChange={(e) => setSelectedAssignee(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-sm focus:outline-none"
@@ -171,7 +172,7 @@ export function LeadList({ onOpenNewLead, onEditLead, onCloseContract, onNavigat
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
-        </select>
+        </Select>
 
         {(selectedArea || selectedStage || selectedTemp || selectedAssignee || search) && (
           <button

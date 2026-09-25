@@ -34,6 +34,7 @@ import { Modal } from '../common/Modal';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { Avatar } from '../common/Avatar';
 import { compressAvatarImage } from '../../utils/imageUtils';
+import { Select } from '../common/Select';
 
 // Lista de Cargos e Especialidades Jurídicas Sugeridas
 export const PREDEFINED_JOB_TITLES = [
@@ -355,7 +356,7 @@ export function TeamView() {
         </div>
 
         {/* Filtro por Cargo */}
-        <select
+        <Select
           value={filterTitle}
           onChange={(e) => setFilterTitle(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -364,10 +365,10 @@ export function TeamView() {
           {allUniqueTitles.map((t, idx) => (
             <option key={idx} value={t}>{t}</option>
           ))}
-        </select>
+        </Select>
 
         {/* Filtro por Perfil RBAC */}
-        <select
+        <Select
           value={filterRole}
           onChange={(e) => setFilterRole(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -376,7 +377,7 @@ export function TeamView() {
           {SYSTEM_ROLES.map(r => (
             <option key={r.id} value={r.id}>{r.label}</option>
           ))}
-        </select>
+        </Select>
 
         {(searchTerm || filterTitle || filterRole) && (
           <button

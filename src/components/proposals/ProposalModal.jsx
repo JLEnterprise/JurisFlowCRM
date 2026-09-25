@@ -3,6 +3,8 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { PROPOSAL_STATUSES } from '../../data/legalAreas';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
 
 export function ProposalModal({ isOpen, onClose, proposalToEdit = null }) {
   const { addProposal, updateProposal, leads, clients, legalAreas } = useCRM();
@@ -109,7 +111,7 @@ export function ProposalModal({ isOpen, onClose, proposalToEdit = null }) {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Área Jurídica *
             </label>
-            <select
+            <Select
               value={formData.legalArea}
               onChange={(e) => setFormData({ ...formData, legalArea: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -117,13 +119,13 @@ export function ProposalModal({ isOpen, onClose, proposalToEdit = null }) {
               {legalAreas.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Responsável Comercial *
             </label>
-            <select
+            <Select
               value={formData.responsibleId}
               onChange={(e) => setFormData({ ...formData, responsibleId: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -131,13 +133,13 @@ export function ProposalModal({ isOpen, onClose, proposalToEdit = null }) {
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Status da Proposta *
             </label>
-            <select
+            <Select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -145,7 +147,7 @@ export function ProposalModal({ isOpen, onClose, proposalToEdit = null }) {
               {PROPOSAL_STATUSES.map(s => (
                 <option key={s.id} value={s.id}>{s.label}</option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -179,7 +181,7 @@ export function ProposalModal({ isOpen, onClose, proposalToEdit = null }) {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Validade da Proposta
             </label>
-            <input
+            <DateField
               type="date"
               value={formData.validityDate}
               onChange={(e) => setFormData({ ...formData, validityDate: e.target.value })}

@@ -27,6 +27,7 @@ import { Avatar } from '../common/Avatar';
 import { EmptyState } from '../common/EmptyState';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { exportService } from '../../services/exportService';
+import { Select } from '../common/Select';
 
 export function ClientList({ onOpenNewClient, onEditClient, onSelectClient, onOpenProfile, onNavigate }) {
   const { clients, deleteClient, legalAreas, showToast, logActivity } = useCRM();
@@ -169,7 +170,7 @@ export function ClientList({ onOpenNewClient, onEditClient, onSelectClient, onOp
           <Filter className="h-3 w-3 text-gold-500" /> Filtros:
         </span>
 
-        <select
+        <Select
           value={selectedArea}
           onChange={(e) => setSelectedArea(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111827] px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none font-medium cursor-pointer"
@@ -178,9 +179,9 @@ export function ClientList({ onOpenNewClient, onEditClient, onSelectClient, onOp
           {legalAreas.map(a => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111827] px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none font-medium cursor-pointer"
@@ -188,9 +189,9 @@ export function ClientList({ onOpenNewClient, onEditClient, onSelectClient, onOp
           <option value="">Todos os Status</option>
           <option value="active">Ativo na Base</option>
           <option value="inactive">Inativo / Concluído</option>
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={selectedLawyer}
           onChange={(e) => setSelectedLawyer(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111827] px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none font-medium cursor-pointer"
@@ -199,7 +200,7 @@ export function ClientList({ onOpenNewClient, onEditClient, onSelectClient, onOp
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
-        </select>
+        </Select>
 
         {(selectedArea || selectedStatus || selectedLawyer || search) && (
           <button

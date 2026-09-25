@@ -34,6 +34,7 @@ import {
   formatFileSize,
   getFileTypeInfo,
 } from '../../utils/fileHelper';
+import { Select } from '../common/Select';
 
 export function DocumentManager() {
   const { documents = [], addDocument, deleteDocument, clients = [], showToast, logActivity } = useCRM();
@@ -275,7 +276,7 @@ export function DocumentManager() {
           />
         </div>
 
-        <select
+        <Select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -284,7 +285,7 @@ export function DocumentManager() {
           {categories.map(c => (
             <option key={c} value={c}>{c}</option>
           ))}
-        </select>
+        </Select>
 
         {(selectedCategory || search) && (
           <button
@@ -540,7 +541,7 @@ export function DocumentManager() {
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Categoria do Arquivo *
               </label>
-              <select
+              <Select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -548,14 +549,14 @@ export function DocumentManager() {
                 {categories.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Cliente Vinculado *
               </label>
-              <select
+              <Select
                 required
                 value={formData.clientId}
                 onChange={(e) => {
@@ -572,7 +573,7 @@ export function DocumentManager() {
                 {clients.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 

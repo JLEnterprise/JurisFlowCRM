@@ -20,6 +20,8 @@ import {
   User,
   CheckCircle2,
 } from 'lucide-react';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
 
 export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = null }) {
   const { addTask, updateTask, leads = [], clients = [] } = useCRM();
@@ -293,7 +295,7 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Responsável pela Execução *
             </label>
-            <select
+            <Select
               value={formData.assignedTo}
               onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -301,14 +303,14 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.name} ({Array.isArray(u.roles) ? u.roles.join(', ') : (u.role || 'Membro')})</option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Nível de Prioridade *
             </label>
-            <select
+            <Select
               value={formData.priority}
               onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -316,7 +318,7 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
               {TASK_PRIORITIES.map(p => (
                 <option key={p.id} value={p.id}>{p.label}</option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -326,7 +328,7 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Data de Vencimento / Prazo Fatal *
             </label>
-            <input
+            <DateField
               type="date"
               required
               value={formData.dueDate}
@@ -339,7 +341,7 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Horário Limite (Hora Fatal)
             </label>
-            <input
+            <DateField
               type="time"
               value={formData.dueTime}
               onChange={(e) => setFormData({ ...formData, dueTime: e.target.value })}
@@ -355,7 +357,7 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Vincular a Cliente (Opcional)
               </label>
-              <select
+              <Select
                 value={formData.clientId}
                 onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -364,14 +366,14 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
                 {clients.map(c => (
                   <option key={c.id} value={c.id}>{c.name || c.nome}</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Vincular a Lead / Negociação (Opcional)
               </label>
-              <select
+              <Select
                 value={formData.leadId}
                 onChange={(e) => setFormData({ ...formData, leadId: e.target.value })}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -380,7 +382,7 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
                 {leads.map(l => (
                   <option key={l.id} value={l.id}>{l.name || l.nome}</option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
         )}

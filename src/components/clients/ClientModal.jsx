@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { brasilApiService } from '../../services/brasilApiService';
 import { Sparkles, Building2, MapPin, CheckCircle2 } from 'lucide-react';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
 
 export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
   const { addClient, updateClient, legalAreas = [], showToast } = useCRM();
@@ -221,7 +223,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Data de Nascimento
             </label>
-            <input
+            <DateField
               type="date"
               value={formData.birthDate}
               onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
@@ -232,7 +234,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Estado Civil
             </label>
-            <select
+            <Select
               value={formData.maritalStatus}
               onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
@@ -242,7 +244,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
               <option value="União Estável">União Estável</option>
               <option value="Divorciado(a)">Divorciado(a)</option>
               <option value="Viúvo(a)">Viúvo(a)</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -355,7 +357,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Área Jurídica Predominante *
             </label>
-            <select
+            <Select
               value={formData.legalArea}
               onChange={(e) => setFormData({ ...formData, legalArea: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
@@ -363,13 +365,13 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
               {legalAreas.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Advogado(a) Responsável
             </label>
-            <select
+            <Select
               value={formData.responsibleLawyerId}
               onChange={(e) => setFormData({ ...formData, responsibleLawyerId: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
@@ -377,20 +379,20 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.name} ({Array.isArray(u.roles) ? u.roles.join(', ') : (u.role || 'Advogado')})</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Status do Cliente
             </label>
-            <select
+            <Select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
             >
               <option value="active">Ativo na Base</option>
               <option value="inactive">Inativo / Concluído</option>
-            </select>
+            </Select>
           </div>
         </div>
 

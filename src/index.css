@@ -93,6 +93,77 @@
 }
 
 /* Botões de ícone do cabeçalho: discretos, com dica ao passar o mouse */
+/* ===== Campos de seleção premium (Select e DateField) — padrão único do sistema ===== */
+.premium-field {
+  @apply flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm text-slate-800 transition-colors
+    hover:border-gold-500/40 focus:outline-none focus-visible:border-gold-500/70 focus-visible:ring-2 focus-visible:ring-gold-500/15
+    disabled:cursor-not-allowed disabled:opacity-50
+    dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100;
+}
+
+.premium-field--sm {
+  @apply rounded-lg px-2.5 py-1.5 text-xs;
+}
+
+.premium-field.is-open {
+  @apply border-gold-500/60 ring-2 ring-gold-500/15;
+}
+
+.premium-panel {
+  @apply rounded-2xl border border-slate-200 bg-white p-1.5 text-sm shadow-2xl dark:border-gold-500/15 dark:bg-[#0c1322];
+  animation: premium-pop 0.14s ease-out;
+}
+
+.premium-panel__group {
+  @apply px-3 pb-1 pt-2.5 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-slate-400;
+}
+
+.premium-option {
+  @apply flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs text-slate-600 transition-colors
+    disabled:cursor-not-allowed disabled:opacity-40
+    dark:text-slate-300;
+}
+
+.premium-option.is-active {
+  @apply bg-slate-100 text-slate-900 dark:bg-white/[0.05] dark:text-white;
+}
+
+.premium-option.is-selected {
+  @apply bg-gold-500/10 font-semibold text-slate-900 dark:text-gold-100;
+}
+
+.premium-day {
+  @apply flex h-9 items-center justify-center rounded-lg text-xs font-medium text-slate-700 transition-colors
+    hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30
+    dark:text-slate-200 dark:hover:bg-white/[0.06];
+}
+
+.premium-day.is-outside {
+  @apply text-slate-300 dark:text-slate-600;
+}
+
+.premium-day.is-today {
+  box-shadow: inset 0 0 0 1px rgb(197 160 89 / 0.55);
+}
+
+.premium-day.is-selected {
+  @apply bg-slate-900 font-bold text-white hover:bg-slate-900 dark:bg-gold-500/20 dark:text-gold-100 dark:hover:bg-gold-500/25;
+  box-shadow: inset 0 0 0 1px rgb(197 160 89 / 0.6);
+}
+
+.premium-nav {
+  @apply rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white;
+}
+
+.premium-link {
+  @apply rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gold-700 transition-colors hover:bg-gold-500/10 dark:text-gold-300;
+}
+
+@keyframes premium-pop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
 /* Abas de visualização do funil (Kanban / Lista / Ganhos / Perdidos) */
 .funil-tabs {
   @apply inline-flex flex-wrap items-center gap-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.02] p-1;

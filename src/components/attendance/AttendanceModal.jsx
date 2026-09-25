@@ -3,6 +3,8 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { ATTENDANCE_CHANNELS } from '../../data/legalAreas';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
 
 export function AttendanceModal({ isOpen, onClose, prefillData = null, attendanceToEdit = null }) {
   const { addAttendance, updateAttendance, clients, leads } = useCRM();
@@ -104,7 +106,7 @@ export function AttendanceModal({ isOpen, onClose, prefillData = null, attendanc
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Canal de Atendimento *
             </label>
-            <select
+            <Select
               value={formData.channel}
               onChange={(e) => setFormData({ ...formData, channel: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -112,7 +114,7 @@ export function AttendanceModal({ isOpen, onClose, prefillData = null, attendanc
               {ATTENDANCE_CHANNELS.map(ch => (
                 <option key={ch.id} value={ch.id}>{ch.label}</option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -136,7 +138,7 @@ export function AttendanceModal({ isOpen, onClose, prefillData = null, attendanc
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Data e Horário
             </label>
-            <input
+            <DateField
               type="datetime-local"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}

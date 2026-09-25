@@ -45,6 +45,8 @@ import { Avatar } from '../common/Avatar';
 import { pdfService } from '../../services/pdfService';
 import { readFileAsDataUrl, sanitizeAttachmentForStorage, downloadAttachment, openAttachment, formatFileSize } from '../../utils/fileHelper';
 import { AttendanceModal } from '../attendance/AttendanceModal';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
 
 export function ClientDetail({
   clientId,
@@ -1181,7 +1183,7 @@ export function ClientDetail({
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Status
                 </label>
-                <select
+                <Select
                   required
                   value={editInstallmentForm.status}
                   onChange={(e) => setEditInstallmentForm(prev => ({ ...prev, status: e.target.value }))}
@@ -1189,14 +1191,14 @@ export function ClientDetail({
                 >
                   <option value="pending">Pendente</option>
                   <option value="paid">Liquidado (Pago)</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Forma de Pagamento
                 </label>
-                <select
+                <Select
                   required
                   value={editInstallmentForm.paymentMethod}
                   onChange={(e) => setEditInstallmentForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
@@ -1209,14 +1211,14 @@ export function ClientDetail({
                   <option value="Dinheiro">Dinheiro em Espécie</option>
                   <option value="Êxito / Quota Litis">Êxito / Quota Litis</option>
                   <option value="A combinar">A combinar</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Data de Vencimento
                 </label>
-                <input
+                <DateField
                   type="date"
                   required
                   value={editInstallmentForm.dueDate}

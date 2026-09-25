@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CalendarDays, Check, ChevronDown } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { PERIOD_OPTIONS, getPeriodLabel } from '../../utils/period';
+import { MonthGrid } from './DateField';
 
 // Seletor de período na identidade da marca (substitui o <select> nativo).
 export function PeriodFilter({ className = '', align = 'right' }) {
@@ -10,6 +11,8 @@ export function PeriodFilter({ className = '', align = 'right' }) {
   const ref = useRef(null);
   const current = periodFilter || 'all';
   const monthValue = current.startsWith('month:') ? current.slice(6) : '';
+  const [monthView, setMonthView] = useState(() =>
+    monthValue ? new Date(Number(monthValue.slice(0, 4)), 0, 1) : new Date());
 
   useEffect(() => {
     if (!open) return;
@@ -75,15 +78,15 @@ export function PeriodFilter({ className = '', align = 'right' }) {
             );
           })}
 
-          <div className="mt-1.5 border-t border-slate-100 dark:border-white/[0.06] px-3 pt-2.5 pb-2">
-            <label className="block text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-slate-400 mb-1.5">
+          <div className="mt-1.5 border-t border-slate-100 dark:border-white/[0.06] px-1.5 pt-2.5 pb-1">
+            <div className="px-1.5 mb-1 text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
               Mês específico
-            </label>
-            <input
-              type="month"
-              value={monthValue}
-              onChange={(e) => e.target.value && choose(`month:${e.target.value}`)}
-              className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:border-gold-500/60 focus:outline-none dark:[color-scheme:dark]"
+            </div>
+            <MonthGrid
+              view={monthView}
+              setView={setMonthView}
+              selected={monthValue ? new Date(Number(monthValue.slice(0, 4)), Number(monthValue.slice(5, 7)) - 1, 1) : null}
+              onPick={(i) => choose(`month:${monthView.getFullYear()}-${String(i + 1).padStart(2, '0')}`)}
             />
           </div>
         </div>

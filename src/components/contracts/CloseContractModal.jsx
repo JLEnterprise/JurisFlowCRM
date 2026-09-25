@@ -3,6 +3,8 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { Sparkles, CheckCircle2, FileCheck2, DollarSign } from 'lucide-react';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
 
 export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) {
   const { closeContractWorkflow } = useCRM();
@@ -197,7 +199,7 @@ export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) 
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Advogado(a) Responsável pela Execução
               </label>
-              <select
+              <Select
                 value={formData.responsibleLawyerId}
                 onChange={(e) => setFormData({ ...formData, responsibleLawyerId: e.target.value })}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -205,14 +207,14 @@ export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) 
                 {users.map(u => (
                   <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Data de Fechamento / Assinatura
               </label>
-              <input
+              <DateField
                 type="date"
                 value={formData.signedDate}
                 onChange={(e) => setFormData({ ...formData, signedDate: e.target.value })}

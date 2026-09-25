@@ -28,6 +28,7 @@ import { formatDate, formatCNJProcessNumber } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { EmptyState } from '../common/EmptyState';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { Select } from '../common/Select';
 
 export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate, onOpenCopilot, onOpenWhatsApp }) {
   const { processes, deleteProcess, legalAreas, showToast, logActivity } = useCRM();
@@ -175,7 +176,7 @@ export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate, onOpe
           <Filter className="h-3 w-3 text-gold-500" /> Filtros:
         </span>
 
-        <select
+        <Select
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111827] px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none font-medium cursor-pointer"
@@ -185,9 +186,9 @@ export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate, onOpe
           <option value="suspenso">Suspenso / Prazo</option>
           <option value="encerrado">Ganho / Encerrado</option>
           <option value="arquivado">Arquivado</option>
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={selectedArea}
           onChange={(e) => setSelectedArea(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111827] px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none font-medium cursor-pointer"
@@ -196,7 +197,7 @@ export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate, onOpe
           {legalAreas.map(a => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
-        </select>
+        </Select>
 
         {(selectedStatus || selectedArea || search) && (
           <button

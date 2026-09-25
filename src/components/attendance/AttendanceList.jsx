@@ -20,6 +20,7 @@ import { formatDate } from '../../utils/formatters';
 import { EmptyState } from '../common/EmptyState';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { AttendanceModal } from './AttendanceModal';
+import { Select } from '../common/Select';
 
 export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
   const { attendances = [], deleteAttendance } = useCRM();
@@ -108,7 +109,7 @@ export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
           />
         </div>
 
-        <select
+        <Select
           value={selectedChannel}
           onChange={(e) => setSelectedChannel(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -120,7 +121,7 @@ export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
           <option value="videoconferencia">Videoconferência</option>
           <option value="presencial">Presencial</option>
           <option value="instagram">Instagram Direct</option>
-        </select>
+        </Select>
 
         {(selectedChannel || search) && (
           <button

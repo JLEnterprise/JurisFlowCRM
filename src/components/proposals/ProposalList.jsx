@@ -21,6 +21,7 @@ import { ProposalDetailModal } from './ProposalDetailModal';
 import { pdfService } from '../../services/pdfService';
 import { storageService } from '../../services/storageService';
 import { PROPOSAL_STATUSES } from '../../data/legalAreas';
+import { Select } from '../common/Select';
 
 export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToContract }) {
   const { proposals = [], deleteProposal, addProposal, officeSettings = {}, showToast, logActivity, legalAreas = [] } = useCRM();
@@ -166,7 +167,7 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
           />
         </div>
 
-        <select
+        <Select
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -175,9 +176,9 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
           {PROPOSAL_STATUSES.map(s => (
             <option key={s.id} value={s.id}>{s.label}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={selectedArea}
           onChange={(e) => setSelectedArea(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -186,7 +187,7 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
           {legalAreas.map(a => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
-        </select>
+        </Select>
 
         {(selectedStatus || selectedArea || search) && (
           <button

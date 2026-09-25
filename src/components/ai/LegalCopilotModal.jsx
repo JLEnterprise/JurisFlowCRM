@@ -56,6 +56,7 @@ import {
 } from '../../services/aiService';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { Select } from '../common/Select';
 
 /**
  * Renderizador de Markdown Jurídico Enriquecido para o Chat
@@ -1083,7 +1084,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Tipo de Peça / Minuta Blindada:
                   </label>
-                  <select
+                  <Select
                     value={draftType}
                     onChange={(e) => setDraftType(e.target.value)}
                     className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 font-medium"
@@ -1095,14 +1096,14 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     <option value="inicial">🏛️ Petição Inicial (Cobrança / Cumprimento de Obrigação)</option>
                     <option value="contestacao">🛡️ Contestação com Preliminares (Inépcia e Ilegitimidade)</option>
                     <option value="agravo">⚡ Agravo de Instrumento (Art. 1.015 CPC / Efeito Suspensivo)</option>
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Vincular Cliente Cadastrado no CRM:
                   </label>
-                  <select
+                  <Select
                     value={draftClientId}
                     onChange={(e) => {
                       setDraftClientId(e.target.value);
@@ -1115,7 +1116,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     {clients.map(c => (
                       <option key={c.id} value={c.id}>{c.name} (CPF/CNPJ: {c.cpf || c.cnpj || 'N/I'})</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
 

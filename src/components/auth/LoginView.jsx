@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCRM } from '../../context/CRMContext';
 import { Modal } from '../common/Modal';
 import logoEmblema from '../../assets/logo-emblema.png';
+import { Select } from '../common/Select';
 
 // Estrela cadente do botão: muitas camadas finas e translúcidas que terminam no
 // mesmo ponto (a cabeça). Elas se sobrepõem perto da cabeça e rareiam na ponta da
@@ -383,7 +384,7 @@ export function LoginView() {
                 </label>
                 <div className="relative">
                   <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <select
+                  <Select
                     value={regRole}
                     onChange={(e) => setRegRole(e.target.value)}
                     className="w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-4 py-2 text-sm text-white focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer"
@@ -392,7 +393,7 @@ export function LoginView() {
                     <option value="financial" className="bg-navy-950 text-white">Financeiro</option>
                     <option value="secretary" className="bg-navy-950 text-white">Administrativo</option>
                     <option value="sales" className="bg-navy-950 text-white">Comercial / SDR</option>
-                  </select>
+                  </Select>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
                   * O Administrador da banca poderá atribuir múltiplos cargos, especialidades e autorizações no painel da Equipe.

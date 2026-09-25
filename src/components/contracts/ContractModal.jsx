@@ -6,6 +6,7 @@ import { CONTRACT_STATUSES } from '../../data/legalAreas';
 import { readFileAsDataUrl, formatFileSize, getFileTypeInfo, downloadAttachment, openAttachment, sanitizeAttachmentForStorage } from '../../utils/fileHelper';
 import { UploadCloud, FileText, X, Download, Eye, Paperclip, Sparkles, ShieldCheck, RefreshCw } from 'lucide-react';
 import { generateContractWithAdvJuris } from '../../services/aiService';
+import { Select } from '../common/Select';
 
 export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillData = null }) {
   const { contracts = [], addContract, updateContract, clients = [], legalAreas = [], showToast } = useCRM();
@@ -203,7 +204,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Cliente Contratante *
             </label>
-            <select
+            <Select
               value={formData.clientId}
               onChange={(e) => handleClientChange(e.target.value)}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
@@ -213,7 +214,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
               {clients.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="sm:col-span-2">
@@ -237,7 +238,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Área de Atuação
             </label>
-            <select
+            <Select
               value={formData.legalArea}
               onChange={(e) => setFormData(prev => ({ ...prev, legalArea: e.target.value }))}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
@@ -245,14 +246,14 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
               {legalAreas.map(area => (
                 <option key={area.id} value={area.id}>{area.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Advogado Responsável
             </label>
-            <select
+            <Select
               value={formData.responsibleLawyerId}
               onChange={(e) => setFormData(prev => ({ ...prev, responsibleLawyerId: e.target.value }))}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
@@ -260,14 +261,14 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Status do Contrato
             </label>
-            <select
+            <Select
               value={formData.status}
               onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
@@ -275,7 +276,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
               {CONTRACT_STATUSES.map(st => (
                 <option key={st.id} value={st.id}>{st.label}</option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -300,7 +301,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Forma de Pagamento
             </label>
-            <select
+            <Select
               value={formData.paymentMethod}
               onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
@@ -310,7 +311,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
               <option value="Cartão de Crédito">Cartão de Crédito</option>
               <option value="Êxito / Quota Litis">Êxito / Quota Litis</option>
               <option value="Misto (Entrada + Êxito)">Misto (Entrada + Êxito)</option>
-            </select>
+            </Select>
           </div>
 
           <div>

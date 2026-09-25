@@ -3,6 +3,8 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { KANBAN_STAGES } from '../../data/legalAreas';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
 
 export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
   const { addLead, updateLead, legalAreas, leadSources } = useCRM();
@@ -185,7 +187,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Data de Nascimento
             </label>
-            <input
+            <DateField
               type="date"
               value={formData.birthDate}
               onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
@@ -200,7 +202,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Origem do Lead *
             </label>
-            <select
+            <Select
               value={formData.source}
               onChange={(e) => setFormData({ ...formData, source: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -208,13 +210,13 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
               {leadSources.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Área Jurídica *
             </label>
-            <select
+            <Select
               value={formData.legalArea}
               onChange={(e) => setFormData({ ...formData, legalArea: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -222,7 +224,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
               {legalAreas.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -244,7 +246,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Responsável Comercial
             </label>
-            <select
+            <Select
               value={formData.assignedTo}
               onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -252,13 +254,13 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Estágio Inicial no Funil
             </label>
-            <select
+            <Select
               value={formData.stage}
               onChange={(e) => setFormData({ ...formData, stage: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -266,13 +268,13 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
               {KANBAN_STAGES.map(st => (
                 <option key={st.id} value={st.id}>{st.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Temperatura do Lead
             </label>
-            <select
+            <Select
               value={formData.temperature}
               onChange={(e) => setFormData({ ...formData, temperature: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -280,7 +282,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
               <option value="hot">🔥 Quente (Alto interesse / Imediato)</option>
               <option value="warm">🟡 Morno (Avaliando proposta)</option>
               <option value="cold">❄️ Frio (Contato inicial / Sem urgência)</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -289,7 +291,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
             Data e Horário da Próxima Ação / Follow-up
           </label>
-          <input
+          <DateField
             type="datetime-local"
             value={formData.nextActionDate}
             onChange={(e) => setFormData({ ...formData, nextActionDate: e.target.value })}

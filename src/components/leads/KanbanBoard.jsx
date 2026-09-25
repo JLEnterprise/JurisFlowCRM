@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus,
   MessageCircle,
@@ -23,6 +23,7 @@ import { isInPeriod, getPeriodLabel, toMonthKey, formatMonthKey } from '../../ut
 import { TemperatureBadge } from '../common/Badge';
 import { Modal } from '../common/Modal';
 import { PeriodFilter } from '../common/PeriodFilter';
+import { Select } from '../common/Select';
 
 const WON_STAGE = 'contrato_fechado';
 const LOST_STAGE = 'perdido';
@@ -252,12 +253,42 @@ export function KanbanBoard({ onOpenNewLead, onEditLead, onCloseContract }) {
 
 /* ============================== KANBAN ============================== */
 
+// Roda do mouse move o quadro para os lados em qualquer ponto dele. Se o mouse estiver
+// sobre uma coluna que ainda pode rolar na vertical, ela rola primeiro.
+function useHorizontalWheel(ref) {
+  useEffect(() => {
+    const board = ref.current;
+    if (!board) return;
+    const onWheel = (e) => {
+      if (e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // zoom ou trackpad lateral
+      if (board.scrollWidth <= board.clientWidth) return;
+      for (let el = e.target; el && el !== board; el = el.parentElement) {
+        const canScrollY = el.scrollHeight > el.clientHeight && /(auto|scroll)/.test(getComputedStyle(el).overflowY);
+        if (!canScrollY) continue;
+        const atTop = el.scrollTop <= 0;
+        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+        if ((e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atBottom)) return;
+      }
+      const max = board.scrollWidth - board.clientWidth;
+      const next = Math.min(max, Math.max(0, board.scrollLeft + e.deltaY));
+      if (next === board.scrollLeft) return; // já no começo/fim: deixa a página rolar
+      e.preventDefault();
+      board.scrollLeft = next;
+    };
+    board.addEventListener('wheel', onWheel, { passive: false });
+    return () => board.removeEventListener('wheel', onWheel);
+  }, [ref]);
+}
+
 function KanbanView({
   activeLeads, wonCount, lostCount, dropTarget, onDragStart, onDragOver, onDragLeave, onDrop,
   onEditLead, onCloseContract, onMarkLost, getUserName, getAreaName,
 }) {
+  const boardRef = useRef(null);
+  useHorizontalWheel(boardRef);
+
   return (
-    <div className="flex gap-3.5 overflow-x-auto pb-4 pt-1 kanban-column-scroll min-h-[calc(100vh-250px)]">
+    <div ref={boardRef} className="flex gap-3.5 overflow-x-auto pb-4 pt-1 kanban-column-scroll min-h-[calc(100vh-250px)]">
       {ACTIVE_STAGES.map((stage) => {
         const stageLeads = activeLeads.filter((l) => l.stage === stage.id);
         const total = stageLeads.reduce((acc, l) => acc + (Number(l.estimatedValue) || 0), 0);
@@ -482,7 +513,7 @@ function GroupedListView({ activeLeads, onEditLead, onCloseContract, onMove, get
                       <div className="text-xs text-slate-500 dark:text-slate-400 text-right md:text-left">
                         {lead.nextActionDate ? formatDate(lead.nextActionDate) : '—'}
                       </div>
-                      <select
+                      <Select
                         value={lead.stage}
                         onChange={(e) => onMove(lead.id, e.target.value)}
                         aria-label={`Etapa de ${lead.name}`}
@@ -491,7 +522,7 @@ function GroupedListView({ activeLeads, onEditLead, onCloseContract, onMove, get
                         {ACTIVE_STAGES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         <option value={WON_STAGE}>✓ Ganho</option>
                         <option value={LOST_STAGE}>✕ Perdido</option>
-                      </select>
+                      </Select>
                       <div className="col-span-2 md:col-span-1 flex items-center justify-end gap-1.5">
                         <a
                           href={`https://wa.me/55${(lead.whatsapp || lead.phone || '').replace(/\D/g, '')}`}

@@ -33,6 +33,8 @@ import { Badge } from '../common/Badge';
 import { EmptyState } from '../common/EmptyState';
 import { exportService } from '../../services/exportService';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
 
 // Motivos pré-configurados de inadimplência comuns na advocacia
 const DEFAULT_OVERDUE_REASONS = [
@@ -513,7 +515,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
             />
           </div>
 
-          <select
+          <Select
             value={selectedStatus}
             onChange={(e) => {
               setSelectedStatus(e.target.value);
@@ -525,7 +527,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
             <option value="paid">✅ Liquidadas (Pagas)</option>
             <option value="pending">⏳ Pendentes (A Vencer)</option>
             <option value="overdue">🚨 Em Atraso (Inadimplentes)</option>
-          </select>
+          </Select>
 
           {selectedStatus && (
             <button
@@ -942,7 +944,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                           <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                             Motivo Principal da Inadimplência
                           </label>
-                          <select
+                          <Select
                             value={overdueForm.overdueReason}
                             onChange={(e) => setOverdueForm((prev) => ({ ...prev, overdueReason: e.target.value }))}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950 dark:text-white font-medium"
@@ -952,7 +954,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                                 {reason}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </div>
 
                         {/* Campo 2: Fase da Cobrança */}
@@ -960,7 +962,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                           <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                             Fase / Etapa da Cobrança
                           </label>
-                          <select
+                          <Select
                             value={overdueForm.collectionStage}
                             onChange={(e) => setOverdueForm((prev) => ({ ...prev, collectionStage: e.target.value }))}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950 dark:text-white font-medium"
@@ -970,7 +972,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                                 {st.label}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </div>
 
                         {/* Campo 3: Data Prometida para Pagamento */}
@@ -978,7 +980,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                           <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                             Data Prometida para Quitação / Reagendamento
                           </label>
-                          <input
+                          <DateField
                             type="date"
                             value={overdueForm.promisedDate}
                             onChange={(e) => setOverdueForm((prev) => ({ ...prev, promisedDate: e.target.value }))}
@@ -1098,7 +1100,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Status
                 </label>
-                <select
+                <Select
                   required
                   value={editForm.status}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, status: e.target.value }))}
@@ -1106,14 +1108,14 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                 >
                   <option value="pending">Pendente</option>
                   <option value="paid">Liquidado (Pago)</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Forma de Pagamento
                 </label>
-                <select
+                <Select
                   required
                   value={editForm.paymentMethod}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, paymentMethod: e.target.value }))}
@@ -1126,14 +1128,14 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                   <option value="Dinheiro">Dinheiro em Espécie</option>
                   <option value="Êxito / Quota Litis">Êxito / Quota Litis</option>
                   <option value="A combinar">A combinar</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Data de Vencimento
                 </label>
-                <input
+                <DateField
                   type="date"
                   required
                   value={editForm.dueDate}

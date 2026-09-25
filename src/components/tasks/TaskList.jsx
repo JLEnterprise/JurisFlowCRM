@@ -27,6 +27,7 @@ import { Badge } from '../common/Badge';
 import { EmptyState } from '../common/EmptyState';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { TASK_TYPES } from '../../data/legalAreas';
+import { Select } from '../common/Select';
 
 export function TaskList({ onOpenNewTask, onEditTask }) {
   const { tasks = [], toggleTask, deleteTask, showToast, logActivity } = useCRM();
@@ -179,7 +180,7 @@ export function TaskList({ onOpenNewTask, onEditTask }) {
         </div>
 
         {/* Filtro por Tipo de Tarefa */}
-        <select
+        <Select
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -188,10 +189,10 @@ export function TaskList({ onOpenNewTask, onEditTask }) {
           {TASK_TYPES.map(t => (
             <option key={t.id} value={t.id}>{t.label}</option>
           ))}
-        </select>
+        </Select>
 
         {/* Filtro por Prioridade */}
-        <select
+        <Select
           value={selectedPriority}
           onChange={(e) => setSelectedPriority(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -201,10 +202,10 @@ export function TaskList({ onOpenNewTask, onEditTask }) {
           <option value="alta">Alta / Fatal</option>
           <option value="media">Média</option>
           <option value="baixa">Baixa</option>
-        </select>
+        </Select>
 
         {/* Filtro por Status */}
-        <select
+        <Select
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -212,10 +213,10 @@ export function TaskList({ onOpenNewTask, onEditTask }) {
           <option value="">Todos os Status</option>
           <option value="pending">Pendentes</option>
           <option value="completed">Concluídas</option>
-        </select>
+        </Select>
 
         {/* Filtro por Responsável */}
-        <select
+        <Select
           value={selectedAssignee}
           onChange={(e) => setSelectedAssignee(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -224,7 +225,7 @@ export function TaskList({ onOpenNewTask, onEditTask }) {
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
-        </select>
+        </Select>
 
         {(selectedType || selectedPriority || selectedStatus || selectedAssignee || search) && (
           <button
