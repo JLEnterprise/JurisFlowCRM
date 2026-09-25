@@ -17,6 +17,7 @@ import {
 import { CheckCircle2, Clock3, XCircle } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { formatCurrency } from '../../utils/formatters';
 import { KANBAN_STAGES } from '../../data/legalAreas';
 
@@ -36,6 +37,17 @@ const BRIGHT = {
 };
 const STATUS = { good: '#2f9b74', neutral: '#b8893a', critical: '#d9534f' };
 const SERIES_COLOR = { leads: PALETTE[0], fechados: PALETTE[1], contratos: PALETTE[1], valor: PALETTE[0], quantidade: PALETTE[0] };
+
+// Tema claro: dourado e azul trocam de lugar (azul vira a cor principal dos gráficos),
+// seguindo a troca de paleta do sistema (ver src/index.css)
+const GOLD = '#b8893a';
+const BLUE = '#3f7fc4';
+function applyChartTheme(isDark) {
+  PALETTE[0] = isDark ? GOLD : BLUE;
+  PALETTE[1] = isDark ? BLUE : GOLD;
+  STATUS.neutral = PALETTE[0];
+  Object.assign(SERIES_COLOR, { leads: PALETTE[0], fechados: PALETTE[1], contratos: PALETTE[1], valor: PALETTE[0], quantidade: PALETTE[0] });
+}
 
 const AXIS = { fill: '#7b8798', fontSize: 11 };
 const GRID = 'rgba(148, 163, 184, 0.10)';
@@ -108,6 +120,8 @@ function gradient(id, color, { horizontal = false, fade = false } = {}) {
 export function DashboardCharts() {
   const { leads, contracts, leadSources, legalAreas } = useCRM();
   const { users } = useAuth();
+  const { isDark } = useTheme();
+  applyChartTheme(isDark);
 
   const safeLeads = Array.isArray(leads) ? leads.filter(Boolean) : [];
   const safeContracts = Array.isArray(contracts) ? contracts.filter(Boolean) : [];
@@ -169,7 +183,7 @@ export function DashboardCharts() {
     ];
 
     return { overTime, revenue, funnel, channels, channelsAreExample, areas, team, balance, won, lost };
-  }, [safeLeads, safeContracts, safeUsers, leadSources, legalAreas]);
+  }, [safeLeads, safeContracts, safeUsers, leadSources, legalAreas, isDark]);
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
