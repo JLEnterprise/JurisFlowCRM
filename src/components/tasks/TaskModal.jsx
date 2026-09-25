@@ -24,7 +24,7 @@ import { Select } from '../common/Select';
 import { DateField } from '../common/DateField';
 
 export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = null }) {
-  const { addTask, updateTask, leads = [], clients = [] } = useCRM();
+  const { addTask, updateTask, leads = [], clients = [], officeSettings } = useCRM();
   const { users = [] } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -163,279 +163,228 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
     }
   };
 
+  const stageOptions = (Array.isArray(officeSettings?.taskStages) && officeSettings.taskStages.length > 0)
+    ? officeSettings.taskStages
+    : [{ id: 'pending', label: 'Pendentes' }, { id: 'in_progress', label: 'Em andamento' }, { id: 'blocked', label: 'Travadas' }];
+
+  const PRIORITY_DOTS = { baixa: 'bg-slate-400', media: 'bg-brand-500', alta: 'bg-gold-500', urgente: 'bg-rose-500' };
+  const inputClass = 'w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:border-gold-500/60 focus:outline-none focus:ring-2 focus:ring-gold-500/15';
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={taskToEdit ? 'Editar Tarefa / Prazo' : 'Nova Tarefa & Prazo Fatal'}
-      subtitle="Defina o tipo, responsável, prazo de conclusão e prioridade de execução"
+      title={taskToEdit ? 'Editar tarefa' : 'Nova tarefa'}
+      subtitle="Preencha em quatro passos: o que é, quem faz e quando, vínculos e detalhes"
       maxWidth="max-w-2xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* SELEÇÃO DE TIPO DA TAREFA & BOTÃO PERSONALIZADO */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Tipo da Tarefa *
-            </label>
-            <button
-              type="button"
-              onClick={() => handleSelectType('personalizado')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                isCustomTypeMode
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm ring-2 ring-amber-400/40'
-                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/60'
-              }`}
-            >
-              <Sparkles className="h-3.5 w-3.5 text-amber-500 dark:text-amber-300" />
-              <span>+ Escrever Tipo Personalizado</span>
-            </button>
-          </div>
-
-          {/* Chips de Tipos Padrões */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {TASK_TYPES.filter(t => t.id !== 'personalizado').map((type) => {
-              const isSelected = !isCustomTypeMode && formData.taskType === type.id;
-              return (
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* 1. O QUE É */}
+        <FormSection number="1" title="O que é a tarefa">
+          <div>
+            <FieldLabel>Título *</FieldLabel>
+            <input
+              type="text"
+              required
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="Ex.: Protocolar contestação com preliminar de prescrição"
+              className={`${inputClass} text-base font-medium`}
+            />
+            {/* Modelos rápidos: preenchem título e tipo em um clique */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-700/80 dark:text-gold-300/70">Modelos rápidos</span>
+              {presetTitles.map((preset, idx) => (
                 <button
-                  key={type.id}
+                  key={idx}
                   type="button"
-                  onClick={() => handleSelectType(type.id)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-left ${
-                    isSelected
-                      ? 'bg-brand-50/90 dark:bg-brand-950/60 border-brand-500 text-brand-700 dark:text-brand-300 ring-2 ring-brand-500/20 shadow-xs'
-                      : 'bg-slate-50/70 dark:bg-navy-950/50 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-800'
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, title: preset.label, taskType: preset.type, customType: '' }));
+                    setIsCustomTypeMode(false);
+                  }}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    formData.title === preset.label
+                      ? 'border-gold-500/60 bg-gold-500/10 text-slate-900 dark:text-gold-100'
+                      : 'border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:border-gold-500/40 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  <span className={isSelected ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'}>
-                    {getTypeIcon(type.id)}
-                  </span>
-                  <span className="truncate">{type.label}</span>
+                  {preset.label}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
 
-          {/* CAMPO DE TIPO PERSONALIZADO QUANDO ATIVO */}
-          {isCustomTypeMode && (
-            <div className="mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-amber-50/90 to-amber-100/40 dark:from-amber-950/30 dark:to-navy-900/40 border border-amber-300 dark:border-amber-700/60 animate-fade-in shadow-xs">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                  <Edit3 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                  Especifique o Tipo Personalizado da Tarefa *
-                </label>
-                <button
-                  type="button"
-                  onClick={() => handleSelectType('peticao')}
-                  className="text-[11px] text-slate-500 dark:text-slate-400 hover:underline"
-                >
-                  Voltar aos tipos padrões
-                </button>
-              </div>
+          <div>
+            <FieldLabel>Tipo *</FieldLabel>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {TASK_TYPES.map((type) => {
+                const isCustom = type.id === 'personalizado';
+                const isSelected = isCustom ? isCustomTypeMode : (!isCustomTypeMode && formData.taskType === type.id);
+                return (
+                  <button
+                    key={type.id}
+                    type="button"
+                    onClick={() => handleSelectType(type.id)}
+                    aria-pressed={isSelected}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition-all ${
+                      isSelected
+                        ? 'border-gold-500/60 bg-gold-500/10 text-slate-900 dark:text-gold-100 ring-1 ring-inset ring-gold-500/30'
+                        : 'border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:border-gold-500/40'
+                    }`}
+                  >
+                    <span className={isSelected ? 'text-gold-600 dark:text-gold-400' : 'text-slate-400'}>
+                      {isCustom ? <Sparkles className="h-3.5 w-3.5" /> : getTypeIcon(type.id)}
+                    </span>
+                    <span className="truncate">{isCustom ? 'Outro (personalizado)' : type.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {isCustomTypeMode && (
               <input
                 type="text"
-                required={isCustomTypeMode}
+                required
                 value={formData.customType}
                 onChange={(e) => setFormData(prev => ({ ...prev, customType: e.target.value }))}
-                placeholder="Ex: Perícia Técnica Contábil, Despacho Presencial com Juiz, Notificação Cartorária..."
-                className="w-full rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                placeholder="Nome do tipo. Ex.: Perícia contábil, Despacho com o juiz..."
+                className={`${inputClass} mt-2.5 animate-fade-in`}
                 autoFocus
               />
-              <p className="text-[11px] text-amber-700 dark:text-amber-300/80 mt-1">
-                Este tipo personalizado será salvo e destacado com identificador próprio na listagem.
-              </p>
+            )}
+          </div>
+        </FormSection>
+
+        {/* 2. QUEM E QUANDO */}
+        <FormSection number="2" title="Quem faz e quando">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="sm:col-span-1">
+              <FieldLabel>Responsável *</FieldLabel>
+              <Select value={formData.assignedTo} onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })} className="w-full">
+                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </Select>
             </div>
-          )}
-        </div>
-
-        {/* Modelos Rápidos de Tarefas (Presets) */}
-        <div>
-          <span className="block text-[11px] font-semibold text-slate-400 mb-1.5">
-            Modelos Rápidos (preenchimento em 1 clique):
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {presetTitles.map((preset, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  setFormData(prev => ({
-                    ...prev,
-                    title: preset.label,
-                    taskType: preset.type,
-                    customType: '',
-                  }));
-                  setIsCustomTypeMode(false);
-                }}
-                className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-navy-800 text-slate-700 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-950/60 dark:hover:text-brand-400 transition-colors border border-transparent hover:border-brand-200 dark:hover:border-brand-800/40"
-              >
-                + {preset.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Título */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-            Título / Assunto da Tarefa *
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="Ex: Protocolar contestação com preliminar de prescrição"
-            className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
-          />
-        </div>
-
-        {/* Responsável, Prioridade & Status */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Responsável pela Execução *
-            </label>
-            <Select
-              value={formData.assignedTo}
-              onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
-            >
-              {users.map(u => (
-                <option key={u.id} value={u.id}>{u.name} ({Array.isArray(u.roles) ? u.roles.join(', ') : (u.role || 'Membro')})</option>
-              ))}
-            </Select>
+            <div>
+              <FieldLabel>Prazo *</FieldLabel>
+              <DateField type="date" required value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} className="w-full" />
+            </div>
+            <div>
+              <FieldLabel>Horário limite</FieldLabel>
+              <DateField type="time" value={formData.dueTime} onChange={(e) => setFormData({ ...formData, dueTime: e.target.value })} className="w-full" />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Nível de Prioridade *
-            </label>
-            <Select
-              value={formData.priority}
-              onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
-            >
-              {TASK_PRIORITIES.map(p => (
-                <option key={p.id} value={p.id}>{p.label}</option>
-              ))}
-            </Select>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <FieldLabel>Prioridade *</FieldLabel>
+              <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Prioridade">
+                {TASK_PRIORITIES.map(p => {
+                  const active = formData.priority === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setFormData({ ...formData, priority: p.id })}
+                      className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-xs font-semibold transition-all ${
+                        active
+                          ? 'border-gold-500/60 bg-gold-500/10 text-slate-900 dark:text-gold-100'
+                          : 'border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:border-gold-500/40'
+                      }`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${PRIORITY_DOTS[p.id] || 'bg-slate-400'}`} />
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <FieldLabel>Etapa</FieldLabel>
+              <Select value={formData.status || stageOptions[0].id} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full">
+                {stageOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                <option value="completed">Concluída</option>
+                <option value="refused">Recusada</option>
+              </Select>
+            </div>
           </div>
+        </FormSection>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Status
-            </label>
-            <Select
-              value={formData.status || 'pending'}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full"
-            >
-              <option value="pending">Pendente</option>
-              <option value="in_progress">Em andamento</option>
-              <option value="blocked">Travada</option>
-              <option value="completed">Concluída</option>
-            </Select>
-          </div>
-        </div>
-
-        {/* Data & Horário */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Data de Vencimento / Prazo Fatal *
-            </label>
-            <DateField
-              type="date"
-              required
-              value={formData.dueDate}
-              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Horário Limite (Hora Fatal)
-            </label>
-            <DateField
-              type="time"
-              value={formData.dueTime}
-              onChange={(e) => setFormData({ ...formData, dueTime: e.target.value })}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Vínculo Opcional (Cliente ou Lead) */}
+        {/* 3. VÍNCULOS */}
         {(clients.length > 0 || leads.length > 0) && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Vincular a Cliente (Opcional)
-              </label>
-              <Select
-                value={formData.clientId}
-                onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
-              >
-                <option value="">Nenhum Cliente Vinculado</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.name || c.nome}</option>
-                ))}
-              </Select>
+          <FormSection number="3" title="Vínculos" hint="opcional">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <FieldLabel>Cliente</FieldLabel>
+                <Select value={formData.clientId} onChange={(e) => setFormData({ ...formData, clientId: e.target.value })} className="w-full">
+                  <option value="">Nenhum cliente</option>
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.name || c.nome}</option>)}
+                </Select>
+              </div>
+              <div>
+                <FieldLabel>Lead / negociação</FieldLabel>
+                <Select value={formData.leadId} onChange={(e) => setFormData({ ...formData, leadId: e.target.value })} className="w-full">
+                  <option value="">Nenhum lead</option>
+                  {leads.map(l => <option key={l.id} value={l.id}>{l.name || l.nome}</option>)}
+                </Select>
+              </div>
             </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Vincular a Lead / Negociação (Opcional)
-              </label>
-              <Select
-                value={formData.leadId}
-                onChange={(e) => setFormData({ ...formData, leadId: e.target.value })}
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
-              >
-                <option value="">Nenhum Lead Vinculado</option>
-                {leads.map(l => (
-                  <option key={l.id} value={l.id}>{l.name || l.nome}</option>
-                ))}
-              </Select>
-            </div>
-          </div>
+          </FormSection>
         )}
 
-        {/* Descrição */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-            Descrição / Instruções da Tarefa
-          </label>
+        {/* 4. DETALHES */}
+        <FormSection number={clients.length > 0 || leads.length > 0 ? '4' : '3'} title="Detalhes" hint="opcional">
           <textarea
             rows={3}
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Descreva detalhes específicos, links para peças, teses jurídicas ou instruções para o responsável..."
-            className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 p-3 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
+            placeholder="Instruções para o responsável, links de peças, teses..."
+            className={inputClass}
           />
-        </div>
+        </FormSection>
 
-        {/* Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-end gap-2.5 border-t border-slate-200 dark:border-white/[0.08] pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            className="rounded-full border border-slate-200 dark:border-white/[0.1] px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:border-gold-500/40 transition-colors"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-2 text-sm font-semibold text-white shadow-md hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-sm font-semibold tracking-wide text-white shadow-md shadow-brand-900/20 hover:brightness-110 transition btn-tactile"
           >
             <CheckCircle2 className="h-4 w-4" />
-            {taskToEdit ? 'Salvar Alterações' : 'Criar Tarefa'}
+            {taskToEdit ? 'Salvar alterações' : 'Criar tarefa'}
           </button>
         </div>
       </form>
     </Modal>
+  );
+}
+
+// Bloco numerado do formulário: número em círculo dourado + título + fio dourado
+function FormSection({ number, title, hint, children }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gold-500/50 bg-gold-500/10 text-[11px] font-bold text-gold-700 dark:text-gold-300">
+          {number}
+        </span>
+        <h4 className="font-display text-lg font-semibold leading-none text-slate-900 dark:text-white">{title}</h4>
+        {hint && <span className="text-[10px] uppercase tracking-[0.16em] text-slate-400">{hint}</span>}
+        <span className="h-px flex-1 bg-gradient-to-r from-gold-500/30 to-transparent" />
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function FieldLabel({ children }) {
+  return (
+    <label className="mb-1.5 block text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+      {children}
+    </label>
   );
 }
