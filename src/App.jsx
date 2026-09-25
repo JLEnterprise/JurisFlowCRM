@@ -485,7 +485,14 @@ export function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-navy-950 font-sans text-slate-900 dark:text-slate-100 overflow-hidden">
+    <div className="app-shell relative isolate flex h-screen bg-slate-50 dark:bg-[#060a13] font-sans text-slate-900 dark:text-slate-100 overflow-hidden">
+      {/* Fundo premium (tema escuro): mesma grade dourada e luzes da tela de login */}
+      <div className="login-bg -z-10 hidden dark:block" aria-hidden="true">
+        <div className="login-bg__grid" />
+        <div className="login-bg__glow login-bg__glow--gold" />
+        <div className="login-bg__glow login-bg__glow--blue" />
+      </div>
+
       {/* Sidebar Navigation */}
       <Sidebar
         currentTab={currentTab}

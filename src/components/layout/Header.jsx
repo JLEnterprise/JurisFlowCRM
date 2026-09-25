@@ -86,6 +86,7 @@ export function Header({
   };
 
   const titleToDisplay = currentViewTitle || tabTitles[currentTab] || 'Dashboard Executivo';
+  const todayLabel = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   const periodOptions = [
     { id: 'today', label: 'Hoje' },
@@ -108,69 +109,52 @@ export function Header({
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 dark:border-white/[0.08] bg-white/90 dark:bg-[#0b0f17]/90 px-4 sm:px-6 backdrop-blur-xl transition-colors">
-      {/* Left section: Hamburger button e Título da Tela */}
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-white/90 dark:bg-[#0b0f17]/90 px-4 sm:px-6 backdrop-blur-xl transition-colors">
+      {/* Esquerda: menu (celular) e título da tela */}
+      <div className="flex min-w-0 items-center gap-3">
         <button
           onClick={toggleSidebarFn}
-          className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 lg:hidden"
-          title="Abrir Menu"
+          className="header-icon-btn lg:hidden"
+          aria-label="Abrir menu"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        <div>
-          <h1 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2 font-sans tracking-tight">
+        <div className="min-w-0">
+          <h1 className="truncate text-lg sm:text-xl text-slate-900 dark:text-white leading-tight">
             {titleToDisplay}
           </h1>
+          <p className="hidden sm:block text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 first-letter:uppercase">
+            {todayLabel}
+          </p>
         </div>
       </div>
 
-      {/* Right Section: Ações Globais, Copiloto IA, WhatsApp e Perfil */}
-      <div className="flex items-center gap-2 sm:gap-2.5">
-        {/* BOTÃO COPILOTO IA JURÍDICA */}
-        {onOpenCopilot && (
-          <button
-            onClick={() => onOpenCopilot('chat')}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-amber-600/20 border border-amber-400/40 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 hover:from-amber-500/25 hover:to-amber-600/30 transition-all shadow-xs btn-tactile"
-            title="Copiloto Jurídico & Chatbot de IA para Dúvidas e Rotinas do Dia a Dia"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
-            <span className="hidden sm:inline">IA Jurídica</span>
-          </button>
-        )}
-
-        {/* BOTÃO WHATSAPP RÁPIDO */}
-        {onOpenWhatsApp && (
-          <button
-            onClick={() => onOpenWhatsApp()}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-400/30 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 transition-all shadow-xs btn-tactile"
-            title="Disparo Rápido de WhatsApp com Templates"
-          >
-            <MessageSquare className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="hidden md:inline">WhatsApp</span>
-          </button>
-        )}
-
-        {/* Global Spotlight Search Button */}
+      {/* Direita: busca, ações e perfil */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Busca global */}
         <button
           onClick={onOpenSearch}
-          className="hidden lg:flex items-center gap-2 rounded-xl bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:border-gold-500/50 transition-all shadow-xs btn-tactile"
+          className="hidden md:flex w-56 lg:w-72 items-center gap-2 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] px-3 py-2 text-xs text-slate-400 hover:border-gold-500/40 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
         >
-          <Search className="h-3.5 w-3.5 text-slate-400" />
-          <span>Busca global...</span>
-          <kbd className="rounded bg-white dark:bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-300 shadow-2xs border border-slate-200 dark:border-white/10">
-            Ctrl+K
+          <Search className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1 truncate text-left">Buscar clientes, processos...</span>
+          <kbd className="rounded-md bg-white dark:bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 border border-slate-200 dark:border-white/10">
+            Ctrl K
           </kbd>
         </button>
+        <button onClick={onOpenSearch} className="header-icon-btn md:hidden" aria-label="Buscar" data-tip="Buscar">
+          <Search className="h-[18px] w-[18px]" />
+        </button>
 
-        {/* Period Filter */}
-        <div className="hidden xl:flex items-center gap-1.5 bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] rounded-xl px-2.5 py-1 text-xs">
-          <Calendar className="h-3.5 w-3.5 text-gold-500" />
+        {/* Filtro de período */}
+        <div className="hidden xl:flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] px-2.5 py-2 text-xs">
+          <Calendar className="h-3.5 w-3.5 text-slate-400" />
           <select
             value={periodFilter || '30d'}
             onChange={(e) => setPeriodFilter(e.target.value)}
-            className="bg-transparent text-slate-700 dark:text-slate-200 focus:outline-none font-semibold cursor-pointer text-xs"
+            className="bg-transparent text-slate-600 dark:text-slate-300 focus:outline-none font-medium cursor-pointer text-xs"
+            aria-label="Período dos indicadores"
           >
             {periodOptions.map(opt => (
               <option key={opt.id} value={opt.id} className="dark:bg-[#111827] dark:text-white">
@@ -180,17 +164,43 @@ export function Header({
           </select>
         </div>
 
-        {/* Theme Toggle */}
-        <button
-          onClick={toggleTheme}
-          className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 transition-colors btn-tactile"
-          title={isDark ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'}
-        >
-          {isDark ? <Sun className="h-4.5 w-4.5 text-amber-400" /> : <Moon className="h-4.5 w-4.5 text-slate-600" />}
-        </button>
+        {/* Ações rápidas: mesmo estilo discreto, a cor aparece só no hover */}
+        <div className="flex items-center gap-0.5">
+          {onOpenCopilot && (
+            <button
+              onClick={() => onOpenCopilot('chat')}
+              className="header-icon-btn hover:!text-gold-500 dark:hover:!text-gold-400"
+              aria-label="IA Jurídica"
+              data-tip="IA Jurídica"
+            >
+              <Sparkles className="h-[18px] w-[18px]" />
+            </button>
+          )}
 
-        {/* Notifications */}
-        <NotificationCenter />
+          {onOpenWhatsApp && (
+            <button
+              onClick={() => onOpenWhatsApp()}
+              className="header-icon-btn hover:!text-emerald-600 dark:hover:!text-emerald-400"
+              aria-label="WhatsApp"
+              data-tip="WhatsApp"
+            >
+              <MessageSquare className="h-[18px] w-[18px]" />
+            </button>
+          )}
+
+          <NotificationCenter />
+
+          <button
+            onClick={toggleTheme}
+            className="header-icon-btn"
+            aria-label={isDark ? 'Tema claro' : 'Tema escuro'}
+            data-tip={isDark ? 'Tema claro' : 'Tema escuro'}
+          >
+            {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+          </button>
+        </div>
+
+        <span className="hidden sm:block h-6 w-px bg-slate-200 dark:bg-white/[0.08] mx-1" aria-hidden="true" />
 
         {/* User Profile Dropdown */}
         <div className="relative" ref={userMenuRef}>

@@ -24,6 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCRM } from '../../context/CRMContext';
 import { Avatar } from '../common/Avatar';
 import { BrandLogo } from '../common/BrandLogo';
+import logoEmblema from '../../assets/logo-emblema.png';
 import { UserProfileModal } from '../common/UserProfileModal';
 
 export function Sidebar({
@@ -35,7 +36,7 @@ export function Sidebar({
   onOpenProfile,
 }) {
   const { currentUser, permissions } = useAuth();
-  const { tasks = [], appointments = [], leads = [] } = useCRM();
+  const { tasks = [], appointments = [], leads = [], officeSettings } = useCRM();
   const [collapsed, setCollapsed] = useState(false);
   const [localProfileModalOpen, setLocalProfileModalOpen] = useState(false);
 
@@ -107,11 +108,30 @@ export function Sidebar({
             onClick={() => handleNavClick('dashboard')}
             className="flex items-center gap-3 text-left focus:outline-none group overflow-hidden"
           >
-            <BrandLogo
-              className="h-10 w-10"
-              iconSize="h-5 w-5"
-              showText={!collapsed}
-            />
+            {officeSettings?.logoUrl ? (
+              <BrandLogo
+                className="h-10 w-10"
+                iconSize="h-5 w-5"
+                showText={!collapsed}
+              />
+            ) : (
+              <>
+                <img
+                  src={logoEmblema}
+                  alt="JurisFlow"
+                  draggable="false"
+                  className="h-11 w-11 shrink-0 object-contain drop-shadow-[0_0_10px_rgba(212,175,55,0.35)] transition-transform duration-500 group-hover:scale-105"
+                />
+                {!collapsed && (
+                  <div className="min-w-0">
+                    <div className="brand-wordmark text-[1.25rem] tracking-[0.12em]">JurisFlow</div>
+                    <div className="mt-1 text-[0.55rem] font-semibold uppercase tracking-[0.34em] text-slate-400 dark:text-gold-200/60 truncate">
+                      CRM Jurídico
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </button>
 
           {/* Botão de Fechar no Mobile */}
