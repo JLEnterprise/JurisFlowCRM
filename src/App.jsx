@@ -471,11 +471,12 @@ export function App() {
 
   return (
     <div className="app-shell relative isolate flex h-screen bg-slate-50 dark:bg-[#060a13] font-sans text-slate-900 dark:text-slate-100 overflow-hidden">
-      {/* Fundo premium (tema escuro): mesma grade dourada e luzes da tela de login */}
-      <div className="login-bg -z-10 hidden dark:block" aria-hidden="true">
-        <div className="login-bg__grid" />
-        <div className="login-bg__glow login-bg__glow--gold" />
-        <div className="login-bg__glow login-bg__glow--blue" />
+      {/* Fundo premium (tema escuro): grade dourada e luzes suaves atrás do "vidro" do app */}
+      <div className="app-bg hidden dark:block" aria-hidden="true">
+        <div className="app-bg__grid" />
+        <div className="app-bg__glow app-bg__glow--gold" />
+        <div className="app-bg__glow app-bg__glow--blue" />
+        <div className="app-bg__glow app-bg__glow--corner" />
       </div>
 
       {/* Sidebar Navigation */}

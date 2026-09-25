@@ -212,7 +212,7 @@ export function Sidebar({
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/80 dark:border-white/[0.08] bg-white/95 dark:bg-[#0b0f17]/95 backdrop-blur-2xl transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/80 dark:border-white/[0.08] app-glass bg-white/80 max-lg:bg-white/95 max-lg:dark:!bg-[#070b14]/95 transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
           collapsed ? 'w-20' : 'w-64'
         } ${
           mobileVisible ? 'translate-x-0' : '-translate-x-full'

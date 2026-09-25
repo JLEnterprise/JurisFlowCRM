@@ -101,7 +101,7 @@ export function Header({
   };
 
   return (
-    <header className="app-header sticky top-0 z-30 flex h-[4.5rem] w-full items-center justify-between gap-4 bg-white/95 dark:bg-[#070b14]/95 px-4 sm:px-6 lg:px-8 backdrop-blur-xl transition-colors">
+    <header className="app-header sticky top-0 z-30 flex h-[4.5rem] w-full items-center justify-between gap-4 app-glass bg-white/80 px-4 sm:px-6 lg:px-8 transition-colors">
       {/* Esquerda: menu (celular) e título da tela, em estilo editorial */}
       <div className="flex min-w-0 items-center gap-3">
         <button

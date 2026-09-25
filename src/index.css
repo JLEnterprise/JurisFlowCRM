@@ -56,6 +56,64 @@
   font-size-adjust: 0.5; /* a Cormorant é "baixinha": iguala a altura visual à da Manrope */
 }
 
+/* Fundo do app (tema escuro): textura de grade + luzes, visíveis através do vidro */
+.app-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.app-bg__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(212 175 55 / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(212 175 55 / 0.06) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 110% 90% at 30% 20%, #000 35%, transparent 85%);
+}
+
+.app-bg__glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(100px);
+}
+
+.app-bg__glow--gold {
+  width: 560px;
+  height: 560px;
+  left: -140px;
+  top: -120px;
+  background: radial-gradient(circle, rgb(212 175 55 / 0.22), transparent 65%);
+}
+
+.app-bg__glow--blue {
+  width: 760px;
+  height: 620px;
+  right: -180px;
+  top: -260px;
+  background: radial-gradient(circle, rgb(12 141 227 / 0.22), transparent 65%);
+}
+
+.app-bg__glow--corner {
+  width: 600px;
+  height: 600px;
+  right: 10%;
+  bottom: -320px;
+  background: radial-gradient(circle, rgb(212 175 55 / 0.08), transparent 65%);
+}
+
+/* Vidro fosco do menu lateral e do topo */
+.app-glass {
+  @apply backdrop-blur-md backdrop-saturate-150;
+}
+
+.dark .app-glass {
+  background-color: rgb(7 11 20 / 0.45);
+}
+
 /* Marca "JURISFLOW" em ouro */
 .brand-wordmark {
   font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
