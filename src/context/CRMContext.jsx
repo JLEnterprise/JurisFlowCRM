@@ -128,7 +128,8 @@ export function CRMProvider({ children }) {
         cloudInstallments,
         cloudDocs,
         cloudSettings,
-        cloudEscritorios
+        cloudEscritorios,
+        cloudLegalAreas,
       ] = await Promise.all([
         storageService.fetchFromSupabase('leads', [], escritorioId),
         storageService.fetchFromSupabase('clients', [], escritorioId),
@@ -142,6 +143,7 @@ export function CRMProvider({ children }) {
         storageService.fetchFromSupabase('documents', [], escritorioId),
         storageService.fetchFromSupabase('office_settings', [], escritorioId),
         storageService.fetchFromSupabase('escritorios', [], escritorioId),
+        storageService.fetchFromSupabase('legal_areas', [], escritorioId),
       ]);
 
       if (cloudLeads) setLeads(cloudLeads);
@@ -159,6 +161,10 @@ export function CRMProvider({ children }) {
       }
       if (cloudSettings && cloudSettings.length > 0) {
         setOfficeSettings(cloudSettings[0]);
+      }
+      // Áreas personalizadas do escritório (a lista padrão entra sempre, via mergeLegalAreas)
+      if (Array.isArray(cloudLegalAreas) && cloudLegalAreas.length > 0) {
+        setLegalAreas(cloudLegalAreas);
       }
       setCloudLoadedAt(Date.now());
     } catch (err) {
@@ -2054,12 +2060,15 @@ export function CRMProvider({ children }) {
 
   const mergedLegalAreas = useMemo(() => mergeLegalAreas(legalAreas), [legalAreas]);
 
+  // Áreas criadas pelo escritório ficam no banco (valem em qualquer computador)
   const addLegalArea = (area) => {
+    const newArea = { ...area, id: `area_${Date.now()}`, escritorio_id: currentEscritorioId };
     setLegalAreas(prev => {
-      const next = [...prev, { ...area, id: `area_${Date.now()}` }];
+      const next = [...prev, newArea];
       storageService.saveData('legal_areas', next);
       return next;
     });
+    storageService.saveToSupabase('legal_areas', [newArea]);
   };
 
   const removeLegalArea = (id) => {
@@ -2068,6 +2077,7 @@ export function CRMProvider({ children }) {
       storageService.saveData('legal_areas', next);
       return next;
     });
+    storageService.deleteFromSupabase('legal_areas', id);
   };
 
   const addLeadSource = (source) => {

@@ -474,6 +474,23 @@ function sanitizePayload(data, keepLargeData = false) {
   return clean;
 }
 
+// Salva com "cria ou atualiza" (upsert). Se o banco recusar pela segurança por cargo
+// (ex.: advogado sem acesso ao financeiro criando parcelas ao fechar contrato, ou registrando
+// auditoria), tenta de novo como inserção simples: cria o que é novo e ignora o que já existe,
+// sem sobrescrever registros que a pessoa não pode ver.
+async function upsertRespectingRoles(table, rows) {
+  const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
+  if (!error) return;
+  const blockedByRole = error.code === '42501' || /row-level security/i.test(error.message || '');
+  if (!blockedByRole) throw error;
+  for (const row of rows) {
+    const { error: insertError } = await supabase.from(table).insert(row);
+    if (insertError && insertError.code !== '23505') {
+      console.warn(`[${table}] sem permissão para salvar ${row.id}:`, insertError.message);
+    }
+  }
+}
+
 function mapItemToSqlRow(table, item, activeEscritorio) {
   if (!item) return null;
   const sanitizedItem = sanitizePayload(item, true); // true = KEEP dataUrl for Supabase
@@ -1143,8 +1160,7 @@ export const storageService = {
         });
         if (activeItems.length === 0) return;
         const rows = activeItems.map(item => mapItemToSqlRow(table, item, activeEscritorio));
-        const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
-        if (error) throw error;
+        await upsertRespectingRoles(table, rows);
       } else if (data && typeof data === 'object') {
         const id = String(data.id || '');
         const num = String(data.proposalNumber || data.proposal_number || '');
@@ -1153,8 +1169,7 @@ export const storageService = {
           return;
         }
         const row = mapItemToSqlRow(table, data, activeEscritorio);
-        const { error } = await supabase.from(table).upsert(row, { onConflict: 'id' });
-        if (error) throw error;
+        await upsertRespectingRoles(table, [row]);
       }
     } catch (err) {
       console.warn('Erro ao sincronizar ' + table + ' com Supabase:', err.message);
