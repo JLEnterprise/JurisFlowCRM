@@ -118,7 +118,7 @@ export function DateField({
   const Icon = type === 'time' ? Clock : CalendarDays;
 
   return (
-    <div className={`relative ${layoutClasses(className) || 'w-full'}`}>
+    <div className={`relative ${layoutClasses(className) || 'inline-block min-w-[10rem]'}`}>
       <button
         ref={triggerRef}
         type="button"

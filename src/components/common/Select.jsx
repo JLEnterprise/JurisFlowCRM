@@ -111,11 +111,12 @@ export function Select({
   }, [active, open]);
 
   const label = selected ? selected.label : placeholder;
-  const isPlaceholder = !selected || selected.value === '';
+  // Cinza só para "Selecione..." — opções como "Todos os Status" são escolhas válidas
+  const isPlaceholder = !selected || (selected.value === '' && /^(selecion|escolh|--)/i.test(selected.label.trim()));
   let optionIndex = -1;
 
   return (
-    <div className={`relative ${layoutClasses(className) || 'w-full'}`}>
+    <div className={`relative ${layoutClasses(className) || 'inline-block min-w-[10rem]'}`}>
       <button
         ref={triggerRef}
         type="button"
