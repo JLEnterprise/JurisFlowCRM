@@ -22,11 +22,11 @@ import { useTheme } from '../../context/ThemeContext';
 import { useCRM } from '../../context/CRMContext';
 import { NotificationCenter } from './NotificationCenter';
 import { PeriodFilter } from '../common/PeriodFilter';
-import { FontSwitcher } from './FontSwitcher';
 
 // Nome curto e completo de cada página, mostrado no topo
 const PAGE_NAMES = {
   copilot: 'Copiloto IA',
+  account: 'Configurações',
   dashboard: 'Dashboard',
   kanban: 'Funil comercial',
   leads: 'Funil comercial',
@@ -42,7 +42,7 @@ const PAGE_NAMES = {
   reports: 'Relatórios',
   team: 'Equipe',
   security: 'Auditoria & LGPD',
-  settings: 'Configurações',
+  settings: 'Escritório',
 };
 import { Avatar } from '../common/Avatar';
 import { UserProfileModal } from '../common/UserProfileModal';
@@ -168,9 +168,6 @@ export function Header({
         <button onClick={onOpenSearch} className="header-icon-btn xl:hidden" aria-label="Buscar" data-tip="Buscar">
           <Search className="h-[18px] w-[18px]" />
         </button>
-
-        {/* Tipografia (temporário, para escolher as fontes definitivas) */}
-        <FontSwitcher />
 
         {/* Filtro de período (vale para o funil e as listas) */}
         <PeriodFilter className="hidden lg:block" />

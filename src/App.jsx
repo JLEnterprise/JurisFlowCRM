@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from './context/AuthContext';
+import { SettingsHub } from './components/account/SettingsHub';
 import { useCRM } from './context/CRMContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -475,6 +476,10 @@ export function App() {
         }
         return <ActivityLogsView />;
 
+      case 'account':
+        // Configurações pessoais + do escritório (e da plataforma, para Dev)
+        return <SettingsHub onOpenProfile={() => setProfileModalOpen(true)} />;
+
       case 'settings':
         if (!permissions?.canAccessSettings) {
           return renderAccessRestricted('Configurações do Escritório', 'Sócia Administradora & Desenvolvedor');
@@ -509,7 +514,7 @@ export function App() {
         setIsOpen={setSidebarOpen}
         hidden={sidebarHidden}
         onOpenCopilot={handleOpenCopilotModal}
-        onOpenProfile={() => setProfileModalOpen(true)}
+        onOpenProfile={() => handleNavigate('account')}
       />
 
       {/* Main Workspace */}
@@ -520,7 +525,7 @@ export function App() {
           onOpenSearch={() => setIsSearchOpen(true)}
           onOpenCopilot={handleOpenCopilotModal}
           onOpenWhatsApp={handleOpenWhatsAppModal}
-          onOpenProfile={() => setProfileModalOpen(true)}
+          onOpenProfile={() => handleNavigate('account')}
           currentTab={currentTab}
           onNavigate={handleNavigate}
           sidebarHidden={sidebarHidden}

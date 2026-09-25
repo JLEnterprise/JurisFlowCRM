@@ -147,9 +147,8 @@ export function Sidebar({
     },
     {
       id: 'grp_escritorio', label: 'Escritório', icon: Building2, children: [
-        { id: 'team', label: 'Equipe', icon: UserCog, show: permissions?.canAccessTeam },
-        { id: 'security', label: 'Auditoria & LGPD', icon: Shield, show: permissions?.canAccessSecurity },
-        { id: 'settings', label: 'Configurações', icon: Settings, show: permissions?.canAccessSettings },
+        // Equipe e Auditoria foram para Configurações (clique no seu nome, no rodapé do menu)
+        { id: 'settings', label: 'Escritório', icon: Building2, show: permissions?.canAccessSettings },
       ],
     },
   ];
