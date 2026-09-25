@@ -770,8 +770,8 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
         )}
 
         {/* Abas no mesmo padrão do funil */}
-        <div className="relative overflow-x-auto px-4 sm:px-6 pt-4">
-          <div className="funil-tabs" role="tablist" aria-label="Ferramentas do Copiloto">
+        <div className="relative flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 pt-4">
+          <div className="funil-tabs max-w-full overflow-x-auto" role="tablist" aria-label="Ferramentas do Copiloto">
             {[
               { id: 'chat', label: 'Consultor Jurídico', icon: MessageSquare },
               { id: 'publicacoes', label: 'Intimações & Prazos', icon: FileText },
@@ -792,6 +792,18 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
               </button>
             ))}
           </div>
+
+          {/* Ação principal da aba, na mesma linha das abas */}
+          {activeTab === 'minutas' && (
+            <button
+              onClick={handleGenerateDraft}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-semibold tracking-wide text-white shadow-md shadow-brand-900/20 hover:brightness-110 disabled:opacity-50 transition btn-tactile"
+            >
+              {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FileCheck className="h-3.5 w-3.5" />}
+              Gerar Minuta Profissional
+            </button>
+          )}
         </div>
 
         {/* Corpo Principal das Abas */}
@@ -1077,17 +1089,6 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-gold-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100"
                   />
                 </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  onClick={handleGenerateDraft}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-6 py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-50 transition-all shadow-md btn-tactile"
-                >
-                  {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FileCheck className="h-3.5 w-3.5" />}
-                  Gerar Minuta Profissional
-                </button>
               </div>
 
               {draftResult && (
