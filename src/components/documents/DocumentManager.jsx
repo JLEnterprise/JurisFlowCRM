@@ -270,35 +270,25 @@ export function DocumentManager() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Top action header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
-
-        <button
-          onClick={openUploadModal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/25 hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile cursor-pointer"
-        >
-          <Upload className="h-4 w-4" /> Anexar Documento
-        </button>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white dark:bg-navy-900/90 border border-slate-200/80 dark:border-white/[0.08] p-3 shadow-xs">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+    <div className="space-y-4 animate-fade-in">
+      {/* Barra única: busca e filtros compactos à esquerda, anexar à direita */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-60">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por documento, cliente ou arquivo..."
-            className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-navy-950/60 pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:border-brand-500 focus:outline-none"
+            placeholder="Buscar documento..."
+            className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:border-gold-500/60 focus:outline-none"
           />
         </div>
 
         <Select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
+          aria-label="Filtrar por categoria"
+          className="w-40 py-1.5 text-xs"
         >
           <option value="">Todas as Categorias</option>
           {categories.map(c => (
@@ -310,7 +300,7 @@ export function DocumentManager() {
           value={selectedClient}
           onChange={(e) => setSelectedClient(e.target.value)}
           aria-label="Filtrar por cliente"
-          className="px-3 py-1.5 text-xs"
+          className="w-40 py-1.5 text-xs"
         >
           <option value="">Todos os Clientes</option>
           <option value={NO_CLIENT}>Sem cliente vinculado</option>
@@ -326,11 +316,18 @@ export function DocumentManager() {
               setSelectedClient('');
               setSearch('');
             }}
-            className="text-xs text-rose-600 dark:text-rose-400 hover:underline px-2"
+            className="text-xs text-rose-600 dark:text-rose-400 hover:underline px-1"
           >
-            Limpar Filtros
+            Limpar
           </button>
         )}
+
+        <button
+          onClick={openUploadModal}
+          className="ml-auto inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-semibold tracking-wide text-white shadow-md shadow-brand-900/20 hover:brightness-110 transition btn-tactile"
+        >
+          <Upload className="h-3.5 w-3.5" /> Anexar Documento
+        </button>
       </div>
 
       {/* Documents Table / Grid */}
