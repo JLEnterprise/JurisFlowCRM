@@ -57,7 +57,7 @@ export function ContractDetail({
         <p>Contrato não localizado.</p>
         <button
           onClick={onBack}
-          className="mt-4 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white"
+          className="mt-4 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-semibold text-white"
         >
           Voltar aos Contratos
         </button>
@@ -188,9 +188,9 @@ export function ContractDetail({
           <button
             onClick={handleRunAdvJurisAudit}
             disabled={auditing}
-            className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-800 shadow-sm hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+            className="flex items-center gap-1.5 rounded-xl border border-gold-300 bg-gold-50 px-3.5 py-2 text-xs font-bold text-gold-800 shadow-sm hover:bg-gold-100 dark:border-gold-700 dark:bg-gold-950/40 dark:text-gold-300"
           >
-            {auditing ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />}
+            {auditing ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5 text-gold-600" />}
             Auditar com AdvJuris (IA)
           </button>
 
@@ -271,10 +271,10 @@ export function ContractDetail({
 
       {/* Painel Interativo de Auditoria AdvJuris */}
       {showAuditPanel && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20">
+        <div className="rounded-2xl border border-gold-200 bg-gold-50/40 p-5 shadow-sm dark:border-gold-900/40 dark:bg-gold-950/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500 text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gold-500 text-white">
                 <Scale className="h-4 w-4" />
               </div>
               <div>
@@ -291,7 +291,7 @@ export function ContractDetail({
               {auditResult && (
                 <button
                   onClick={handleCopyAudit}
-                  className="flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:bg-slate-800 dark:text-amber-300"
+                  className="flex items-center gap-1 rounded-lg border border-gold-300 bg-white px-2.5 py-1 text-[11px] font-bold text-gold-800 hover:bg-gold-50 dark:border-gold-700 dark:bg-slate-800 dark:text-gold-300"
                 >
                   {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                   Copiar Parecer
@@ -307,7 +307,7 @@ export function ContractDetail({
           </div>
 
           {auditing ? (
-            <div className="flex items-center gap-2 py-6 text-xs text-amber-700 dark:text-amber-400">
+            <div className="flex items-center gap-2 py-6 text-xs text-gold-700 dark:text-gold-400">
               <RefreshCw className="h-4 w-4 animate-spin" />
               Analisando cláusulas com as 52 Regras do AdvJuris...
             </div>
@@ -378,7 +378,7 @@ export function ContractDetail({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-50 text-gold-600 dark:bg-gold-950/30 dark:text-gold-400">
               <Shield className="h-5 w-5" />
             </div>
             <div>

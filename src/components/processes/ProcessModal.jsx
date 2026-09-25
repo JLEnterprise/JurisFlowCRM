@@ -141,9 +141,9 @@ export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillDat
               type="button"
               onClick={handleLookupCNJ}
               disabled={isSearchingCNJ}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 border border-amber-200 dark:border-amber-800/60 transition-all"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-gold-50 dark:bg-gold-950/40 text-gold-700 dark:text-gold-300 hover:bg-gold-100 border border-gold-200 dark:border-gold-800/60 transition-all"
             >
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <Sparkles className="h-3.5 w-3.5 text-gold-500" />
               <span>{isSearchingCNJ ? 'Consultando CNJ...' : '🔍 Buscar no CNJ / DataJud'}</span>
             </button>
           </div>
@@ -290,7 +290,7 @@ export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillDat
           </button>
           <button
             type="submit"
-            className="rounded-xl bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-brand-700 transition-colors"
+            className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 transition-colors"
           >
             {processToEdit ? 'Salvar Processo' : 'Cadastrar Processo'}
           </button>

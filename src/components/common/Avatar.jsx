@@ -4,9 +4,9 @@ import { User, Shield, Briefcase, Sparkles } from 'lucide-react';
 // Cores de gradientes executivos para iniciais
 const GRADIENTS = [
   'from-brand-600 to-blue-700',
-  'from-gold-600 to-amber-700',
+  'from-gold-600 to-gold-700',
   'from-emerald-600 to-teal-700',
-  'from-indigo-600 to-purple-700',
+  'from-brand-600 to-purple-700',
   'from-rose-600 to-pink-700',
   'from-cyan-600 to-blue-800',
 ];
@@ -38,11 +38,11 @@ export function Avatar({
   showBorder = false,
 }) {
   const [hasError, setHasError] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
 
+  // Nova foto: tenta exibir de novo. (Antes também zerava um "carregado" DEPOIS do onLoad,
+  // o que deixava a foto invisível para sempre.)
   useEffect(() => {
     setHasError(false);
-    setIsLoaded(false);
   }, [src]);
 
   const sizeClasses = {
@@ -66,12 +66,11 @@ export function Avatar({
   const statusColors = {
     online: 'bg-emerald-500 ring-white dark:ring-navy-950',
     busy: 'bg-rose-500 ring-white dark:ring-navy-950',
-    away: 'bg-amber-500 ring-white dark:ring-navy-950',
+    away: 'bg-gold-500 ring-white dark:ring-navy-950',
     offline: 'bg-slate-400 ring-white dark:ring-navy-950',
   };
 
   const currentSize = sizeClasses[size] || sizeClasses.md;
-  const gradient = getGradientByName(name || 'Advogado');
   const initials = getInitials(name);
 
   const shouldShowImage = Boolean(src && !hasError && src.trim() !== '');
@@ -83,18 +82,19 @@ export function Avatar({
           src={src}
           alt={name || 'Avatar'}
           onError={() => setHasError(true)}
-          onLoad={() => setIsLoaded(true)}
-          className={`h-full w-full rounded-full object-cover shadow-xs transition-opacity duration-200 ${
-            showBorder ? 'ring-2 ring-white/80 dark:ring-navy-800' : ''
-          } ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-        />
-      ) : (
-        <div
-          className={`h-full w-full rounded-full bg-gradient-to-tr ${gradient} text-white font-bold flex items-center justify-center shadow-xs ${
+          className={`h-full w-full rounded-full object-cover shadow-xs ring-1 ring-gold-500/40 ${
             showBorder ? 'ring-2 ring-white/80 dark:ring-navy-800' : ''
           }`}
+        />
+      ) : (
+        // Sem foto: inicial em dourado sobre fundo escuro, com aro dourado fino
+        <div
+          className={`h-full w-full rounded-full border border-gold-500/50 bg-gradient-to-b from-[#1a2233] to-[#0b1220] font-display font-semibold text-gold-300 flex items-center justify-center shadow-xs ${
+            showBorder ? 'ring-2 ring-white/80 dark:ring-navy-800' : ''
+          }`}
+          aria-label={name || 'Avatar'}
         >
-          {initials}
+          <span className="translate-y-[1px] text-[1.15em] leading-none">{initials.charAt(0)}</span>
         </div>
       )}
 

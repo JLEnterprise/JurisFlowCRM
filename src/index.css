@@ -4,6 +4,9 @@
 
 @layer base {
   :root {
+    /* Tipografia: trocada pelo seletor de fontes (utils/fontPrefs.js) */
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-body: 'Manrope', system-ui, sans-serif;
     --color-surface-light: #f8fafc;
     --color-surface-dark: #0b0f17;
   }
@@ -50,7 +53,7 @@
 /* Títulos de página e de seção na serifada elegante */
 .app-shell h1,
 .app-shell h2:not(.uppercase) {
-  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-family: var(--font-display);
   font-weight: 600;
   letter-spacing: 0.005em;
   font-size-adjust: 0.5; /* a Cormorant é "baixinha": iguala a altura visual à da Manrope */
@@ -115,8 +118,15 @@
 }
 
 /* Marca "JURISFLOW" em ouro */
-.brand-wordmark {
-  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+/* Marca: fonte FIXA (não segue o seletor de tipografia) — será trocada pela logo definitiva */
+.brand-lockup,
+.brand-lockup * {
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.brand-wordmark,
+.brand-lockup .brand-wordmark {
+  font-family: 'Cormorant Garamond', Georgia, serif;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.16em;
@@ -366,11 +376,11 @@
 
 /* ===== Tela de login premium (teste antes de levar ao sistema todo) ===== */
 .login-premium {
-  font-family: 'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
 .font-display {
-  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-family: var(--font-display);
 }
 
 .login-label {
@@ -523,6 +533,7 @@
 
 /* Nome da marca */
 .login-wordmark {
+  font-family: 'Cormorant Garamond', Georgia, serif !important; /* marca: não segue o seletor */
   font-size: clamp(2.6rem, 7vw, 4.6rem);
   line-height: 1;
   font-weight: 600;
@@ -689,6 +700,48 @@
 @media (prefers-reduced-motion: reduce) {
   .dash-panel--enter,
   .dash-bar-grow { animation: none; }
+}
+
+/* Botão flutuante da IA Jurídica: círculo dourado que abre o rótulo ao passar o mouse */
+.ia-fab {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: 3.25rem;
+  min-width: 3.25rem;
+  padding: 0 1rem;
+  border-radius: 9999px;
+  color: #1a1206;
+  background: linear-gradient(135deg, #f2d08a 0%, #c9a24f 55%, #9c7430 100%);
+  box-shadow: 0 10px 30px -8px rgb(197 160 89 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.4);
+  transition: gap 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.ia-fab:hover,
+.ia-fab:focus-visible {
+  gap: 0.5rem;
+  box-shadow: 0 14px 40px -8px rgb(197 160 89 / 0.75), inset 0 1px 0 rgb(255 255 255 / 0.4);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.ia-fab__label {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: max-width 0.3s ease;
+}
+
+.ia-fab:hover .ia-fab__label,
+.ia-fab:focus-visible .ia-fab__label {
+  max-width: 8rem;
 }
 
 /* Janelas (modais): fio dourado brilhante no topo da moldura */

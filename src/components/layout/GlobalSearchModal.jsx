@@ -138,7 +138,7 @@ export function GlobalSearchModal({ isOpen, onClose, onNavigate }) {
           {matchedLeads.length > 0 && (
             <div>
               <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5 text-amber-500" /> Leads / CRM ({matchedLeads.length})
+                <User className="h-3.5 w-3.5 text-gold-500" /> Leads / CRM ({matchedLeads.length})
               </div>
               <div className="space-y-1">
                 {matchedLeads.map(l => (

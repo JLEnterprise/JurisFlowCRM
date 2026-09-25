@@ -381,7 +381,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
           onClick={() => handleCardClick('ticket')}
           className={`cursor-pointer transition-all duration-200 transform hover:-translate-y-1 ${
             activeCardKey === 'ticket'
-              ? 'ring-2 ring-indigo-500 rounded-2xl shadow-lg shadow-indigo-500/10'
+              ? 'ring-2 ring-brand-500 rounded-2xl shadow-lg shadow-brand-500/10'
               : ''
           }`}
           title="Clique para ir à aba de Contratos & Minutas"
@@ -446,7 +446,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
             {activeCardKey === 'contracted' && onNavigate && (
               <button
                 onClick={() => onNavigate('contracts')}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold transition-all shadow-sm"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 text-white font-bold transition-all shadow-sm"
               >
                 <FileText className="h-3.5 w-3.5" /> Ir para Contratos & Minutas
               </button>
@@ -736,7 +736,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => unmarkInstallmentPaid(inst.id)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-800 transition-colors"
+                              className="p-1 rounded-lg text-slate-400 hover:text-gold-600 hover:bg-gold-50 dark:hover:bg-slate-800 transition-colors"
                               title="Estornar Baixa"
                             >
                               <Undo2 className="h-4 w-4" />
@@ -847,7 +847,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                       setSelectedStatus('pending');
                       setActiveCardKey('pending');
                     }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 text-white text-xs font-bold transition-all shadow-sm"
                   >
                     Ver Parcelas a Vencer <ChevronRight className="h-4 w-4" />
                   </button>
@@ -1024,7 +1024,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
 
                           <button
                             type="submit"
-                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-lg shadow-brand-500/20 active:scale-95"
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 text-white text-xs font-bold transition-all shadow-lg shadow-brand-500/20 active:scale-95"
                           >
                             <Save className="h-4 w-4" /> Salvar Motivo & Histórico
                           </button>
@@ -1157,7 +1157,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-500/30 hover:bg-brand-700 active:scale-95 transition-all"
+                  className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-500/30 hover:brightness-110 active:scale-95 transition-all"
                 >
                   Salvar Alterações
                 </button>

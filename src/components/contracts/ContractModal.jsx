@@ -352,9 +352,9 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
             <button
               type="button"
               onClick={handleAutoFillAdvJurisClauses}
-              className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+              className="flex items-center gap-1.5 rounded-lg border border-gold-300 bg-gold-50 px-2.5 py-1 text-[11px] font-bold text-gold-800 hover:bg-gold-100 dark:border-gold-700 dark:bg-gold-950/40 dark:text-gold-300"
             >
-              <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+              <ShieldCheck className="h-3.5 w-3.5 text-gold-600" />
               Inserir Cláusulas Blindadas (AdvJuris)
             </button>
           </div>
@@ -441,7 +441,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
           </button>
           <button
             type="submit"
-            className="rounded-xl bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-md shadow-brand-600/20 hover:bg-brand-700"
+            className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-xs font-bold text-white shadow-md shadow-brand-900/20 hover:brightness-110"
           >
             {contractToEdit ? 'Salvar Alterações' : 'Criar Contrato'}
           </button>

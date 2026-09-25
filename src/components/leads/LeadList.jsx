@@ -114,7 +114,7 @@ export function LeadList({ onOpenNewLead, onEditLead, onCloseContract, onNavigat
 
         <button
           onClick={onOpenNewLead}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-brand-700 transition-colors"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-md hover:brightness-110 transition-colors"
         >
           <Plus className="h-4 w-4" /> Cadastrar Lead
         </button>

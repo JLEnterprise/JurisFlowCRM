@@ -449,7 +449,7 @@ export function LoginView() {
 
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 py-2.5 text-xs font-bold text-white shadow-md transition-all"
+            className="w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 py-2.5 text-xs font-bold text-white shadow-md transition-all"
           >
             Enviar Instruções por E-mail
           </button>

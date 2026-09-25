@@ -112,7 +112,7 @@ export function ProposalDetailModal({
               {formatCurrency(value)}
             </span>
             {successFee > 0 && (
-              <span className="block text-[10px] font-bold text-amber-600 dark:text-gold-400">
+              <span className="block text-[10px] font-bold text-gold-600 dark:text-gold-400">
                 + {successFee}% taxa de êxito
               </span>
             )}
@@ -153,7 +153,7 @@ export function ProposalDetailModal({
 
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-navy-950/60 border border-slate-200/60 dark:border-white/[0.04] space-y-1">
             <div className="flex items-center gap-1.5 text-slate-400 font-semibold text-[11px]">
-              <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-gold-400" />
+              <Clock className="h-3.5 w-3.5 text-gold-600 dark:text-gold-400" />
               Validade da Proposta
             </div>
             <div className="font-bold text-slate-800 dark:text-slate-200">
@@ -234,7 +234,7 @@ export function ProposalDetailModal({
                   onClose();
                   onConvertToContract(proposal);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-500 hover:to-brand-600 text-white px-4 py-2 text-xs font-bold shadow-md shadow-brand-600/25 transition-all btn-tactile"
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 text-white px-4 py-2 text-xs font-bold shadow-md shadow-brand-900/20 transition-all btn-tactile"
               >
                 <Sparkles className="h-3.5 w-3.5" /> Gerar Contrato
               </button>

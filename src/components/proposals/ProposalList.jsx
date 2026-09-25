@@ -148,7 +148,7 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
 
         <button
           onClick={onOpenNewProposal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/25 hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-900/20 hover:brightness-110 transition-all btn-tactile"
         >
           <Plus className="h-4 w-4" /> Nova Proposta
         </button>
@@ -248,7 +248,7 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
                     {formatCurrency(prop.value || 0)}
                   </div>
                   {Number(prop.successFeePercent) > 0 && (
-                    <div className="text-[10px] text-amber-600 dark:text-gold-400 font-semibold mt-0.5">
+                    <div className="text-[10px] text-gold-600 dark:text-gold-400 font-semibold mt-0.5">
                       + {prop.successFeePercent}% de taxa de êxito
                     </div>
                   )}

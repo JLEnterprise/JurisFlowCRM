@@ -293,7 +293,7 @@ export function SettingsView() {
             <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="submit"
-                className="flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-brand-600/20 hover:bg-brand-700"
+                className="flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-brand-900/20 hover:brightness-110"
               >
                 <Save className="w-4 h-4" />
                 Salvar Dados do Escritório
@@ -379,7 +379,7 @@ export function SettingsView() {
               </div>
               <button
                 onClick={() => setNewEscritorioOpen(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700"
+                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:brightness-110"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Novo Escritório
@@ -440,7 +440,7 @@ export function SettingsView() {
               />
               <button
                 type="submit"
-                className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700"
+                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-110"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Adicionar Área
@@ -488,7 +488,7 @@ export function SettingsView() {
               />
               <button
                 type="submit"
-                className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700"
+                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-110"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Adicionar Canal

@@ -92,7 +92,7 @@ export function WhatsAppModal({ isOpen, onClose, initialData = {} }) {
     switch (id) {
       case 'lembrete_audiencia': return <Gavel className="h-3.5 w-3.5 text-purple-500" />;
       case 'lembrete_reuniao': return <Calendar className="h-3.5 w-3.5 text-blue-500" />;
-      case 'envio_proposta': return <FileText className="h-3.5 w-3.5 text-amber-500" />;
+      case 'envio_proposta': return <FileText className="h-3.5 w-3.5 text-gold-500" />;
       case 'assinatura_contrato': return <FileCheck className="h-3.5 w-3.5 text-emerald-500" />;
       case 'andamento_processual': return <Bell className="h-3.5 w-3.5 text-brand-500" />;
       case 'cobranca_elegante': return <Coins className="h-3.5 w-3.5 text-teal-500" />;

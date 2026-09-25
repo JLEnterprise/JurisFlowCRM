@@ -27,7 +27,7 @@ export class ErrorBoundary extends React.Component {
       return (
         <div className="flex flex-col items-center justify-center min-h-[400px] p-6 text-center animate-fade-in">
           <div className="rounded-3xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-8 shadow-xl max-w-lg w-full space-y-6">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500 ring-8 ring-amber-500/5">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gold-500/10 text-gold-500 ring-8 ring-gold-500/5">
               <AlertTriangle className="h-8 w-8" />
             </div>
 
@@ -43,7 +43,7 @@ export class ErrorBoundary extends React.Component {
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 onClick={this.handleReset}
-                className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-brand-700 transition-all"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:brightness-110 transition-all"
               >
                 <RefreshCw className="h-3.5 w-3.5" /> Recarregar Esta Aba
               </button>

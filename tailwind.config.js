@@ -63,9 +63,10 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Manrope', '"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
-        serif: ['"Cormorant Garamond"', '"Playfair Display"', 'Georgia', 'serif'],
-        display: ['"Cormorant Garamond"', '"Playfair Display"', 'Georgia', 'serif'],
+        // Tipografia vem de variáveis CSS (trocadas pelo seletor de fontes do topo)
+        sans: ['var(--font-body)'],
+        serif: ['var(--font-display)'],
+        display: ['var(--font-display)'],
       },
       boxShadow: {
         'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.06)',

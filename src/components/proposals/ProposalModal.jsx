@@ -215,7 +215,7 @@ export function ProposalModal({ isOpen, onClose, proposalToEdit = null }) {
           </button>
           <button
             type="submit"
-            className="rounded-xl bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-brand-700 transition-colors"
+            className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-sm font-semibold text-white shadow-md hover:brightness-110 transition-colors"
           >
             {proposalToEdit ? 'Salvar Proposta' : 'Emitir Proposta'}
           </button>

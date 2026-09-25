@@ -55,7 +55,7 @@ export const formatEventType = (type) => {
 export const getEventTypeColor = (type) => {
   const t = (type || '').toLowerCase().trim();
   // Jurídico & Processual
-  if (t === 'audiencia' || t.includes('audiência') || t.includes('audiencia')) return 'bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200 border-amber-300 dark:border-amber-800 font-bold';
+  if (t === 'audiencia' || t.includes('audiência') || t.includes('audiencia')) return 'bg-gold-100 text-gold-900 dark:bg-gold-950/70 dark:text-gold-200 border-gold-300 dark:border-gold-800 font-bold';
   if (t === 'prazo') return 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-200 border-rose-300 dark:border-rose-800 font-bold';
   if (t === 'diligencia' || t.includes('diligência') || t.includes('diligencia')) return 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border-teal-300 dark:border-teal-800';
   if (t === 'sustentacao' || t.includes('sustentação') || t.includes('sustentacao')) return 'bg-orange-100 text-orange-900 dark:bg-orange-950/70 dark:text-orange-200 border-orange-400 dark:border-orange-800 font-bold';
@@ -71,9 +71,9 @@ export const getEventTypeColor = (type) => {
 
   // Pessoal & Saúde
   if (t === 'medico' || t.includes('médico') || t.includes('medico') || t.includes('saude') || t.includes('saúde')) return 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700';
-  if (t === 'pessoal' || t.includes('particular')) return 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800';
+  if (t === 'pessoal' || t.includes('particular')) return 'bg-brand-50 text-brand-800 dark:bg-brand-950/50 dark:text-brand-300 border-brand-200 dark:border-brand-800';
   if (t === 'curso' || t.includes('congresso') || t.includes('palestra')) return 'bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300 border-violet-300 dark:border-violet-800';
-  if (t === 'viagem') return 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border-amber-300 dark:border-amber-800';
+  if (t === 'viagem') return 'bg-gold-50 text-gold-800 dark:bg-gold-950/50 dark:text-gold-300 border-gold-300 dark:border-gold-800';
 
   // Interno
   if (t === 'reuniao_interna') return 'bg-slate-100 text-slate-800 dark:bg-slate-800/80 dark:text-slate-200 border-slate-300 dark:border-slate-700';
@@ -81,7 +81,7 @@ export const getEventTypeColor = (type) => {
   if (t === 'administrativo') return 'bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-300 border-slate-300 dark:border-slate-700';
   
   // Estilo dourado para tipos livres
-  return 'bg-gradient-to-r from-gold-500/15 to-amber-500/15 text-gold-800 dark:text-gold-300 border-gold-400/50 dark:border-gold-500/50';
+  return 'bg-gradient-to-r from-gold-500/15 to-gold-500/15 text-gold-800 dark:text-gold-300 border-gold-400/50 dark:border-gold-500/50';
 };
 
 const PERSON_FILTER_KEY = 'jurisflow_agenda_pessoa';
@@ -231,7 +231,7 @@ export function CalendarView({ onOpenNewEvent }) {
 
           <button
             onClick={() => onOpenNewEvent()}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md hover:bg-brand-700 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md hover:brightness-110 transition-colors cursor-pointer"
           >
             <Plus className="h-4 w-4" /> Agendar
           </button>

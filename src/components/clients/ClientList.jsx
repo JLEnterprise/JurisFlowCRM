@@ -157,7 +157,7 @@ export function ClientList({ onOpenNewClient, onEditClient, onSelectClient, onOp
           </button>
           <button
             onClick={onOpenNewClient}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-brand-600/20 transition-all btn-tactile"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-brand-900/20 transition-all btn-tactile"
           >
             <Plus className="h-4 w-4" /> Cadastrar Cliente
           </button>

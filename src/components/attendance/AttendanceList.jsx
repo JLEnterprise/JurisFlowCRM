@@ -76,8 +76,8 @@ export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
     switch (channel) {
       case 'whatsapp': return <MessageCircle className="h-4 w-4 text-emerald-500" />;
       case 'telefone': return <Phone className="h-4 w-4 text-blue-500" />;
-      case 'email': return <Mail className="h-4 w-4 text-amber-500" />;
-      case 'videoconferencia': return <Video className="h-4 w-4 text-indigo-500" />;
+      case 'email': return <Mail className="h-4 w-4 text-gold-500" />;
+      case 'videoconferencia': return <Video className="h-4 w-4 text-brand-500" />;
       case 'instagram': return <Instagram className="h-4 w-4 text-pink-500" />;
       default: return <MapPin className="h-4 w-4 text-purple-500" />;
     }
@@ -90,7 +90,7 @@ export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
 
         <button
           onClick={onOpenNewAttendance}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/25 hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-900/20 hover:brightness-110 transition-all btn-tactile"
         >
           <Plus className="h-4 w-4" /> Novo Atendimento
         </button>

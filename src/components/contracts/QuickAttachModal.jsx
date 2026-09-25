@@ -217,7 +217,7 @@ export function QuickAttachModal({ isOpen, onClose, onContractCreated }) {
               Selecione o Contrato de Destino *
             </label>
             {contracts.length === 0 ? (
-              <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/40 p-3 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+              <div className="rounded-xl border border-gold-200 dark:border-gold-900/50 bg-gold-50 dark:bg-gold-950/40 p-3 text-xs text-gold-800 dark:text-gold-300 flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>Nenhum contrato cadastrado ainda. Mude para a opção "Criar Novo Contrato com este Arquivo".</span>
               </div>
@@ -380,7 +380,7 @@ export function QuickAttachModal({ isOpen, onClose, onContractCreated }) {
           <button
             type="submit"
             disabled={files.length === 0 || isProcessing}
-            className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <CheckCircle2 className="h-4 w-4" />
             {mode === 'existing' ? 'Concluir e Anexar Arquivos' : 'Criar Contrato com Anexos'}

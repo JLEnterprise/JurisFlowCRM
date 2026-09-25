@@ -239,7 +239,7 @@ export function Sidebar({
                   className="h-11 w-11 shrink-0 object-contain drop-shadow-[0_0_10px_rgba(212,175,55,0.35)] transition-transform duration-500 group-hover:scale-105"
                 />
                 {!collapsed && (
-                  <div className="min-w-0">
+                  <div className="brand-lockup min-w-0">
                     <div className="brand-wordmark text-[1.25rem] tracking-[0.12em]">JurisFlow</div>
                     <div className="mt-1 text-[0.55rem] font-semibold uppercase tracking-[0.34em] text-slate-400 dark:text-gold-200/60 truncate">
                       CRM Jurídico

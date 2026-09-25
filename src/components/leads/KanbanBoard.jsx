@@ -383,7 +383,7 @@ function LeadCard({ lead, onDragStart, onEditLead, onCloseContract, onMarkLost, 
           {formatRelativeTime(lead.lastContactDate)}
         </span>
         {lead.nextActionDate && (
-          <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1" title="Próximo follow-up">
+          <span className="text-gold-600 dark:text-gold-400 font-semibold flex items-center gap-1" title="Próximo follow-up">
             <Calendar className="h-3 w-3" />
             {formatDate(lead.nextActionDate)}
           </span>

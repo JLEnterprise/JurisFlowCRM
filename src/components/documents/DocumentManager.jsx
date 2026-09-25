@@ -623,7 +623,7 @@ export function DocumentManager() {
             <button
               type="submit"
               disabled={isUploading || selectedFiles.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-brand-700 transition-colors disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isUploading ? (
                 <>

@@ -6,6 +6,10 @@ import { AuthProvider } from './context/AuthContext';
 import { CRMProvider } from './context/CRMContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import './index.css';
+import { applyFontPrefs } from './utils/fontPrefs';
+
+// Aplica a tipografia escolhida antes da primeira pintura (inclusive na tela de login)
+applyFontPrefs();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -124,7 +124,7 @@ export function ReportsView() {
           </button>
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white shadow-md hover:bg-brand-700 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-3.5 py-2 text-xs font-semibold text-white shadow-md hover:brightness-110 transition-colors"
           >
             <Printer className="h-3.5 w-3.5" /> Imprimir / PDF
           </button>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { useCRM } from './context/CRMContext';
 import { Sidebar } from './components/layout/Sidebar';
@@ -104,6 +105,7 @@ export function App() {
 
   // Power-Ups Modals
   const [copilotInitialTab, setCopilotInitialTab] = useState('chat');
+  const [quickCopilotOpen, setQuickCopilotOpen] = useState(false);
 
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
   const [whatsAppData, setWhatsAppData] = useState({});
@@ -617,6 +619,24 @@ export function App() {
       />
 
       {/* POWER-UPS MODALS */}
+      {/* IA Jurídica: botão flutuante em todas as telas, abre o Copiloto numa janela rápida */}
+      {currentTab !== 'copilot' && (
+        <button
+          type="button"
+          onClick={() => setQuickCopilotOpen(true)}
+          className="ia-fab group"
+          aria-label="Abrir IA Jurídica"
+        >
+          <Sparkles className="h-5 w-5 shrink-0" />
+          <span className="ia-fab__label">IA Jurídica</span>
+        </button>
+      )}
+      <LegalCopilotModal
+        isOpen={quickCopilotOpen}
+        onClose={() => setQuickCopilotOpen(false)}
+        initialTab="chat"
+      />
+
       {/* 2. WhatsApp Engine Modal */}
       <WhatsAppModal
         isOpen={whatsAppModalOpen}

@@ -20,6 +20,28 @@ import { useTheme } from '../../context/ThemeContext';
 import { useCRM } from '../../context/CRMContext';
 import { NotificationCenter } from './NotificationCenter';
 import { PeriodFilter } from '../common/PeriodFilter';
+import { FontSwitcher } from './FontSwitcher';
+
+// Nome curto e completo de cada página, mostrado no topo
+const PAGE_NAMES = {
+  copilot: 'Copiloto IA',
+  dashboard: 'Dashboard',
+  kanban: 'Funil comercial',
+  leads: 'Funil comercial',
+  clients: 'Clientes',
+  proposals: 'Propostas',
+  contracts: 'Contratos & minutas',
+  processes: 'Processos',
+  agenda: 'Agenda & audiências',
+  tasks: 'Prazos & tarefas',
+  attendance: 'Atendimentos',
+  documents: 'Documentos',
+  financial: 'Contas & honorários',
+  reports: 'Relatórios',
+  team: 'Equipe',
+  security: 'Auditoria & LGPD',
+  settings: 'Configurações',
+};
 import { Avatar } from '../common/Avatar';
 import { UserProfileModal } from '../common/UserProfileModal';
 
@@ -99,15 +121,17 @@ export function Header({
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* Usuário logado + data e hora (o nome da área já aparece marcado no menu lateral) */}
+        {/* Nome da página (curto e completo) + usuário, data e hora; substitui os títulos de seção dentro das telas */}
         <div className="min-w-0">
-          <div className="truncate font-display text-lg sm:text-xl font-semibold leading-tight text-slate-900 dark:text-white">
-            {currentUser?.name || 'Usuário'}
-          </div>
-          <p className="flex items-center gap-2 whitespace-nowrap text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-gold-700/80 dark:text-gold-300/60 mt-0.5">
+          <h1 className="truncate font-display text-lg sm:text-xl font-semibold leading-tight text-slate-900 dark:text-white">
+            {PAGE_NAMES[currentTab] || 'Dashboard'}
+          </h1>
+          <p className="flex items-center gap-2 whitespace-nowrap text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-gold-700/80 dark:text-gold-300/60 mt-0.5">
             <span className="h-1 w-1 rotate-45 bg-gold-500/70" aria-hidden="true" />
-            <span className="first-letter:uppercase">{dateLabel}</span>
+            <span className="max-w-[10rem] truncate normal-case tracking-[0.06em] text-slate-500 dark:text-slate-300">{currentUser?.name || 'Usuário'}</span>
             <span className="text-slate-300 dark:text-white/20">·</span>
+            <span className="hidden sm:inline first-letter:uppercase">{dateLabel}</span>
+            <span className="hidden sm:inline text-slate-300 dark:text-white/20">·</span>
             <span className="tabular-nums">{timeLabel}</span>
           </p>
         </div>
@@ -130,22 +154,14 @@ export function Header({
           <Search className="h-[18px] w-[18px]" />
         </button>
 
+        {/* Tipografia (temporário, para escolher as fontes definitivas) */}
+        <FontSwitcher />
+
         {/* Filtro de período (vale para o funil e as listas) */}
         <PeriodFilter className="hidden lg:block" />
 
         {/* Ações rápidas: mesmo estilo discreto, a cor aparece só no hover */}
         <div className="flex items-center gap-0.5 sm:rounded-full sm:border sm:border-slate-200 sm:dark:border-white/[0.07] sm:px-1 sm:py-0.5">
-          {onOpenCopilot && (
-            <button
-              onClick={() => onOpenCopilot('chat')}
-              className="header-icon-btn hover:!text-gold-500 dark:hover:!text-gold-400"
-              aria-label="IA Jurídica"
-              data-tip="IA Jurídica"
-            >
-              <Sparkles className="h-[18px] w-[18px]" />
-            </button>
-          )}
-
           {onOpenWhatsApp && (
             <button
               onClick={() => onOpenWhatsApp()}

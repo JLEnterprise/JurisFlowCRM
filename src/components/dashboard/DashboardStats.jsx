@@ -94,7 +94,6 @@ export function DashboardStats({ onNavigate }) {
     <div className="space-y-6">
       {/* Indicadores financeiros e de pipeline */}
       <div>
-        <SectionTitle icon={Coins} aside="Valores em tempo real">Indicadores financeiros & pipeline</SectionTitle>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Pipeline potencial"
@@ -154,7 +153,6 @@ export function DashboardStats({ onNavigate }) {
 
       {/* Fluxo operacional de leads e clientes */}
       <div>
-        <SectionTitle icon={Users}>Fluxo operacional de leads & clientes</SectionTitle>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
           {flow.map(item => (
             <button

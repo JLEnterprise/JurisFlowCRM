@@ -180,7 +180,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
                   type="button"
                   onClick={handleLookupCNPJ}
                   disabled={isSearchingCNPJ}
-                  className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+                  className="text-[10px] font-bold text-gold-600 dark:text-gold-400 hover:underline flex items-center gap-1"
                 >
                   <Sparkles className="h-3 w-3" />
                   {isSearchingCNPJ ? 'Consultando...' : '🔍 Buscar CNPJ'}
@@ -421,7 +421,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
           </button>
           <button
             type="submit"
-            className="rounded-xl bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-brand-700"
+            className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-xs font-bold text-white shadow-md hover:brightness-110"
           >
             {clientToEdit ? 'Salvar Dados' : 'Cadastrar Cliente'}
           </button>

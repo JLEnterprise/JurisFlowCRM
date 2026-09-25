@@ -69,8 +69,8 @@ export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate, onOpe
         );
       case 'suspenso':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-gold-500/10 text-gold-600 dark:text-gold-400 border border-gold-500/20">
+            <span className="h-1.5 w-1.5 rounded-full bg-gold-500" />
             Suspenso / Prazo
           </span>
         );
@@ -163,7 +163,7 @@ export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate, onOpe
 
           <button
             onClick={onOpenNewProcess}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/20 transition-all btn-tactile"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-900/20 transition-all btn-tactile"
           >
             <Plus className="h-4 w-4" /> Cadastrar Processo CNJ
           </button>
@@ -342,7 +342,7 @@ export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate, onOpe
                     {onOpenCopilot && (
                       <button
                         onClick={() => onOpenCopilot('explicador')}
-                        className="p-1.5 rounded-xl text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors btn-tactile"
+                        className="p-1.5 rounded-xl text-gold-500 hover:bg-gold-50 dark:hover:bg-gold-950/40 transition-colors btn-tactile"
                         title="Resumir com IA para o Cliente"
                       >
                         <Flame className="h-3.5 w-3.5" />
@@ -433,7 +433,7 @@ export function ProcessList({ onOpenNewProcess, onEditProcess, onNavigate, onOpe
                         {onOpenCopilot && (
                           <button
                             onClick={() => onOpenCopilot('explicador')}
-                            className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
+                            className="p-1.5 rounded-lg text-gold-500 hover:bg-gold-50 dark:hover:bg-gold-950/40 transition-colors"
                             title="Resumir com IA para o Cliente"
                           >
                             <Flame className="h-3.5 w-3.5" />

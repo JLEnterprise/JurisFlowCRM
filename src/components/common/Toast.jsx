@@ -20,7 +20,7 @@ export function Toast() {
     success: <CheckCircle2 className="h-5 w-5 text-emerald-500" />,
     error: <AlertCircle className="h-5 w-5 text-rose-500" />,
     danger: <AlertCircle className="h-5 w-5 text-rose-500" />,
-    warning: <AlertTriangle className="h-5 w-5 text-amber-500" />,
+    warning: <AlertTriangle className="h-5 w-5 text-gold-500" />,
     info: <Info className="h-5 w-5 text-brand-500" />,
   };
 
@@ -28,7 +28,7 @@ export function Toast() {
     success: 'border-emerald-500/30 bg-emerald-50/95 dark:bg-emerald-950/95 text-emerald-900 dark:text-emerald-100',
     error: 'border-rose-500/30 bg-rose-50/95 dark:bg-rose-950/95 text-rose-900 dark:text-rose-100',
     danger: 'border-rose-500/30 bg-rose-50/95 dark:bg-rose-950/95 text-rose-900 dark:text-rose-100',
-    warning: 'border-amber-500/30 bg-amber-50/95 dark:bg-amber-950/95 text-amber-900 dark:text-amber-100',
+    warning: 'border-gold-500/30 bg-gold-50/95 dark:bg-gold-950/95 text-gold-900 dark:text-gold-100',
     info: 'border-brand-500/30 bg-brand-50/95 dark:bg-brand-950/95 text-brand-900 dark:text-brand-100',
   };
 
