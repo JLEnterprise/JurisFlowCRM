@@ -26,7 +26,6 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { DEFAULT_LOGO_BASE64 } from '../../data/defaultLogo';
-import { getGeminiApiKey, setGeminiApiKey, testGeminiApiKey } from '../../services/aiService';
 
 export function SettingsView() {
   const {
@@ -59,15 +58,6 @@ export function SettingsView() {
   const [newAreaName, setNewAreaName] = useState('');
   const [newSourceName, setNewSourceName] = useState('');
 
-  // Gemini API Key state
-  const [geminiKeyInput, setGeminiKeyInput] = useState('');
-  const [keyTesting, setKeyTesting] = useState(false);
-  const [keyStatus, setKeyStatus] = useState(null);
-
-  useEffect(() => {
-    setGeminiKeyInput(getGeminiApiKey());
-  }, []);
-
   // Sincronizar firmData quando officeSettings for atualizado ou carregado
   useEffect(() => {
     if (officeSettings) {
@@ -99,31 +89,6 @@ export function SettingsView() {
       logActivity('Configurações do Escritório', 'Geral', 'Dados cadastrais e institucionais atualizados.');
     }
     showToast('Configurações do escritório salvas com sucesso!');
-  };
-
-  const handleSaveGeminiKey = async (e) => {
-    e.preventDefault();
-    setKeyTesting(true);
-    setKeyStatus(null);
-
-    if (!geminiKeyInput.trim()) {
-      setGeminiApiKey('');
-      setKeyStatus({ success: true, message: 'Chave removida. Usando motor contextual local AdvJuris.' });
-      showToast('Chave removida.', 'info');
-      setKeyTesting(false);
-      return;
-    }
-
-    const test = await testGeminiApiKey(geminiKeyInput.trim());
-    setKeyTesting(false);
-    setKeyStatus(test);
-
-    if (test.success) {
-      setGeminiApiKey(geminiKeyInput.trim());
-      showToast('Chave Google Gemini salva e validada com sucesso!', 'success');
-    } else {
-      showToast(test.message || 'Erro ao validar chave Gemini.', 'error');
-    }
   };
 
   const handleCreateNewEscritorio = (e) => {
@@ -341,12 +306,12 @@ export function SettingsView() {
 
       {/* TAB 2: IA & ADVJURIS (GEMINI API) */}
       {activeTab === 'ai' && (
-        <form onSubmit={handleSaveGeminiKey} className="space-y-6 animate-fade-in">
+        <div className="space-y-6 animate-fade-in">
           <div className="rounded-3xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <Sparkles className="w-4 h-4 text-gold-500" />
                   Agente Jurídico AdvJuris & Inteligência Artificial
                 </h3>
                 <p className="text-xs text-slate-500">
@@ -355,10 +320,10 @@ export function SettingsView() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Agente Nativo Ativo
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  AdvJuris conectado
                 </span>
-                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gold-500/10 text-gold-700 dark:text-gold-300 border border-gold-500/20">
                   <ShieldCheck className="w-3.5 h-3.5" />
                   AdvJuris 52 Regras
                 </span>
@@ -374,39 +339,6 @@ export function SettingsView() {
                 <p className="text-[11px] text-emerald-800/80 dark:text-emerald-400/80 mt-1 leading-relaxed">
                   Não é necessário adquirir ou inserir nenhuma chave de API externa para utilizar o CRM. O Agente AdvJuris já opera localmente com conhecimento do CPC, CLT, CPP, cálculo de prazos e templates de peças processuais.
                 </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-navy-950">
-                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                  Google Gemini API Key (Opcional — Modo Turbo em Nuvem):
-                </label>
-                <p className="text-[11px] text-slate-500 mb-3">
-                  Caso o seu escritório queira utilizar respostas generativas em nuvem de forma ilimitada com a conta do Google, insira a chave obtida no Google AI Studio (<a href="https://aistudio.google.com" target="_blank" rel="noreferrer" className="text-brand-600 underline">aistudio.google.com</a>). Se deixado em branco, o sistema utilizará o Agente Nativo sem nenhum bloqueio.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="password"
-                    value={geminiKeyInput}
-                    onChange={(e) => setGeminiKeyInput(e.target.value)}
-                    placeholder="AIzaSy..."
-                    className="flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-900 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    disabled={keyTesting}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 py-2 text-xs font-bold text-white shadow-md shadow-amber-600/20 hover:bg-amber-700 disabled:opacity-50"
-                  >
-                    {keyTesting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    Salvar & Testar Conexão
-                  </button>
-                </div>
-
-                {keyStatus && (
-                  <div className={`mt-3 rounded-xl p-3 text-xs flex items-center gap-2 ${keyStatus.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-300'}`}>
-                    {keyStatus.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Shield className="w-4 h-4 text-rose-600" />}
-                    {keyStatus.message}
-                  </div>
-                )}
               </div>
 
               {/* Informações dos Módulos */}
@@ -434,7 +366,7 @@ export function SettingsView() {
               </div>
             </div>
           </div>
-        </form>
+        </div>
       )}
 
       {/* TAB 3: MULTITENANT (DEV/TI) */}

@@ -66,23 +66,11 @@ export function setOpenAiApiKey(key) {
 }
 
 /**
- * Retorna o provedor de IA atual. Padrão: 'local' (Agente AdvJuris Nativo),
- * garantindo que nenhum cliente do CRM seja travado por falta de chave de API.
+ * Provedor de IA do Copiloto: sempre o AdvJuris ('local').
+ * A escolha Gemini/ChatGPT saiu da tela em 2026-09-25; o próximo passo são
+ * agentes próprios no n8n, um por ferramenta do Copiloto.
  */
 export function getAiProvider() {
-  if (!isBrowser) return 'local';
-  const saved = window.localStorage.getItem(AI_PROVIDER_KEY);
-  // Se for explicitamente local, retorna local
-  if (saved === 'local') return 'local';
-  // Se for gemini mas não tem chave salva, limpa para local
-  if (saved === 'gemini') {
-    return getGeminiApiKey() ? 'gemini' : 'local';
-  }
-  // Se for openai mas não tem chave salva, limpa para local
-  if (saved === 'openai') {
-    return getOpenAiApiKey() ? 'openai' : 'local';
-  }
-  // Padrão absoluto: Agente AdvJuris Nativo 100% incluso
   return 'local';
 }
 

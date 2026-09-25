@@ -626,8 +626,8 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                 <h3 className="truncate font-display text-xl font-semibold leading-tight text-slate-900 dark:text-white">
                   Copiloto AdvJuris
                 </h3>
-                <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Ativo
+                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> AdvJuris conectado
                 </span>
               </div>
               <p className="truncate text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-gold-700/80 dark:text-gold-300/60 mt-0.5">
@@ -636,37 +636,9 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
             </div>
           </div>
 
+          {/* O Copiloto roda só com o AdvJuris (agentes próprios), sem escolha de motor */}
           <div className="flex items-center gap-2">
-            {/* Motor de IA: mesmo padrão de abas do sistema */}
-            <div className="funil-tabs" role="tablist" aria-label="Motor de IA">
-              {[
-                { id: 'local', label: 'AdvJuris', title: 'Agente AdvJuris nativo (incluso)' },
-                { id: 'gemini', label: 'Gemini', title: 'Google Gemini (chave opcional)' },
-                { id: 'openai', label: 'ChatGPT', title: 'OpenAI ChatGPT (chave opcional)' },
-              ].map(p => (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={currentProvider === p.id}
-                  onClick={() => handleProviderChange(p.id)}
-                  title={p.title}
-                  className={`funil-tab !py-1 ${currentProvider === p.id ? 'is-active' : ''}`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
             <div className="flex items-center gap-0.5 rounded-full border border-slate-200 dark:border-white/[0.07] px-1 py-0.5">
-              <button
-                onClick={() => setShowKeyConfig(!showKeyConfig)}
-                className="header-icon-btn"
-                aria-label="Conexões de IA"
-                data-tip="Conexões de IA"
-              >
-                <Settings className="h-[18px] w-[18px]" />
-              </button>
               {activeTab === 'chat' && (
                 <button onClick={handleClearChat} className="header-icon-btn" aria-label="Nova conversa" data-tip="Nova conversa">
                   <Trash2 className="h-[18px] w-[18px]" />
@@ -691,83 +663,6 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
             </div>
           </div>
         </div>
-
-        {/* Painel de Configuração de Chaves de API (Opcional) */}
-        {showKeyConfig && (
-          <div className="border-b border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-white/[0.03] animate-fade-in space-y-3">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-white/[0.08]">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200">
-                  Conexões de IA: Agente Nativo (Incluso) vs Modo Turbo em Nuvem (Opcional)
-                </h4>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setActiveKeyTab('gemini')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    activeKeyTab === 'gemini' ? 'bg-slate-900 text-white dark:bg-gold-500/[0.12] dark:text-gold-100 ring-1 ring-inset ring-gold-500/35' : 'bg-slate-200 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  Google Gemini (Opcional)
-                </button>
-                <button
-                  onClick={() => setActiveKeyTab('openai')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    activeKeyTab === 'openai' ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  OpenAI ChatGPT (Opcional)
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-              <span>
-                <strong>Nenhuma chave é obrigatória para usar o CRM.</strong> O Agente AdvJuris já vem 100% ativo para responder dúvidas jurídicas, consultar clientes/processos e gerar minutas. As chaves abaixo são exclusivamente para escritórios que desejam usar seus próprios créditos em nuvem.
-              </span>
-            </div>
-
-            {activeKeyTab === 'gemini' ? (
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="password"
-                  value={geminiKeyInput}
-                  onChange={(e) => setGeminiKeyInput(e.target.value)}
-                  placeholder="Cole sua Gemini API Key (ex: AIzaSy... - Opcional)"
-                  className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm focus:border-gold-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100"
-                />
-                <button
-                  onClick={handleSaveGeminiKey}
-                  disabled={testingKey}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-gold-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-gold-400 disabled:opacity-50 transition-all shadow-sm btn-tactile"
-                >
-                  {testingKey ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  Salvar Chave Gemini
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="password"
-                  value={openAiKeyInput}
-                  onChange={(e) => setOpenAiKeyInput(e.target.value)}
-                  placeholder="Cole sua OpenAI API Key (ex: sk-proj-... - Opcional)"
-                  className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100"
-                />
-                <button
-                  onClick={handleSaveOpenAiKey}
-                  disabled={testingKey}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-400 disabled:opacity-50 transition-all shadow-sm btn-tactile"
-                >
-                  {testingKey ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  Salvar Chave OpenAI
-                </button>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Abas no mesmo padrão do funil */}
         <div className="relative flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 pt-4">
