@@ -1,3 +1,8 @@
+-- ⚠️ AINDA NÃO APLICADA. Aplicar SÓ DEPOIS que a versão do app com `upsertRespectingRoles`
+-- (src/services/storageService.js) estiver publicada em produção. Testado em transação desfeita
+-- em 2026-09-25: com o app antigo (upsert puro) um advogado sem financeiro NÃO consegue
+-- registrar auditoria nem criar parcelas ao fechar contrato — o banco recusa o upsert.
+--
 -- Segurança por cargo dentro do escritório (além do isolamento entre escritórios).
 -- Espelha as permissões do app (AuthContext → permissions):
 --   * Financeiro (installments): ver/alterar/excluir só sócio/admin, dev e financeiro.
