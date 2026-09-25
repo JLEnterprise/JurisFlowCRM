@@ -2,13 +2,9 @@ import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { useCRM } from '../../context/CRMContext';
 import { signatureService } from '../../services/signatureService';
-import { whatsappService } from '../../services/whatsappService';
 import {
   FileCheck,
   ShieldCheck,
-  Send,
-  Copy,
-  Check,
   CheckCircle2,
   Lock,
   QrCode,
@@ -24,7 +20,6 @@ export function SignatureModal({ isOpen, onClose, contract = null }) {
   const [signerDocument, setSignerDocument] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   const [signatureDone, setSignatureDone] = useState(null);
-  const [copiedLink, setCopiedLink] = useState(false);
 
   React.useEffect(() => {
     if (contract && isOpen) {
@@ -34,8 +29,6 @@ export function SignatureModal({ isOpen, onClose, contract = null }) {
       setSignatureDone(null);
     }
   }, [contract, isOpen]);
-
-  const signLink = contract ? signatureService.generateSignLink(contract.id) : '';
 
   const handleExecuteSign = () => {
     if (!signerName.trim()) {
@@ -69,23 +62,6 @@ export function SignatureModal({ isOpen, onClose, contract = null }) {
     }, 500);
   };
 
-  const handleCopySignLink = () => {
-    navigator.clipboard.writeText(signLink);
-    setCopiedLink(true);
-    showToast('Link de assinatura copiado!');
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
-  const handleSendLinkWhatsApp = () => {
-    const msg = whatsappService.templates.find(t => t.id === 'assinatura_contrato')?.generate({
-      clientName: signerName,
-      signatureLink: signLink,
-      officeName: 'JurisFlow Advocacia & Consultoria',
-    }) || `Olá, ${signerName}! Seu contrato está pronto para assinatura digital no link: ${signLink}`;
-
-    whatsappService.openWhatsApp(contract?.clientPhone || '', msg);
-  };
-
   if (!contract) return null;
 
   return (
@@ -114,39 +90,17 @@ export function SignatureModal({ isOpen, onClose, contract = null }) {
 
         {!signatureDone ? (
           <div className="space-y-4">
-            {/* Opção 1: Enviar Link para o Cliente Assinar */}
-            <div className="p-3.5 rounded-2xl bg-gold-50/60 dark:bg-gold-950/30 border border-gold-200 dark:border-gold-800/60 space-y-2">
-              <span className="text-xs font-bold text-gold-900 dark:text-gold-200 flex items-center gap-1.5">
-                <ExternalLink className="h-3.5 w-3.5 text-gold-600 dark:text-gold-400" />
-                Opção 1: Enviar Link para o Cliente Assinar no Celular / WhatsApp
-              </span>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                O cliente receberá um link seguro onde poderá ler o contrato e assinar na tela pelo smartphone.
-              </p>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleCopySignLink}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-navy-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50"
-                >
-                  {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copiedLink ? 'Link Copiado!' : 'Copiar Link de Assinatura'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSendLinkWhatsApp}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs"
-                >
-                  <Send className="h-3.5 w-3.5" /> Enviar Link pelo WhatsApp
-                </button>
-              </div>
+            {/* Assinatura por link (cliente assina pelo celular) volta quando a integração de
+                assinatura digital for ligada em Configurações → Integrações do escritório */}
+            <div className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50/70 px-3.5 py-2.5 text-[11px] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-slate-400">
+              <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              Envio de link para o cliente assinar pelo celular: disponível quando a assinatura digital for conectada em Configurações → Integrações.
             </div>
 
-            {/* Opção 2: Coletar Assinatura Agora no Escritório */}
+            {/* Coletar Assinatura Agora no Escritório */}
             <div className="space-y-3 pt-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                Opção 2: Coletar Assinatura Presencial / Imediata:
+                Coletar Assinatura Presencial / Imediata:
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
