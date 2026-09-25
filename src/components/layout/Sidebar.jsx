@@ -95,6 +95,7 @@ export function Sidebar({
   setCurrentTab,
   isOpen: mobileOpen,
   setIsOpen: setMobileOpen,
+  hidden = false,
   onOpenCopilot,
   onOpenProfile,
 }) {
@@ -214,6 +215,9 @@ export function Sidebar({
       <aside
         className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/80 dark:border-white/[0.08] app-glass bg-white/80 max-lg:bg-white/95 max-lg:dark:!bg-[#070b14]/95 transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
           collapsed ? 'w-20' : 'w-64'
+        } ${
+          // Escondida pelo botão do topo (só no desktop; no celular o menu já abre/fecha pelo ☰)
+          hidden ? 'lg:hidden' : ''
         } ${
           mobileVisible ? 'translate-x-0' : '-translate-x-full'
         }`}
