@@ -361,6 +361,14 @@
   box-shadow: 0 0 0 3px rgb(7 11 20 / 0.9), 0 0 18px rgb(212 175 55 / 0.5);
 }
 
+/* Menu rola sozinho acima do resumo do dia; borda de baixo esmaece para indicar rolagem */
+.sidebar-nav {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+}
+.sidebar-nav::-webkit-scrollbar { display: none; }
+
 /* Botões com micro-reação tátil */
 .btn-tactile {
   @apply active:scale-[0.98] transition-all duration-150;

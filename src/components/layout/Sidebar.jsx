@@ -30,6 +30,7 @@ import { Avatar } from '../common/Avatar';
 import { BrandLogo } from '../common/BrandLogo';
 import logoEmblema from '../../assets/logo-emblema.png';
 import { UserProfileModal } from '../common/UserProfileModal';
+import { SidebarToday } from './SidebarToday';
 
 const BADGE_TONES = {
   brand: 'bg-brand-500 text-white',
@@ -186,7 +187,7 @@ export function Sidebar({
     try { return JSON.parse(window.localStorage.getItem('jurisflow_menu_grupos') || '[]'); } catch { return []; }
   });
   useEffect(() => {
-    if (activeGroupId && !openGroups.includes(activeGroupId)) setOpenGroups(prev => [...prev, activeGroupId]);
+    if (activeGroupId && !openGroups.includes(activeGroupId)) setOpenGroups([activeGroupId]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGroupId]);
   useEffect(() => {
@@ -197,10 +198,11 @@ export function Sidebar({
     if (collapsed) {
       // Menu recolhido: expande e mostra o grupo
       setCollapsed(false);
-      setOpenGroups(prev => (prev.includes(groupId) ? prev : [...prev, groupId]));
+      setOpenGroups([groupId]);
       return;
     }
-    setOpenGroups(prev => (prev.includes(groupId) ? prev.filter(g => g !== groupId) : [...prev, groupId]));
+    // Um grupo aberto por vez: o menu não cresce até empurrar o resumo do dia
+    setOpenGroups(prev => (prev.includes(groupId) ? [] : [groupId]));
   };
 
   const handleCloseMobile = () => {
@@ -285,7 +287,7 @@ export function Sidebar({
         </div>
 
         {/* Navigation Items */}
-        <div className={`flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-1.5 ${collapsed ? 'px-2' : 'px-3'}`}>
+        <div className={`sidebar-nav min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-1.5 ${collapsed ? 'px-2' : 'px-3'}`}>
           {/* Copiloto IA: o destaque do sistema, sempre em primeiro */}
           {onOpenCopilot && (
             <div className="pb-2 mb-1 border-b border-slate-200/80 dark:border-white/[0.06]">
@@ -392,6 +394,9 @@ export function Sidebar({
           })}
 
         </div>
+
+        {/* Resumo do dia: fixo embaixo, só com o menu aberto */}
+        {!collapsed && <SidebarToday onNavigate={handleNavClick} />}
 
         {/* User profile footer: abre Configurações */}
         <div className={`border-t border-slate-200/80 dark:border-white/[0.08] ${collapsed ? 'px-2 py-3' : 'p-3'}`}>

@@ -1482,6 +1482,9 @@ export function CRMProvider({ children }) {
       const next = prev.map(t => {
         if (t.id === id) {
           updatedTask = { ...t, ...taskData, escritorio_id: currentEscritorioId };
+          // Guarda quando a tarefa foi concluída (usado no resumo do dia do menu)
+          if (taskData.status === 'completed' && t.status !== 'completed') updatedTask.completedAt = new Date().toISOString();
+          if (taskData.status && taskData.status !== 'completed') updatedTask.completedAt = null;
           return updatedTask;
         }
         return t;
@@ -1503,7 +1506,12 @@ export function CRMProvider({ children }) {
         if (t.id === id) {
           const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
           if (nextStatus === 'completed') showToast('Tarefa concluida!');
-          toggledTask = { ...t, status: nextStatus, escritorio_id: currentEscritorioId };
+          toggledTask = {
+            ...t,
+            status: nextStatus,
+            completedAt: nextStatus === 'completed' ? new Date().toISOString() : null,
+            escritorio_id: currentEscritorioId,
+          };
           return toggledTask;
         }
         return t;
