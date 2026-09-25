@@ -4,8 +4,6 @@ import {
   Moon,
   Sun,
   Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
   ChevronDown,
   UserCheck,
   LogOut,
@@ -57,8 +55,6 @@ export function Header({
   currentViewTitle,
   onNavigate,
   onOpenProfile,
-  sidebarHidden = false,
-  onToggleSidebarHidden,
 }) {
   const { currentUser, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
@@ -124,18 +120,6 @@ export function Header({
         >
           <Menu className="h-5 w-5" />
         </button>
-        {/* Desktop: esconder/mostrar a barra lateral */}
-        {onToggleSidebarHidden && (
-          <button
-            onClick={onToggleSidebarHidden}
-            className="header-icon-btn hidden lg:inline-flex"
-            aria-label={sidebarHidden ? 'Mostrar menu lateral' : 'Ocultar menu lateral'}
-            data-tip={sidebarHidden ? 'Mostrar menu' : 'Ocultar menu'}
-          >
-            {sidebarHidden ? <PanelLeftOpen className="h-[18px] w-[18px]" /> : <PanelLeftClose className="h-[18px] w-[18px]" />}
-          </button>
-        )}
-
         {/* Nome da página (curto e completo) + usuário, data e hora; substitui os títulos de seção dentro das telas */}
         <div className="min-w-0">
           <h1 className="truncate font-display text-lg sm:text-xl font-semibold leading-tight text-slate-900 dark:text-white">

@@ -70,13 +70,20 @@ function NavItem({ item, active, collapsed = false, sub = false, onClick }) {
       onClick={onClick}
       title={collapsed ? item.label : undefined}
       aria-current={active ? 'page' : undefined}
-      className={`group relative flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all duration-200 btn-tactile ${
+      className={`group relative flex items-center rounded-xl text-xs font-semibold transition-all duration-200 btn-tactile ${
+        collapsed ? 'mx-auto h-10 w-10 justify-center' : 'w-full justify-between px-3 py-2.5'
+      } ${
         active
           ? 'bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-lg shadow-brand-600/25 font-bold'
           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-white'
       }`}
     >
-      {active && <span className="absolute left-0 inset-y-2 w-1 rounded-r-full bg-gold-400" />}
+      {active && <span className={`absolute left-0 w-1 rounded-r-full bg-gold-400 ${collapsed ? 'inset-y-2.5' : 'inset-y-2'}`} />}
+      {collapsed && badge > 0 && (
+        <span className={`absolute -right-1 -top-1 min-w-[1rem] rounded-full px-1 text-center text-[9px] font-bold leading-4 ${BADGE_TONES[item.badgeTone] || 'bg-slate-500 text-white'}`}>
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
       <span className="flex items-center gap-3">
         <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-white' : 'text-slate-400 group-hover:text-gold-500 dark:group-hover:text-gold-400'}`} />
         {!collapsed && <span className="truncate">{item.label}</span>}
@@ -95,13 +102,20 @@ export function Sidebar({
   setCurrentTab,
   isOpen: mobileOpen,
   setIsOpen: setMobileOpen,
-  hidden = false,
   onOpenCopilot,
   onOpenProfile,
 }) {
   const { currentUser, permissions } = useAuth();
   const { tasks = [], appointments = [], leads = [], officeSettings } = useCRM();
-  const [collapsed, setCollapsed] = useState(false);
+  // Menu recolhido (só ícones), lembrado entre sessões
+  const [collapsedPref, setCollapsed] = useState(() => {
+    try { return window.localStorage.getItem('jurisflow_menu_recolhido') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem('jurisflow_menu_recolhido', collapsedPref ? '1' : '0'); } catch { /* sem storage */ }
+  }, [collapsedPref]);
+  // No celular o menu abre sempre inteiro pelo ☰; só ícones vale no computador
+  const collapsed = collapsedPref && !mobileOpen;
   const [localProfileModalOpen, setLocalProfileModalOpen] = useState(false);
 
   const handleOpenProfileModal = () => {
@@ -212,25 +226,33 @@ export function Sidebar({
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/80 dark:border-white/[0.08] app-glass bg-white/80 max-lg:bg-white/95 max-lg:dark:!bg-[#070b14]/95 transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
-          collapsed ? 'w-20' : 'w-64'
-        } ${
-          // Escondida pelo botão do topo (só no desktop; no celular o menu já abre/fecha pelo ☰)
-          hidden ? 'lg:hidden' : ''
+        className={`fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col border-r border-slate-200/80 dark:border-white/[0.08] app-glass bg-white/80 max-lg:bg-white/95 max-lg:dark:!bg-[#070b14]/95 transition-[width,transform] duration-300 ease-in-out lg:relative lg:translate-x-0 ${
+          collapsed ? 'w-[4.25rem]' : 'w-60 lg:w-56'
         } ${
           mobileVisible ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
+        {/* Aba para recolher/expandir: sai da borda do menu, no topo */}
+        <button
+          type="button"
+          onClick={() => setCollapsed(c => !c)}
+          className="sidebar-tab hidden lg:flex"
+          aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+        >
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
+
         {/* Logo & Executive Brand Header */}
-        <div className="flex h-[4.5rem] shrink-0 items-center justify-between px-4 border-b border-slate-200/80 dark:border-white/[0.08]">
+        <div className={`flex h-[4.5rem] shrink-0 items-center border-b border-slate-200/80 dark:border-white/[0.08] ${collapsed ? 'justify-center' : 'justify-between px-4'}`}>
           <button
             onClick={() => handleNavClick('dashboard')}
-            className="flex items-center gap-3 text-left focus:outline-none group overflow-hidden"
+            className="flex items-center gap-2.5 text-left focus:outline-none group overflow-hidden"
           >
             {officeSettings?.logoUrl ? (
               <BrandLogo
-                className="h-10 w-10"
-                iconSize="h-5 w-5"
+                className="h-8 w-8"
+                iconSize="h-4 w-4"
                 showText={!collapsed}
               />
             ) : (
@@ -239,12 +261,12 @@ export function Sidebar({
                   src={logoEmblema}
                   alt="JurisFlow"
                   draggable="false"
-                  className="h-11 w-11 shrink-0 object-contain drop-shadow-[0_0_10px_rgba(212,175,55,0.35)] transition-transform duration-500 group-hover:scale-105"
+                  className="h-9 w-9 shrink-0 object-contain drop-shadow-[0_0_8px_rgba(212,175,55,0.3)] transition-transform duration-500 group-hover:scale-105"
                 />
                 {!collapsed && (
                   <div className="brand-lockup min-w-0">
-                    <div className="brand-wordmark text-[1.25rem] tracking-[0.12em]">JurisFlow</div>
-                    <div className="mt-1 text-[0.55rem] font-semibold uppercase tracking-[0.34em] text-slate-400 dark:text-gold-200/60 truncate">
+                    <div className="brand-wordmark text-[1.05rem] tracking-[0.1em]">JurisFlow</div>
+                    <div className="mt-0.5 text-[0.5rem] font-semibold uppercase tracking-[0.3em] text-slate-400 dark:text-gold-200/60 truncate">
                       CRM Jurídico
                     </div>
                   </div>
@@ -263,7 +285,7 @@ export function Sidebar({
         </div>
 
         {/* Navigation Items */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
+        <div className={`flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-1.5 ${collapsed ? 'px-2' : 'px-3'}`}>
           {/* Copiloto IA: o destaque do sistema, sempre em primeiro */}
           {onOpenCopilot && (
             <div className="pb-2 mb-1 border-b border-slate-200/80 dark:border-white/[0.06]">
@@ -275,7 +297,9 @@ export function Sidebar({
                 }}
                 title={collapsed ? 'Copiloto IA' : undefined}
                 aria-current={activeTabId === 'copilot' ? 'page' : undefined}
-                className={`group relative flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${
+                className={`group relative flex items-center rounded-xl border text-xs font-semibold transition-colors ${
+                  collapsed ? 'mx-auto h-10 w-10 justify-center' : 'w-full justify-between px-3 py-2.5'
+                } ${
                   activeTabId === 'copilot'
                     ? 'border-gold-500/60 bg-gold-500/[0.16] text-slate-900 dark:text-gold-50'
                     : 'border-gold-500/30 bg-gold-500/[0.07] text-slate-800 dark:text-gold-100 hover:bg-gold-500/[0.12] hover:border-gold-500/50'
@@ -318,7 +342,9 @@ export function Sidebar({
                   onClick={() => toggleGroup(node.id)}
                   aria-expanded={isOpen}
                   title={collapsed ? node.label : undefined}
-                  className={`group relative flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors ${
+                  className={`group relative flex items-center rounded-xl text-xs font-semibold transition-colors ${
+                    collapsed ? 'mx-auto h-10 w-10 justify-center' : 'w-full justify-between px-3 py-2.5'
+                  } ${
                     hasActive
                       ? 'text-slate-900 dark:text-white'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-white'
@@ -339,7 +365,12 @@ export function Sidebar({
                     </span>
                   )}
                   {collapsed && hasActive && (
-                    <span className="absolute left-0 inset-y-2 w-1 rounded-r-full bg-gold-400" />
+                    <span className="absolute left-0 inset-y-2.5 w-1 rounded-r-full bg-gold-400" />
+                  )}
+                  {collapsed && groupBadge > 0 && (
+                    <span className="absolute -right-1 -top-1 min-w-[1rem] rounded-full bg-slate-500 px-1 text-center text-[9px] font-bold leading-4 text-white">
+                      {groupBadge > 99 ? '99+' : groupBadge}
+                    </span>
                   )}
                 </button>
 
@@ -362,33 +393,17 @@ export function Sidebar({
 
         </div>
 
-        {/* Collapse button (Desktop only) */}
-        <div className="hidden lg:flex items-center justify-between px-3 py-2 border-t border-slate-200/80 dark:border-white/[0.08]">
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="w-full flex items-center justify-center gap-2 p-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-            title={collapsed ? "Expandir Menu" : "Recolher (Modo de Foco Imersivo)"}
-          >
-            {collapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <>
-                <ChevronLeft className="h-4 w-4" />
-                <span className="text-[11px] font-medium">Modo Foco Imersivo</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* User profile footer */}
-        <div className="border-t border-slate-200/80 dark:border-white/[0.08] p-3">
+        {/* User profile footer: abre Configurações */}
+        <div className={`border-t border-slate-200/80 dark:border-white/[0.08] ${collapsed ? 'px-2 py-3' : 'p-3'}`}>
           <button
             type="button"
             onClick={handleOpenProfileModal}
-            className={`w-full flex items-center gap-3 rounded-2xl bg-slate-50 hover:bg-emerald-500/10 dark:bg-white/[0.03] dark:hover:bg-emerald-500/10 border border-slate-200/60 hover:border-emerald-500/30 dark:border-white/[0.05] dark:hover:border-emerald-500/30 p-2.5 transition-all text-left group cursor-pointer ${
-              collapsed ? 'justify-center p-2' : ''
+            className={`flex items-center rounded-2xl border transition-all text-left group cursor-pointer ${
+              collapsed
+                ? 'mx-auto justify-center border-transparent p-1 hover:border-gold-500/40'
+                : 'w-full gap-3 p-2.5 bg-slate-50 dark:bg-white/[0.03] border-slate-200/60 dark:border-white/[0.05] hover:bg-gold-500/[0.08] hover:border-gold-500/35'
             }`}
-            title="Editar meu perfil, foto e informações pessoais"
+            title="Configurações"
           >
             <Avatar
               src={currentUser?.avatar}
@@ -398,7 +413,7 @@ export function Sidebar({
             />
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <div className="truncate text-xs font-bold text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
+                <div className="truncate text-xs font-bold text-slate-900 dark:text-white group-hover:text-gold-600 dark:group-hover:text-gold-300 transition-colors">
                   {currentUser?.name || 'Dra. Helena Prado'}
                 </div>
                 <div className="truncate text-[10px] text-slate-500 dark:text-slate-400">

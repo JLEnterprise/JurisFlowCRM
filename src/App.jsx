@@ -105,17 +105,6 @@ export function App() {
 
   // Power-Ups Modals
   const [copilotInitialTab, setCopilotInitialTab] = useState('chat');
-  // Barra lateral escondida (desktop): lembrada entre sessões
-  const [sidebarHidden, setSidebarHidden] = useState(() => {
-    try { return window.localStorage.getItem('jurisflow_menu_oculto') === '1'; } catch { return false; }
-  });
-  const toggleSidebarHidden = () => {
-    setSidebarHidden(prev => {
-      const next = !prev;
-      try { window.localStorage.setItem('jurisflow_menu_oculto', next ? '1' : '0'); } catch { /* sem storage */ }
-      return next;
-    });
-  };
 
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
   const [whatsAppData, setWhatsAppData] = useState({});
@@ -512,7 +501,6 @@ export function App() {
         setCurrentTab={handleNavigate}
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
-        hidden={sidebarHidden}
         onOpenCopilot={handleOpenCopilotModal}
         onOpenProfile={() => handleNavigate('account')}
       />
@@ -528,8 +516,6 @@ export function App() {
           onOpenProfile={() => handleNavigate('account')}
           currentTab={currentTab}
           onNavigate={handleNavigate}
-          sidebarHidden={sidebarHidden}
-          onToggleSidebarHidden={toggleSidebarHidden}
         />
 
         {/* Dynamic Main Body with Smooth Scroll */}
