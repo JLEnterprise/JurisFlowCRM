@@ -132,7 +132,7 @@ export function LoginView() {
             <span className="h-1.5 w-1.5 rotate-45 bg-gold-400" />
             <span className="h-px w-12 bg-gradient-to-l from-transparent to-gold-500/70" />
           </div>
-          <p className="login-reveal text-[0.68rem] text-gold-200/70 mt-3 font-semibold uppercase tracking-[0.42em]" style={{ animationDelay: '0.6s' }}>
+          <p className="brand-lockup login-reveal text-[0.68rem] text-gold-200/70 mt-3 font-semibold uppercase tracking-[0.42em]" style={{ animationDelay: '0.6s' }}>
             CRM Jurídico
           </p>
 
