@@ -117,8 +117,8 @@ function gradient(id, color, { horizontal = false, fade = false } = {}) {
   );
 }
 
-export function DashboardCharts() {
-  const { leads, contracts, leadSources, legalAreas } = useCRM();
+export function DashboardCharts({ onNavigate }) {
+  const { leads, contracts, clients = [], proposals = [], leadSources, legalAreas } = useCRM();
   const { users } = useAuth();
   const { isDark } = useTheme();
   applyChartTheme(isDark);
@@ -187,9 +187,17 @@ export function DashboardCharts() {
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-      <Panel index={0} title="Funil de vendas" subtitle="Quantos leads chegaram a cada etapa e quantos por cento seguiram para a próxima"
+      <Panel index={0} title="Funil comercial" subtitle="Do lead recebido ao contrato fechado: quantos chegaram a cada etapa e quanto converteu"
         className="lg:col-span-2" height="h-auto">
-        {(play) => <SalesFunnel key={play} leads={safeLeads} />}
+        {(play) => (
+          <PremiumFunnel
+            key={play}
+            leads={safeLeads}
+            clients={Array.isArray(clients) ? clients.filter(Boolean) : []}
+            proposals={Array.isArray(proposals) ? proposals.filter(Boolean) : []}
+            onNavigate={onNavigate}
+          />
+        )}
       </Panel>
 
       <Panel index={1} title="Evolução de leads & fechamentos" subtitle="Leads captados e contratos fechados nos últimos 6 meses"
@@ -282,91 +290,209 @@ export function DashboardCharts() {
 
 /* ============================== Peças ============================== */
 
-// Funil de vendas de cima para baixo. Cada faixa mostra quantos leads CHEGARAM àquela etapa
-// (estão nela ou já passaram dela); o topo inclui também os perdidos, que entraram no funil.
-// À direita: % que seguiu da etapa anterior para esta e % sobre o total.
-function SalesFunnel({ leads }) {
-  const stages = KANBAN_STAGES.filter(s => s.id !== 'perdido').sort((a, b) => a.order - b.order);
-  const orderOf = Object.fromEntries(stages.map(s => [s.id, s.order]));
+// Funil comercial no estilo painel de BI: um funil contínuo desenhado em SVG (cores do tema:
+// dourado no escuro, azul no claro), com a conversão entre etapas e um painel lateral de leitura rápida.
+// Junta o que antes eram 8 quadradinhos (leads, atendimento, qualificados, propostas, negociação,
+// ganhos, clientes ativos, perdidos). Cada faixa conta os leads que CHEGARAM à etapa (estão nela ou além).
+const FUNNEL_GROUPS = [
+  { id: 'recebidos', label: 'Leads recebidos', hint: 'Entraram no funil', minOrder: 1 },
+  { id: 'atendimento', label: 'Em atendimento', hint: 'Primeiro contato feito', minOrder: 2 },
+  { id: 'qualificados', label: 'Qualificados', hint: 'Qualificação e consulta', minOrder: 3 },
+  { id: 'proposta', label: 'Proposta enviada', hint: 'Receberam proposta', minOrder: 5 },
+  { id: 'negociacao', label: 'Em negociação', hint: 'Negociação e contrato enviado', minOrder: 6 },
+  { id: 'ganhos', label: 'Contratos fechados', hint: 'Viraram clientes', minOrder: 8 },
+];
+const ROW_H = 58;
+const GAP = 5;
+
+function PremiumFunnel({ leads, clients, proposals, onNavigate }) {
+  const [hover, setHover] = useState(null);
+  const orderOf = Object.fromEntries(KANBAN_STAGES.map(s => [s.id, s.order]));
   const total = leads.length;
   const active = leads.filter(l => l.stage !== 'perdido');
   const lost = total - active.length;
+  const activeClients = clients.filter(c => c && c.status === 'active').length;
 
-  const rows = stages.map((s, i) => {
-    const reached = i === 0 ? total : active.filter(l => (orderOf[l.stage] || 1) >= s.order).length;
-    const here = leads.filter(l => l.stage === s.id).length;
-    return { ...s, reached, here };
+  const rows = FUNNEL_GROUPS.map((g, i) => {
+    const reached = i === 0 ? total : active.filter(l => (orderOf[l.stage] || 1) >= g.minOrder).length;
+    const nextMin = FUNNEL_GROUPS[i + 1]?.minOrder ?? 99;
+    const here = active.filter(l => {
+      const o = orderOf[l.stage] || 1;
+      return o >= g.minOrder && o < nextMin;
+    }).length;
+    return { ...g, reached, here };
+  });
+  rows.forEach((r, i) => {
+    r.step = i === 0 ? null : rows[i - 1].reached ? Math.round((r.reached / rows[i - 1].reached) * 100) : 0;
+    r.ofTotal = total ? Math.round((r.reached / total) * 100) : 0;
   });
 
   if (total === 0) return <EmptyChart />;
 
-  const MIN = 16; // largura mínima (%) para a faixa de baixo continuar legível
-  const widthOf = (n) => MIN + (100 - MIN) * (n / total);
   const won = rows[rows.length - 1].reached;
+  const conversion = total ? (won / total) * 100 : 0;
+  // Maior queda entre duas etapas (onde o funil mais perde gente)
+  const drops = rows.slice(1).map((r, i) => ({ from: rows[i], to: r, lostN: rows[i].reached - r.reached }));
+  const worst = drops.reduce((a, b) => (b.lostN > (a?.lostN ?? 0) ? b : a), null);
+
+  // Geometria do SVG (coordenadas 0–1000 na largura; a altura acompanha as faixas)
+  const W = 1000;
+  const H = rows.length * ROW_H;
+  const MIN = 0.2;
+  const widthOf = (n) => W * (MIN + (1 - MIN) * (n / total));
+  const cx = W / 2;
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap gap-x-8 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
-        <span><span className="font-numeric text-base font-semibold text-slate-900 dark:text-white">{total}</span> leads no funil</span>
-        <span><span className="font-numeric text-base font-semibold text-emerald-600 dark:text-emerald-400">{won}</span> viraram contrato</span>
-        <span><span className="font-numeric text-base font-semibold text-slate-900 dark:text-white">{total ? Math.round((won / total) * 100) : 0}%</span> de conversão total</span>
-        {lost > 0 && <span><span className="font-numeric text-base font-semibold text-rose-600 dark:text-rose-400">{lost}</span> perdidos</span>}
-      </div>
-
-      <div className="space-y-[3px]">
-        {rows.map((r, i) => {
-          const next = rows[i + 1];
-          const top = widthOf(r.reached);
-          const bottom = next ? widthOf(next.reached) : top * 0.86;
-          const inset = ((top - bottom) / 2 / top) * 100; // afunila até a largura da faixa seguinte
-          const isLast = i === rows.length - 1;
-          const step = i === 0 ? null : rows[i - 1].reached ? Math.round((r.reached / rows[i - 1].reached) * 100) : 0;
-          const ofTotal = Math.round((r.reached / total) * 100);
-          const color = isLast ? STATUS.good : PALETTE[0];
-          const shade = isLast ? 1 : 1 - (i / rows.length) * 0.45;
-
-          return (
-            <div key={r.id} className="group grid grid-cols-[7.5rem_1fr_6.5rem] items-center gap-3 sm:grid-cols-[9.5rem_1fr_8rem]">
-              <div className="truncate text-right text-xs font-medium text-slate-600 dark:text-slate-300" title={r.name}>
-                {r.name}
-              </div>
-
-              <div className="relative h-9">
-                <div
-                  className="funnel-band absolute inset-y-0 left-1/2 flex items-center justify-center transition-[filter] duration-200 group-hover:brightness-110"
-                  style={{
-                    width: `${top}%`,
-                    transform: 'translateX(-50%)',
-                    clipPath: `polygon(0 0, 100% 0, ${100 - inset}% 100%, ${inset}% 100%)`,
-                    background: `linear-gradient(90deg, ${color}, ${BRIGHT[color] || color} 50%, ${color})`,
-                    opacity: shade,
-                    animationDelay: `${i * 70}ms`,
-                  }}
-                  title={`${r.name}: ${r.reached} chegaram · ${r.here} estão nesta etapa agora`}
-                >
-                  <span className="font-numeric text-sm font-bold text-white drop-shadow-[0_1px_1px_rgb(0_0_0_/_0.35)]">{r.reached}</span>
-                </div>
-              </div>
-
-              <div className="text-xs">
-                {step === null ? (
-                  <span className="text-slate-400">entrada · 100%</span>
-                ) : (
-                  <>
-                    <span className={`font-numeric font-semibold ${step >= 50 ? 'text-emerald-600 dark:text-emerald-400' : step >= 25 ? 'text-slate-800 dark:text-slate-100' : 'text-rose-600 dark:text-rose-400'}`}>
-                      ↓ {step}%
-                    </span>
-                    <span className="ml-1.5 text-slate-400">{ofTotal}% do total</span>
-                  </>
-                )}
-              </div>
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_16rem]">
+      {/* Funil */}
+      <div className="grid grid-cols-[8.5rem_1fr_6.5rem] gap-x-3 sm:grid-cols-[10rem_1fr_7.5rem]">
+        {/* Rótulos à esquerda */}
+        <div>
+          {rows.map((r, i) => (
+            <div key={r.id} style={{ height: ROW_H }} className={`flex flex-col justify-center pr-1 text-right transition-opacity ${hover !== null && hover !== i ? 'opacity-50' : ''}`}>
+              <span className="text-[13px] font-semibold leading-tight text-slate-800 dark:text-slate-100">{r.label}</span>
+              <span className="text-[10px] text-slate-400">{r.hint}</span>
             </div>
-          );
-        })}
+          ))}
+        </div>
+
+        {/* Desenho */}
+        <div className="relative" style={{ height: H }}>
+          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
+            <defs>
+              {rows.map((r, i) => {
+                const last = i === rows.length - 1;
+                const t = i / (rows.length - 1);
+                return (
+                  <linearGradient key={r.id} id={`pf-${r.id}`} x1="0" x2="1" y1="0" y2="0">
+                    <stop offset="0%" style={{ stopColor: last ? '#1f8a63' : `rgb(var(--gold-${t > 0.6 ? 700 : 600}))` }} />
+                    <stop offset="50%" style={{ stopColor: last ? '#3fcf97' : `rgb(var(--gold-${t > 0.6 ? 400 : 300}))` }} />
+                    <stop offset="100%" style={{ stopColor: last ? '#1f8a63' : `rgb(var(--gold-${t > 0.6 ? 700 : 600}))` }} />
+                  </linearGradient>
+                );
+              })}
+              <linearGradient id="pf-gloss" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="#fff" stopOpacity="0.35" />
+                <stop offset="45%" stopColor="#fff" stopOpacity="0.06" />
+                <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {rows.map((r, i) => {
+              const top = widthOf(r.reached);
+              const next = rows[i + 1];
+              const bottom = next ? widthOf(next.reached) : top * 0.82;
+              const y = i * ROW_H;
+              const h = ROW_H - GAP;
+              const d = `M ${cx - top / 2} ${y} L ${cx + top / 2} ${y} L ${cx + bottom / 2} ${y + h} L ${cx - bottom / 2} ${y + h} Z`;
+              return (
+                <g
+                  key={r.id}
+                  className="funnel-seg"
+                  style={{ animationDelay: `${i * 80}ms`, opacity: hover !== null && hover !== i ? 0.45 : 1 }}
+                >
+                  <path d={d} fill={`url(#pf-${r.id})`} />
+                  <path d={d} fill="url(#pf-gloss)" />
+                  <path d={`M ${cx - top / 2} ${y + 0.5} L ${cx + top / 2} ${y + 0.5}`} stroke="#fff" strokeOpacity="0.45" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                </g>
+              );
+            })}
+          </svg>
+
+          {/* Números e área de hover por cima do desenho */}
+          {rows.map((r, i) => (
+            <button
+              key={r.id}
+              type="button"
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+              onFocus={() => setHover(i)}
+              onBlur={() => setHover(null)}
+              onClick={() => onNavigate && onNavigate(i === rows.length - 1 ? 'contracts' : 'kanban')}
+              className="absolute inset-x-0 flex items-center justify-center focus:outline-none"
+              style={{ top: i * ROW_H, height: ROW_H - GAP }}
+              aria-label={`${r.label}: ${r.reached} leads`}
+            >
+              <span className="font-numeric text-lg font-bold leading-none text-white drop-shadow-[0_1px_2px_rgb(0_0_0_/_0.45)]">
+                {r.reached}
+              </span>
+              {hover === i && (
+                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 w-56 -translate-x-1/2 rounded-xl border border-gold-500/30 bg-white/95 px-3 py-2 text-left text-xs shadow-xl backdrop-blur dark:bg-[#0b1220]/95">
+                  <span className="block font-semibold text-slate-900 dark:text-white">{r.label}</span>
+                  <span className="mt-1 flex justify-between text-slate-500 dark:text-slate-400"><span>Chegaram aqui</span><b className="font-numeric text-slate-900 dark:text-white">{r.reached}</b></span>
+                  <span className="flex justify-between text-slate-500 dark:text-slate-400"><span>Parados nesta etapa</span><b className="font-numeric text-slate-900 dark:text-white">{r.here}</b></span>
+                  <span className="flex justify-between text-slate-500 dark:text-slate-400"><span>Do total recebido</span><b className="font-numeric text-slate-900 dark:text-white">{r.ofTotal}%</b></span>
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Conversão à direita */}
+        <div>
+          {rows.map((r, i) => (
+            <div key={r.id} style={{ height: ROW_H }} className={`flex flex-col justify-center transition-opacity ${hover !== null && hover !== i ? 'opacity-50' : ''}`}>
+              {r.step === null ? (
+                <span className="text-[11px] text-slate-400">entrada</span>
+              ) : (
+                <span className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 font-numeric text-[11px] font-bold ring-1 ring-inset ${
+                  r.step >= 60 ? 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/25 dark:text-emerald-300'
+                    : r.step >= 30 ? 'bg-gold-500/10 text-gold-800 ring-gold-500/25 dark:text-gold-200'
+                    : 'bg-rose-500/10 text-rose-700 ring-rose-500/25 dark:text-rose-300'
+                }`}>
+                  ▼ {r.step}%
+                </span>
+              )}
+              <span className="mt-0.5 font-numeric text-[10px] text-slate-400">{r.ofTotal}% do total</span>
+            </div>
+          ))}
+        </div>
       </div>
-      <p className="mt-3 text-[11px] text-slate-400">
-        ↓ = quantos por cento dos leads da etapa de cima chegaram a esta. Passe o mouse numa faixa para ver quantos estão parados nela.
-      </p>
+
+      {/* Leitura rápida */}
+      <div className="flex flex-col gap-3">
+        <div className="rounded-2xl border border-gold-500/25 bg-gold-500/[0.05] p-4">
+          <div className="font-label text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-700 dark:text-gold-300">Conversão total</div>
+          <div className="mt-2 flex items-center gap-3">
+            <svg viewBox="0 0 36 36" className="h-14 w-14 -rotate-90" aria-hidden="true">
+              <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3.5" className="stroke-slate-200 dark:stroke-white/10" />
+              <circle
+                cx="18" cy="18" r="15.5" fill="none" strokeWidth="3.5" strokeLinecap="round"
+                style={{ stroke: 'rgb(var(--gold-500))', strokeDasharray: `${(conversion / 100) * 97.4} 97.4` }}
+              />
+            </svg>
+            <div>
+              <div className="font-numeric text-2xl font-semibold text-slate-900 dark:text-white">{conversion.toFixed(1)}%</div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">{won} de {total} viraram contrato</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button type="button" onClick={() => onNavigate && onNavigate('clients')} className="rounded-2xl border border-slate-200 p-3 text-left transition-colors hover:border-gold-500/40 dark:border-white/[0.08]">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Clientes ativos</div>
+            <div className="mt-1 font-numeric text-xl font-semibold text-slate-900 dark:text-white">{activeClients}</div>
+          </button>
+          <button type="button" onClick={() => onNavigate && onNavigate('kanban')} className="rounded-2xl border border-slate-200 p-3 text-left transition-colors hover:border-rose-500/40 dark:border-white/[0.08]">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Perdidos</div>
+            <div className="mt-1 font-numeric text-xl font-semibold text-rose-600 dark:text-rose-400">{lost}</div>
+            <div className="text-[10px] text-slate-400">{total ? Math.round((lost / total) * 100) : 0}% do total</div>
+          </button>
+          <button type="button" onClick={() => onNavigate && onNavigate('proposals')} className="col-span-2 flex items-center justify-between rounded-2xl border border-slate-200 p-3 text-left transition-colors hover:border-gold-500/40 dark:border-white/[0.08]">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Propostas emitidas</span>
+            <span className="font-numeric text-xl font-semibold text-slate-900 dark:text-white">{proposals.length}</span>
+          </button>
+        </div>
+
+        {worst && worst.lostN > 0 && (
+          <div className="rounded-2xl border border-rose-500/25 bg-rose-500/[0.05] p-3 text-xs text-slate-600 dark:text-slate-300">
+            <div className="font-label text-[10px] font-semibold uppercase tracking-[0.16em] text-rose-600 dark:text-rose-400">Maior perda</div>
+            <p className="mt-1 leading-snug">
+              De <b>{worst.from.label}</b> para <b>{worst.to.label}</b>: saem <b className="font-numeric">{worst.lostN}</b> leads
+              ({100 - (worst.to.step ?? 0)}%). Vale olhar essa etapa primeiro.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

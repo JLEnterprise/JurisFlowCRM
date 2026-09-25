@@ -406,9 +406,15 @@
   stroke: rgb(var(--accent-rgb) / 0.6) !important;
 }
 
-/* Funil de vendas do Dashboard: cada faixa abre do centro, em sequência */
+/* Funil comercial do Dashboard: cada faixa abre do centro, em sequência */
 .funnel-band {
   animation: funnel-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.funnel-seg {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity 0.2s ease;
+  animation: funnel-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes funnel-in {
   from { scale: 0.15 1; filter: saturate(0.6); }

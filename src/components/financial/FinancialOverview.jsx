@@ -25,6 +25,7 @@ import {
   ChevronRight,
   UserCheck,
   Sparkles,
+  Repeat,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -518,6 +519,15 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                       </td>
 
                       <td className="px-4 py-3">
+                        {inst.recurring ? (
+                          <>
+                            <div className="inline-flex items-center gap-1 font-numeric text-xs font-semibold text-slate-700 dark:text-slate-200">
+                              <Repeat className="h-3 w-3 text-gold-600 dark:text-gold-400" /> Mensalidade {number}
+                            </div>
+                            <div className="text-[10px] text-slate-400">{inst.totalInstallments ? `de ${inst.totalInstallments} · recorrente` : 'recorrente'}</div>
+                          </>
+                        ) : (
+                        <>
                         <div className="font-numeric text-xs font-semibold text-slate-700 dark:text-slate-200">{number} de {total}</div>
                         <div className="mt-1 flex h-1 w-16 gap-[2px]">
                           {Array.from({ length: Math.min(total, 12) }).map((_, n) => (
@@ -527,6 +537,8 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                             />
                           ))}
                         </div>
+                        </>
+                        )}
                       </td>
 
                       <td className="px-4 py-3">

@@ -420,7 +420,9 @@ export function ClientPaymentHistory({ clientKey, onBack, onOpenWhatsApp, onOpen
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-2">
                           <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                            Parcela {instNumber(inst)} de {instTotal(inst)}
+                            {inst.recurring
+                              ? `Mensalidade ${instNumber(inst)}${inst.totalInstallments ? ` de ${inst.totalInstallments}` : ''}`
+                              : `Parcela ${instNumber(inst)} de ${instTotal(inst)}`}
                           </span>
                           <span className="text-xs text-slate-400">venc. {fmtDay(due)}</span>
                         </div>

@@ -69,18 +69,6 @@ export function DashboardStats({ onNavigate }) {
 
   const pendingCount = safeInstallments.filter(i => i && i.status === 'pending').length;
 
-  // Fluxo operacional: número em branco/grafite; verde e vermelho só para ganho e perda (status)
-  const flow = [
-    { label: 'Leads totais', value: leadsReceived, hint: 'Recebidos', tab: 'kanban' },
-    { label: 'Em atendimento', value: leadsInAttendance, hint: 'Triagem inicial', tab: 'kanban' },
-    { label: 'Qualificados', value: leadsQualified, hint: 'Em consulta', tab: 'kanban' },
-    { label: 'Propostas', value: proposalsSent, hint: 'Enviadas', tab: 'proposals' },
-    { label: 'Em negociação', value: contractsInNegotiation, hint: 'Aguardando', tab: 'kanban' },
-    { label: 'Contratos ganhos', value: contractsClosed, hint: 'Assinados', tab: 'contracts', tone: 'good' },
-    { label: 'Clientes ativos', value: activeClients, hint: 'Na base', tab: 'clients' },
-    { label: 'Perdidos', value: lostLeads, hint: 'Não fechados', tab: 'kanban', tone: 'bad' },
-  ];
-
   const SectionTitle = ({ icon: Icon, children, aside }) => (
     <div className="mb-3 flex items-center justify-between gap-3">
       <h2 className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
@@ -151,30 +139,8 @@ export function DashboardStats({ onNavigate }) {
         />
       </div>
 
-      {/* Fluxo operacional de leads e clientes */}
-      <div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-          {flow.map(item => (
-            <button
-              key={item.label}
-              type="button"
-              onClick={() => onNavigate(item.tab)}
-              className="dash-panel has-orbit !p-3.5 text-center transition-all hover:-translate-y-0.5 focus:outline-none"
-            >
-              <CometOrbit className="card-orbit" />
-              <div className="text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{item.label}</div>
-              <div className={`font-numeric mt-1.5 text-2xl font-semibold ${
-                item.tone === 'good' ? 'text-emerald-600 dark:text-emerald-400'
-                  : item.tone === 'bad' ? 'text-rose-600 dark:text-rose-400'
-                  : 'text-slate-900 dark:text-white'
-              }`}>
-                {item.value}
-              </div>
-              <div className="mt-1 text-[10px] text-gold-700/80 dark:text-gold-300/60">{item.hint}</div>
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* O fluxo de leads (recebidos → atendimento → qualificados → proposta → negociação → ganhos,
+          clientes ativos e perdidos) agora fica no "Funil comercial" do DashboardCharts */}
     </div>
   );
 }

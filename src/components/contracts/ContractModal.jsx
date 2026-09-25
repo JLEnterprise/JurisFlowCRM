@@ -7,6 +7,8 @@ import { readFileAsDataUrl, formatFileSize, getFileTypeInfo, downloadAttachment,
 import { UploadCloud, FileText, X, Download, Eye, Paperclip, Sparkles, ShieldCheck, RefreshCw } from 'lucide-react';
 import { generateContractWithAdvJuris } from '../../services/aiService';
 import { Select } from '../common/Select';
+import { PaymentPlanPicker } from './PaymentPlanPicker';
+import { normalizePlan } from '../../utils/paymentPlan';
 
 export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillData = null }) {
   const { contracts = [], addContract, updateContract, clients = [], legalAreas = [], showToast } = useCRM();
@@ -166,18 +168,20 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.clientName || !formData.value) {
-      alert('Por favor, informe o cliente e o valor do contrato.');
+    // Valor, nº de parcelas e 1º vencimento saem do plano (no mensal: mensalidade × meses do ciclo)
+    const plan = normalizePlan(formData);
+    if (!formData.clientName || !plan.value) {
+      alert(plan.paymentType === 'recorrente'
+        ? 'Por favor, informe o cliente e o valor da mensalidade.'
+        : 'Por favor, informe o cliente e o valor do contrato.');
       return;
     }
 
     const lawyer = users.find(u => u.id === formData.responsibleLawyerId);
     const finalData = {
       ...formData,
+      ...plan,
       responsibleLawyerName: lawyer ? lawyer.name : 'Advogado Responsável',
-      value: Number(formData.value) || 0,
-      installmentsCount: Number(formData.installmentsCount) || 1,
-      installmentValue: (Number(formData.value) || 0) / (Number(formData.installmentsCount) || 1),
       attachments: Array.isArray(formData.attachments) ? formData.attachments : [],
     };
 
@@ -280,54 +284,31 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
           </div>
         </div>
 
-        {/* Row 3: Valores & Pagamento */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Valor Total dos Honorários (R$) *
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.value}
-              onChange={(e) => setFormData(prev => ({ ...prev, value: e.target.value }))}
-              placeholder="0.00"
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Forma de Pagamento
-            </label>
-            <Select
-              value={formData.paymentMethod}
-              onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
-            >
-              <option value="À Vista (PIX / TED)">À Vista (PIX / TED)</option>
-              <option value="Parcelado (Boleto / PIX)">Parcelado (Boleto / PIX)</option>
-              <option value="Cartão de Crédito">Cartão de Crédito</option>
-              <option value="Êxito / Quota Litis">Êxito / Quota Litis</option>
-              <option value="Misto (Entrada + Êxito)">Misto (Entrada + Êxito)</option>
-            </Select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Nº de Parcelas
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="60"
-              value={formData.installmentsCount}
-              onChange={(e) => setFormData(prev => ({ ...prev, installmentsCount: e.target.value }))}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
-            />
-          </div>
-        </div>
+        {/* Row 3: Plano de pagamento (parcelado ou mensal recorrente) & forma */}
+        <PaymentPlanPicker
+          plan={formData}
+          onChange={(partial) => setFormData(prev => ({ ...prev, ...partial }))}
+          paymentMethodField={(
+            <div className="sm:w-1/3">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Forma de Pagamento
+              </label>
+              <Select
+                value={formData.paymentMethod}
+                onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
+              >
+                <option value="À Vista (PIX / TED)">À Vista (PIX / TED)</option>
+                <option value="Parcelado (Boleto / PIX)">Parcelado (Boleto / PIX)</option>
+                <option value="Mensalidade (Boleto / PIX)">Mensalidade (Boleto / PIX)</option>
+                <option value="Débito Automático">Débito Automático</option>
+                <option value="Cartão de Crédito">Cartão de Crédito</option>
+                <option value="Êxito / Quota Litis">Êxito / Quota Litis</option>
+                <option value="Misto (Entrada + Êxito)">Misto (Entrada + Êxito)</option>
+              </Select>
+            </div>
+          )}
+        />
 
         {/* Row 4: Objeto do Contrato */}
         <div>

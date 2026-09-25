@@ -353,7 +353,7 @@ export function App() {
         return (
           <div className="space-y-6">
             <DashboardStats onNavigate={handleNavigate} />
-            <DashboardCharts />
+            <DashboardCharts onNavigate={handleNavigate} />
           </div>
         );
 
@@ -479,7 +479,7 @@ export function App() {
         return (
           <div className="space-y-6">
             <DashboardStats onNavigate={handleNavigate} />
-            <DashboardCharts />
+            <DashboardCharts onNavigate={handleNavigate} />
           </div>
         );
     }
