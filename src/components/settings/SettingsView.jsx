@@ -195,27 +195,8 @@ export function SettingsView() {
     <div className="space-y-6 animate-fade-in pb-12 max-w-5xl">
       {/* Header */}
       <div className="rounded-3xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-              <Settings className="w-5 h-5 text-brand-500" />
-              Configurações Gerais & Parâmetros do Sistema
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Gerencie a identidade visual da sua banca, inteligência artificial, canais de captação e regras institucionais
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              JurisFlow v1.0.0
-            </span>
-          </div>
-        </div>
-
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 mt-6 border-b border-slate-100 dark:border-slate-800 overflow-x-auto pb-1">
+        <div className="flex items-center gap-1 border-b border-slate-100 dark:border-slate-800 overflow-x-auto pb-1">
           {availableTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;

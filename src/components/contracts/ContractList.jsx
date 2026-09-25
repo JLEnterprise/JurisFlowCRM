@@ -147,16 +147,7 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top Actions & Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            <FileText className="h-6 w-6 text-brand-600 dark:text-gold-400" />
-            Contratos & Minutas Jurídicas
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Gestão estratégica de honorários, minutas, laudas e arquivos anexados (.pdf, .docx, .doc).
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
 
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
           {/* Botão de Anexar Arquivos PDF/Word */}

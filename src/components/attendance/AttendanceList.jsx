@@ -85,16 +85,7 @@ export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            <Headphones className="h-6 w-6 text-brand-600 dark:text-gold-400" />
-            Atendimentos & Contatos Comerciais
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Histórico completo de interações, ligações, reuniões e alinhamentos por cliente.
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
 
         <button
           onClick={onOpenNewAttendance}

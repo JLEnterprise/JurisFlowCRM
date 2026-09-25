@@ -142,16 +142,7 @@ export function TaskList({ onOpenNewTask, onEditTask }) {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top action header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            <CheckSquare className="h-6 w-6 text-brand-600 dark:text-gold-400" />
-            Tarefas, Prazos & Follow-ups
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Controle rigoroso de prazos processuais, petições, diligências e tipos personalizados de tarefas.
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
 
         <div className="flex items-center gap-2.5">
           {/* Botão para Criar Tarefa Personalizada Direta */}

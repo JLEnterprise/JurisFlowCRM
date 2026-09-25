@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useCRM } from '../../context/CRMContext';
 import { NotificationCenter } from './NotificationCenter';
+import { PeriodFilter } from '../common/PeriodFilter';
 import { Avatar } from '../common/Avatar';
 import { UserProfileModal } from '../common/UserProfileModal';
 
@@ -35,7 +36,7 @@ export function Header({
 }) {
   const { currentUser, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
-  const { periodFilter, setPeriodFilter, currentEscritorio, escritorios = [], switchEscritorio, currentEscritorioId, officeSettings } = useCRM();
+  const { currentEscritorio, escritorios = [], switchEscritorio, currentEscritorioId, officeSettings } = useCRM();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [localProfileModalOpen, setLocalProfileModalOpen] = useState(false);
   const userMenuRef = useRef(null);
@@ -88,15 +89,6 @@ export function Header({
   const titleToDisplay = currentViewTitle || tabTitles[currentTab] || 'Dashboard Executivo';
   const todayLabel = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  const periodOptions = [
-    { id: 'today', label: 'Hoje' },
-    { id: '7d', label: 'Últimos 7 dias' },
-    { id: '30d', label: 'Últimos 30 dias' },
-    { id: '90d', label: 'Últimos 90 dias' },
-    { id: '12m', label: 'Últimos 12 meses' },
-    { id: 'all', label: 'Todo o Período' },
-  ];
-
   const roleLabels = {
     dev: 'Dev / TI (Infra & Engenharia)',
     admin: 'Sócia Administradora',
@@ -109,8 +101,8 @@ export function Header({
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-white/90 dark:bg-[#0b0f17]/90 px-4 sm:px-6 backdrop-blur-xl transition-colors">
-      {/* Esquerda: menu (celular) e título da tela */}
+    <header className="app-header sticky top-0 z-30 flex h-[4.5rem] w-full items-center justify-between gap-4 bg-white/95 dark:bg-[#070b14]/95 px-4 sm:px-6 lg:px-8 backdrop-blur-xl transition-colors">
+      {/* Esquerda: menu (celular) e título da tela, em estilo editorial */}
       <div className="flex min-w-0 items-center gap-3">
         <button
           onClick={toggleSidebarFn}
@@ -121,25 +113,26 @@ export function Header({
         </button>
 
         <div className="min-w-0">
-          <h1 className="truncate text-lg sm:text-xl text-slate-900 dark:text-white leading-tight">
-            {titleToDisplay}
-          </h1>
-          <p className="hidden sm:block text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 first-letter:uppercase">
+          <p className="hidden sm:flex items-center gap-2 text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-gold-700/80 dark:text-gold-300/60">
+            <span className="h-1 w-1 rotate-45 bg-gold-500/70" aria-hidden="true" />
             {todayLabel}
           </p>
+          <h1 className="truncate text-xl sm:text-[1.6rem] text-slate-900 dark:text-white leading-tight sm:mt-0.5">
+            {titleToDisplay}
+          </h1>
         </div>
       </div>
 
-      {/* Direita: busca, ações e perfil */}
-      <div className="flex items-center gap-1.5 sm:gap-2">
+      {/* Direita: busca, período, ações e perfil */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
         {/* Busca global */}
         <button
           onClick={onOpenSearch}
-          className="hidden md:flex w-56 lg:w-72 items-center gap-2 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] px-3 py-2 text-xs text-slate-400 hover:border-gold-500/40 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+          className="hidden md:flex w-52 lg:w-64 items-center gap-2 rounded-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.07] px-4 py-2 text-xs text-slate-400 hover:border-gold-500/40 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
         >
           <Search className="h-3.5 w-3.5 shrink-0" />
           <span className="flex-1 truncate text-left">Buscar clientes, processos...</span>
-          <kbd className="rounded-md bg-white dark:bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 border border-slate-200 dark:border-white/10">
+          <kbd className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 border border-slate-200 dark:border-white/10">
             Ctrl K
           </kbd>
         </button>
@@ -147,25 +140,11 @@ export function Header({
           <Search className="h-[18px] w-[18px]" />
         </button>
 
-        {/* Filtro de período */}
-        <div className="hidden xl:flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] px-2.5 py-2 text-xs">
-          <Calendar className="h-3.5 w-3.5 text-slate-400" />
-          <select
-            value={periodFilter || '30d'}
-            onChange={(e) => setPeriodFilter(e.target.value)}
-            className="bg-transparent text-slate-600 dark:text-slate-300 focus:outline-none font-medium cursor-pointer text-xs"
-            aria-label="Período dos indicadores"
-          >
-            {periodOptions.map(opt => (
-              <option key={opt.id} value={opt.id} className="dark:bg-[#111827] dark:text-white">
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Filtro de período (vale para o funil e as listas) */}
+        <PeriodFilter className="hidden lg:block" />
 
         {/* Ações rápidas: mesmo estilo discreto, a cor aparece só no hover */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 sm:rounded-full sm:border sm:border-slate-200 sm:dark:border-white/[0.07] sm:px-1 sm:py-0.5">
           {onOpenCopilot && (
             <button
               onClick={() => onOpenCopilot('chat')}

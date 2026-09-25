@@ -512,7 +512,8 @@ export function CRMProvider({ children }) {
   }, []);
 
   // Global filters & UI state
-  const [periodFilter, setPeriodFilter] = useState('30d');
+  // Filtro de período global (ver utils/period.js). Começa em "todo o período" para nada sumir sem querer.
+  const [periodFilter, setPeriodFilter] = useState('all');
   const [toast, setToast] = useState(null);
 
   // Sync state to localStorage SOMENTE — o Supabase é atualizado diretamente e exclusivamente pelas actions CRUD.
@@ -685,7 +686,12 @@ export function CRMProvider({ children }) {
     showToast('Lead atualizado com sucesso!');
   };
 
-  const moveLeadStage = (leadId, newStage, newSubStage = null) => {
+  // extra: string (subetapa, legado) ou objeto { subStage, lossReason }
+  const moveLeadStage = (leadId, newStage, extra = null) => {
+    const { subStage: newSubStage = null, lossReason } =
+      typeof extra === 'string' ? { subStage: extra } : (extra || {});
+    const today = new Date().toISOString().split('T')[0];
+    const isClosedStage = newStage === 'contrato_fechado' || newStage === 'perdido';
     let updatedLead = null;
     setLeads(prev => {
       const lead = prev.find(l => l.id === leadId);
@@ -695,7 +701,10 @@ export function CRMProvider({ children }) {
             ...l,
             stage: newStage,
             subStage: newSubStage || l.subStage,
-            lastContactDate: new Date().toISOString().split('T')[0],
+            lastContactDate: today,
+            // Data em que o lead foi ganho/perdido: base dos relatórios por período
+            closedAt: isClosedStage ? (l.stage === newStage && l.closedAt ? l.closedAt : today) : null,
+            lossReason: newStage === 'perdido' ? (lossReason ?? l.lossReason ?? '') : '',
             escritorio_id: currentEscritorioId
           };
           return updatedLead;
@@ -1263,9 +1272,9 @@ export function CRMProvider({ children }) {
       storageService.saveToSupabase('installments', installmentsToSave);
     }
 
-    // 4. Mover lead para contrato_assinado se leadId existir
+    // 4. Mover lead para a etapa de ganho (vai para "Leads Ganhos")
     if (leadId) {
-      moveLeadStage(leadId, 'contrato_assinado');
+      moveLeadStage(leadId, 'contrato_fechado');
     }
 
     logActivity('Fechamento de Negócio', contract.title, `Cliente: ${contract.clientName} | Valor: R$ ${contractValue.toLocaleString('pt-BR')}`);

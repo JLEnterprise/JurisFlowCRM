@@ -63,36 +63,6 @@ export function ActivityLogsView() {
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
-      {/* 1. Header de Conformidade LGPD e Auditoria */}
-      <div className="rounded-3xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
-                  Segurança, LGPD & Infraestrutura de Dados
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                  Exclusivo Dev / TI & Sócia Administradora
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Central unificada de monitoramento da nuvem Supabase, criptografia e trilha de auditoria (Lei 13.709/2018)
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-xs font-bold border border-emerald-500/20 shadow-xs">
-              <Lock className="h-3.5 w-3.5" /> TLS 1.3 / AES-256 Ativo
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* 2. CARD EXCLUSIVO SUPABASE CLOUD DATABASE (Centralizado e Didático) */}
       <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-navy-950 to-slate-950 p-6 border border-emerald-500/30 shadow-xl text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>

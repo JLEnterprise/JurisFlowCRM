@@ -252,16 +252,7 @@ export function DocumentManager() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top action header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            <FolderLock className="h-6 w-6 text-brand-600 dark:text-gold-400" />
-            Documentos & GED Jurídico
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Gestão Eletrônica de Documentos com suporte total a PDF e Word, criptografia e controle de acesso LGPD.
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
 
         <button
           onClick={openUploadModal}

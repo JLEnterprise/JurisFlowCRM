@@ -107,16 +107,7 @@ export function ReportsView() {
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       {/* Header & Export Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
-        <div>
-          <h2 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-            Central de Relatórios & Inteligência de Negócios
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Geração de relatórios executivos com exportação em múltiplos formatos (PDF, Excel, CSV)
-          </p>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
 
         <div className="flex items-center gap-2">
           <button

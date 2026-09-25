@@ -315,16 +315,7 @@ export function TeamView() {
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       {/* Header & Stats Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
-        <div>
-          <h2 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            <UserCog className="h-5 w-5 text-brand-600 dark:text-gold-400" />
-            Gestão de Equipe & Múltiplos Cargos
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Atribua múltiplos cargos, especialidades jurídicas e permissões de acesso simultâneas para cada funcionário
-          </p>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
 
         <div className="flex items-center gap-2">
           <button

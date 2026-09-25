@@ -13,7 +13,6 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { DashboardStats } from './components/dashboard/DashboardStats';
 import { DashboardCharts } from './components/dashboard/DashboardCharts';
 import { KanbanBoard } from './components/leads/KanbanBoard';
-import { LeadList } from './components/leads/LeadList';
 import { LeadModal } from './components/leads/LeadModal';
 
 import { ClientList } from './components/clients/ClientList';
@@ -68,7 +67,6 @@ export function App() {
   const [selectedContractId, setSelectedContractId] = useState(null);
 
   // Lead view mode (kanban vs list)
-  const [leadViewMode, setLeadViewMode] = useState('kanban');
 
   // Modals state
   const [leadModalOpen, setLeadModalOpen] = useState(false);
@@ -349,26 +347,13 @@ export function App() {
 
       case 'kanban':
       case 'leads':
+        // Funil: Kanban, Lista por etapa e planilhas de Ganhos/Perdidos (troca de visão dentro do componente)
         return (
-          <div className="space-y-4">
-            {leadViewMode === 'kanban' ? (
-              <KanbanBoard
-                onOpenNewLead={handleOpenNewLead}
-                onEditLead={handleEditLead}
-                onCloseContract={handleCloseContractFromLead}
-                onToggleView={() => setLeadViewMode('list')}
-                leadViewMode={leadViewMode}
-              />
-            ) : (
-              <LeadList
-                onOpenNewLead={handleOpenNewLead}
-                onEditLead={handleEditLead}
-                onCloseContract={handleCloseContractFromLead}
-                onToggleView={() => setLeadViewMode('kanban')}
-                leadViewMode={leadViewMode}
-              />
-            )}
-          </div>
+          <KanbanBoard
+            onOpenNewLead={handleOpenNewLead}
+            onEditLead={handleEditLead}
+            onCloseContract={handleCloseContractFromLead}
+          />
         );
 
       case 'clients':

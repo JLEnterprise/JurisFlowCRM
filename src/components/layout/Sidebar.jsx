@@ -103,7 +103,7 @@ export function Sidebar({
         }`}
       >
         {/* Logo & Executive Brand Header */}
-        <div className="flex h-16 items-center justify-between px-4 border-b border-slate-200/80 dark:border-white/[0.08]">
+        <div className="flex h-[4.5rem] shrink-0 items-center justify-between px-4 border-b border-slate-200/80 dark:border-white/[0.08]">
           <button
             onClick={() => handleNavClick('dashboard')}
             className="flex items-center gap-3 text-left focus:outline-none group overflow-hidden"
