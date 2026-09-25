@@ -261,6 +261,29 @@ export function Sidebar({
 
         {/* Navigation Items */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
+          {/* Copiloto IA: o destaque do sistema, sempre em primeiro */}
+          {onOpenCopilot && (
+            <div className="pb-2 mb-1 border-b border-slate-200/80 dark:border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenCopilot('chat');
+                  handleCloseMobile();
+                }}
+                title={collapsed ? 'Copiloto IA' : undefined}
+                className="group flex w-full items-center justify-between rounded-xl border border-gold-500/30 bg-gold-500/[0.07] px-3 py-2.5 text-xs font-semibold text-slate-800 dark:text-gold-100 hover:bg-gold-500/[0.12] hover:border-gold-500/50 transition-colors"
+              >
+                <span className="flex items-center gap-3">
+                  <Sparkles className="h-4 w-4 shrink-0 text-gold-600 dark:text-gold-400" />
+                  {!collapsed && <span className="truncate">Copiloto IA</span>}
+                </span>
+                {!collapsed && (
+                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-gold-700/80 dark:text-gold-300/70">AdvJuris</span>
+                )}
+              </button>
+            </div>
+          )}
+
           {visibleTree.map((node) => {
             if (!node.children) {
               return (
@@ -328,23 +351,6 @@ export function Sidebar({
             );
           })}
 
-          {/* Copiloto IA: atalho discreto no fim da lista */}
-          {onOpenCopilot && (
-            <div className="pt-2 mt-2 border-t border-slate-200/80 dark:border-white/[0.06]">
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenCopilot('chat');
-                  handleCloseMobile();
-                }}
-                title={collapsed ? 'Copiloto IA' : undefined}
-                className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-gold-500/[0.08] hover:text-slate-900 dark:hover:text-gold-100 transition-colors"
-              >
-                <Sparkles className="h-4 w-4 shrink-0 text-gold-500 dark:text-gold-400" />
-                {!collapsed && <span className="truncate">Copiloto IA</span>}
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Collapse button (Desktop only) */}
