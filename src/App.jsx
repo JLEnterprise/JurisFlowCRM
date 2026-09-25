@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from './context/AuthContext';
+import { SettingsHub } from './components/account/SettingsHub';
 import { useCRM } from './context/CRMContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -13,7 +14,6 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { DashboardStats } from './components/dashboard/DashboardStats';
 import { DashboardCharts } from './components/dashboard/DashboardCharts';
 import { KanbanBoard } from './components/leads/KanbanBoard';
-import { LeadList } from './components/leads/LeadList';
 import { LeadModal } from './components/leads/LeadModal';
 
 import { ClientList } from './components/clients/ClientList';
@@ -68,7 +68,6 @@ export function App() {
   const [selectedContractId, setSelectedContractId] = useState(null);
 
   // Lead view mode (kanban vs list)
-  const [leadViewMode, setLeadViewMode] = useState('kanban');
 
   // Modals state
   const [leadModalOpen, setLeadModalOpen] = useState(false);
@@ -105,7 +104,6 @@ export function App() {
   const [attendanceToEdit, setAttendanceToEdit] = useState(null);
 
   // Power-Ups Modals
-  const [copilotModalOpen, setCopilotModalOpen] = useState(false);
   const [copilotInitialTab, setCopilotInitialTab] = useState('chat');
 
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
@@ -217,9 +215,10 @@ export function App() {
     setWhatsAppModalOpen(true);
   };
 
+  // O Copiloto é uma tela do sistema (não mais janela): abre na ferramenta pedida
   const handleOpenCopilotModal = (tab = 'chat') => {
-    setCopilotInitialTab(tab);
-    setCopilotModalOpen(true);
+    setCopilotInitialTab(typeof tab === 'string' ? tab : 'chat');
+    handleNavigate('copilot');
   };
 
   const handleOpenNewProposal = (prefill) => {
@@ -339,36 +338,34 @@ export function App() {
     }
 
     switch (currentTab) {
+      case 'copilot':
+        return (
+          <LegalCopilotModal
+            key={copilotInitialTab}
+            variant="page"
+            isOpen
+            onClose={() => handleNavigate('dashboard')}
+            initialTab={copilotInitialTab}
+          />
+        );
+
       case 'dashboard':
         return (
           <div className="space-y-6">
             <DashboardStats onNavigate={handleNavigate} />
-            <DashboardCharts />
+            <DashboardCharts onNavigate={handleNavigate} />
           </div>
         );
 
       case 'kanban':
       case 'leads':
+        // Funil: Kanban, Lista por etapa e planilhas de Ganhos/Perdidos (troca de visão dentro do componente)
         return (
-          <div className="space-y-4">
-            {leadViewMode === 'kanban' ? (
-              <KanbanBoard
-                onOpenNewLead={handleOpenNewLead}
-                onEditLead={handleEditLead}
-                onCloseContract={handleCloseContractFromLead}
-                onToggleView={() => setLeadViewMode('list')}
-                leadViewMode={leadViewMode}
-              />
-            ) : (
-              <LeadList
-                onOpenNewLead={handleOpenNewLead}
-                onEditLead={handleEditLead}
-                onCloseContract={handleCloseContractFromLead}
-                onToggleView={() => setLeadViewMode('kanban')}
-                leadViewMode={leadViewMode}
-              />
-            )}
-          </div>
+          <KanbanBoard
+            onOpenNewLead={handleOpenNewLead}
+            onEditLead={handleEditLead}
+            onCloseContract={handleCloseContractFromLead}
+          />
         );
 
       case 'clients':
@@ -439,6 +436,9 @@ export function App() {
         );
 
       case 'documents':
+        if (!permissions?.canAccessDocuments) {
+          return renderAccessRestricted('Gestão de Documentos', 'Advogados, Financeiro, Secretaria, Sócia Administradora e Dev');
+        }
         return <DocumentManager />;
 
       case 'financial':
@@ -448,6 +448,9 @@ export function App() {
         return <FinancialOverview onOpenWhatsApp={handleOpenWhatsAppModal} onSelectClient={handleViewClientDetail} onSelectContract={handleViewContractDetail} onNavigate={handleNavigate} />;
 
       case 'reports':
+        if (!permissions?.canAccessReports) {
+          return renderAccessRestricted('Relatórios Gerenciais', 'Sócia Administradora, Financeiro, Advogado Sênior, Gerente Comercial e Dev');
+        }
         return <ReportsView />;
 
       case 'team':
@@ -462,6 +465,10 @@ export function App() {
         }
         return <ActivityLogsView />;
 
+      case 'account':
+        // Configurações pessoais + do escritório (e da plataforma, para Dev)
+        return <SettingsHub onOpenProfile={() => setProfileModalOpen(true)} />;
+
       case 'settings':
         if (!permissions?.canAccessSettings) {
           return renderAccessRestricted('Configurações do Escritório', 'Sócia Administradora & Desenvolvedor');
@@ -472,22 +479,30 @@ export function App() {
         return (
           <div className="space-y-6">
             <DashboardStats onNavigate={handleNavigate} />
-            <DashboardCharts />
+            <DashboardCharts onNavigate={handleNavigate} />
           </div>
         );
     }
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-navy-950 font-sans text-slate-900 dark:text-slate-100 overflow-hidden">
+    <div className="app-shell relative isolate flex h-screen bg-slate-50 dark:bg-[#060a13] font-sans text-slate-900 dark:text-slate-100 overflow-hidden">
+      {/* Fundo premium (tema escuro): grade dourada e luzes suaves atrás do "vidro" do app */}
+      <div className="app-bg hidden dark:block" aria-hidden="true">
+        <div className="app-bg__grid" />
+        <div className="app-bg__glow app-bg__glow--gold" />
+        <div className="app-bg__glow app-bg__glow--blue" />
+        <div className="app-bg__glow app-bg__glow--corner" />
+      </div>
+
       {/* Sidebar Navigation */}
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={handleNavigate}
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
-        onOpenCopilot={() => handleOpenCopilotModal('intimacoes')}
-        onOpenProfile={() => setProfileModalOpen(true)}
+        onOpenCopilot={handleOpenCopilotModal}
+        onOpenProfile={() => handleNavigate('account')}
       />
 
       {/* Main Workspace */}
@@ -498,7 +513,7 @@ export function App() {
           onOpenSearch={() => setIsSearchOpen(true)}
           onOpenCopilot={handleOpenCopilotModal}
           onOpenWhatsApp={handleOpenWhatsAppModal}
-          onOpenProfile={() => setProfileModalOpen(true)}
+          onOpenProfile={() => handleNavigate('account')}
           currentTab={currentTab}
           onNavigate={handleNavigate}
         />
@@ -607,13 +622,6 @@ export function App() {
       />
 
       {/* POWER-UPS MODALS */}
-      {/* 1. Copiloto IA Jurídica Modal */}
-      <LegalCopilotModal
-        isOpen={copilotModalOpen}
-        onClose={() => setCopilotModalOpen(false)}
-        initialTab={copilotInitialTab}
-      />
-
       {/* 2. WhatsApp Engine Modal */}
       <WhatsAppModal
         isOpen={whatsAppModalOpen}

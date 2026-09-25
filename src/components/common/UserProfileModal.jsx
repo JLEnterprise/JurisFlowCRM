@@ -153,7 +153,7 @@ export function UserProfileModal({ isOpen, onClose }) {
               size="xl"
             />
             {isUserAdmin && (
-              <div className="absolute -bottom-1 -right-1 bg-amber-500 text-white p-1 rounded-full shadow-md border-2 border-white dark:border-navy-900" title="Sócia Administradora">
+              <div className="absolute -bottom-1 -right-1 bg-gold-500 text-white p-1 rounded-full shadow-md border-2 border-white dark:border-navy-900" title="Sócia Administradora">
                 <Shield className="h-3.5 w-3.5" />
               </div>
             )}
@@ -170,7 +170,7 @@ export function UserProfileModal({ isOpen, onClose }) {
             </div>
 
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-xs transition-all btn-tactile">
+              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 text-white text-xs font-bold shadow-xs transition-all btn-tactile">
                 <Upload className="h-3.5 w-3.5" />
                 <span>Escolher Nova Foto</span>
                 <input
@@ -198,7 +198,7 @@ export function UserProfileModal({ isOpen, onClose }) {
         {/* Status de Acesso / RBAC Badge */}
         <div className={`p-3 rounded-xl border flex items-center justify-between ${
           isUserAdmin
-            ? 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-gold-300'
+            ? 'bg-gold-50/60 dark:bg-gold-950/20 border-gold-200 dark:border-gold-900/60 text-gold-800 dark:text-gold-300'
             : 'bg-brand-50/60 dark:bg-brand-950/20 border-brand-200 dark:border-brand-900/60 text-brand-800 dark:text-brand-300'
         }`}>
           <div className="flex items-center gap-2">
@@ -337,7 +337,7 @@ export function UserProfileModal({ isOpen, onClose }) {
           <button
             type="submit"
             disabled={isSaving}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-2 text-xs font-bold text-white shadow-md hover:from-brand-500 hover:to-brand-600 transition-all disabled:opacity-50 btn-tactile"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 transition-all disabled:opacity-50 btn-tactile"
           >
             {isSaving ? (
               <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

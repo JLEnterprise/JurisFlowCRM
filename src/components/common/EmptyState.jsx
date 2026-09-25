@@ -24,7 +24,7 @@ export function EmptyState({
       {actionLabel && onAction && (
         <button
           onClick={onAction}
-          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 transition-colors"
+          className="mt-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:brightness-110 transition-colors"
         >
           <Icons.Plus className="h-4 w-4" />
           {actionLabel}

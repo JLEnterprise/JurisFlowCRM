@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import { storageService, INITIAL_ESCRITORIOS } from '../services/storageService';
 import { supabase } from '../lib/supabase';
@@ -17,9 +17,10 @@ import {
   INITIAL_NOTIFICATIONS,
   INITIAL_OFFICE_SETTINGS,
 } from '../data/initialData';
-import { INITIAL_LEGAL_AREAS, INITIAL_LEAD_SOURCES } from '../data/legalAreas';
+import { INITIAL_LEGAL_AREAS, INITIAL_LEAD_SOURCES, mergeLegalAreas } from '../data/legalAreas';
 import { useAuth } from './AuthContext';
 import { deleteFileFromIndexedDB, formatFileSize } from '../utils/fileHelper';
+import { buildSchedule, normalizePlan, isRecurring, dayStr, RENEW_AHEAD_DAYS } from '../utils/paymentPlan';
 
 const CRMContext = createContext();
 
@@ -159,6 +160,7 @@ export function CRMProvider({ children }) {
       if (cloudSettings && cloudSettings.length > 0) {
         setOfficeSettings(cloudSettings[0]);
       }
+      setCloudLoadedAt(Date.now());
     } catch (err) {
       console.warn('Erro ao carregar dados remotos do escritorio:', err);
     }
@@ -512,7 +514,8 @@ export function CRMProvider({ children }) {
   }, []);
 
   // Global filters & UI state
-  const [periodFilter, setPeriodFilter] = useState('30d');
+  // Filtro de período global (ver utils/period.js). Começa em "todo o período" para nada sumir sem querer.
+  const [periodFilter, setPeriodFilter] = useState('all');
   const [toast, setToast] = useState(null);
 
   // Sync state to localStorage SOMENTE — o Supabase é atualizado diretamente e exclusivamente pelas actions CRUD.
@@ -685,7 +688,12 @@ export function CRMProvider({ children }) {
     showToast('Lead atualizado com sucesso!');
   };
 
-  const moveLeadStage = (leadId, newStage, newSubStage = null) => {
+  // extra: string (subetapa, legado) ou objeto { subStage, lossReason }
+  const moveLeadStage = (leadId, newStage, extra = null) => {
+    const { subStage: newSubStage = null, lossReason } =
+      typeof extra === 'string' ? { subStage: extra } : (extra || {});
+    const today = new Date().toISOString().split('T')[0];
+    const isClosedStage = newStage === 'contrato_fechado' || newStage === 'perdido';
     let updatedLead = null;
     setLeads(prev => {
       const lead = prev.find(l => l.id === leadId);
@@ -695,7 +703,10 @@ export function CRMProvider({ children }) {
             ...l,
             stage: newStage,
             subStage: newSubStage || l.subStage,
-            lastContactDate: new Date().toISOString().split('T')[0],
+            lastContactDate: today,
+            // Data em que o lead foi ganho/perdido: base dos relatórios por período
+            closedAt: isClosedStage ? (l.stage === newStage && l.closedAt ? l.closedAt : today) : null,
+            lossReason: newStage === 'perdido' ? (lossReason ?? l.lossReason ?? '') : '',
             escritorio_id: currentEscritorioId
           };
           return updatedLead;
@@ -776,6 +787,24 @@ export function CRMProvider({ children }) {
   };
 
   // --- CONTRACTS ACTIONS ---
+
+  // Transforma o cronograma do plano de pagamento (parcelado ou mensal recorrente) em parcelas do financeiro
+  const scheduleToInstallments = (contract, rows, idTag) => rows.map((r, i) => ({
+    id: `inst_${idTag}_${r.cycle ? `c${r.cycle}_` : ''}${r.installmentNumber || i + 1}`,
+    escritorio_id: currentEscritorioId,
+    contractId: contract.id,
+    clientId: contract.clientId || contract.client_id || null,
+    clientName: contract.clientName || contract.client_name || 'Cliente',
+    installmentNumber: r.installmentNumber,
+    totalInstallments: r.totalInstallments,
+    value: r.value,
+    amount: r.value,
+    dueDate: r.dueDate,
+    status: 'pending',
+    paymentMethod: contract.paymentMethod || contract.payment_method || 'PIX',
+    ...(r.recurring ? { recurring: true, cycle: r.cycle } : {}),
+  }));
+
   const addContract = (contractData) => {
     const now = Date.now();
     const contractNumber = contractData.contractNumber || contractData.contract_number || `CTR-2026/${String(now).slice(-4)}`;
@@ -834,28 +863,8 @@ export function CRMProvider({ children }) {
 
     // Gerar parcelas automaticamente se o contrato tiver valor e número de parcelas
     const contractValue = Number(newContract.value) || 0;
-    const numInstallments = Number(newContract.installmentsCount || newContract.installments_count) || 1;
     if (contractValue > 0) {
-      const installmentValue = contractValue / numInstallments;
-      const generatedInstallments = [];
-      for (let i = 0; i < numInstallments; i++) {
-        const dueDate = new Date();
-        dueDate.setMonth(dueDate.getMonth() + i);
-        generatedInstallments.push({
-          id: `inst_${now}_${i + 1}`,
-          escritorio_id: currentEscritorioId,
-          contractId: newContract.id,
-          clientId: finalClientId,
-          clientName: finalClientName,
-          installmentNumber: i + 1,
-          totalInstallments: numInstallments,
-          value: installmentValue,
-          amount: installmentValue,
-          dueDate: dueDate.toISOString().split('T')[0],
-          status: 'pending',
-          paymentMethod: newContract.paymentMethod || newContract.payment_method || 'PIX',
-        });
-      }
+      const generatedInstallments = scheduleToInstallments(newContract, buildSchedule(newContract), now);
       if (generatedInstallments.length > 0) {
         setInstallments(prev => {
           const next = [...generatedInstallments, ...prev];
@@ -944,30 +953,42 @@ export function CRMProvider({ children }) {
       const numInstallments = Number(updatedContract.installmentsCount || updatedContract.installments_count) || 1;
       const existingInsts = installments.filter(i => String(i.contractId || i.contract_id) === strId);
       const now = Date.now();
+      const previous = contracts.find(c => String(c.id) === strId) || {};
+      const planKey = (c) => JSON.stringify([
+        isRecurring(c), Number(c.monthlyValue) || 0, Number(c.billingDay) || 0, Number(c.recurringMonths) || 0,
+        c.firstDueDate || '', Number(c.installmentsCount || c.installments_count) || 1,
+      ]);
+      // Mudou para/de mensal recorrente, ou mudou o plano de um contrato recorrente: refaz as parcelas em aberto
+      const rebuildPlan = existingInsts.length > 0 && (isRecurring(updatedContract) || isRecurring(previous))
+        && planKey(previous) !== planKey(updatedContract);
 
-      if (contractValue > 0) {
+      if (rebuildPlan) {
+        const paidInsts = existingInsts.filter(i => i.status === 'paid');
+        const openInsts = existingInsts.filter(i => i.status !== 'paid');
+        const lastPaidDue = paidInsts.map(i => String(i.dueDate || i.due_date || '').split('T')[0]).sort().pop();
+        let rows = buildSchedule(updatedContract, { baseDate: updatedContract.createdDate });
+        if (paidInsts.length > 0) {
+          // Mantém o que já foi pago; as novas parcelas continuam depois da última paga
+          rows = rows.slice(paidInsts.length);
+          if (lastPaidDue) rows = rows.filter(r => r.dueDate > lastPaidDue);
+        }
+        const fresh = scheduleToInstallments(updatedContract, rows, now);
+        const openIds = new Set(openInsts.map(i => String(i.id)));
+        setInstallments(prev => {
+          const next = [...fresh, ...prev.filter(i => !openIds.has(String(i.id)))];
+          storageService.saveData('installments', next);
+          return next;
+        });
+        openInsts.forEach(i => storageService.deleteFromSupabase('installments', i.id));
+        if (fresh.length > 0) storageService.saveToSupabase('installments', fresh);
+      } else if (contractValue > 0) {
         if (existingInsts.length === 0) {
           // Cenário A: Ainda não tinha parcelas
-          const installmentValue = contractValue / numInstallments;
-          const generatedInstallments = [];
-          for (let i = 0; i < numInstallments; i++) {
-            const dueDate = new Date(updatedContract.createdDate || updatedContract.created_date || now);
-            dueDate.setMonth(dueDate.getMonth() + i);
-            generatedInstallments.push({
-              id: `inst_${now}_${i + 1}`,
-              escritorio_id: currentEscritorioId,
-              contractId: strId,
-              clientId: updatedContract.clientId || updatedContract.client_id || null,
-              clientName: updatedContract.clientName || updatedContract.client_name || 'Cliente',
-              installmentNumber: i + 1,
-              totalInstallments: numInstallments,
-              value: installmentValue,
-              amount: installmentValue,
-              dueDate: dueDate.toISOString().split('T')[0],
-              status: 'pending',
-              paymentMethod: updatedContract.paymentMethod || updatedContract.payment_method || 'PIX',
-            });
-          }
+          const generatedInstallments = scheduleToInstallments(
+            updatedContract,
+            buildSchedule(updatedContract, { baseDate: updatedContract.createdDate || updatedContract.created_date }),
+            now
+          );
           if (generatedInstallments.length > 0) {
             setInstallments(prev => {
               const next = [...generatedInstallments, ...prev];
@@ -1152,6 +1173,13 @@ export function CRMProvider({ children }) {
         paymentMethod: leadIdOrPayload.paymentMethod || 'Parcelado (Boleto / PIX)',
         installmentsCount: instCount,
         installmentValue: val / instCount,
+        // Plano de pagamento (parcelado ou mensal recorrente) escolhido no fechamento
+        paymentType: leadIdOrPayload.paymentType || 'parcelado',
+        monthlyValue: leadIdOrPayload.monthlyValue,
+        billingDay: leadIdOrPayload.billingDay,
+        recurringMonths: leadIdOrPayload.recurringMonths,
+        autoRenew: leadIdOrPayload.autoRenew,
+        firstDueDate: leadIdOrPayload.firstDueDate,
         responsibleLawyerId: leadIdOrPayload.responsibleLawyerId || 'usr_2',
         signedDate: leadIdOrPayload.signedDate || new Date().toISOString().split('T')[0],
         observations: leadIdOrPayload.observations || '',
@@ -1233,25 +1261,7 @@ export function CRMProvider({ children }) {
         escritorio_id: currentEscritorioId,
       }));
     } else if (contractValue > 0) {
-      const installmentValue = contractValue / numInstallments;
-      for (let i = 0; i < numInstallments; i++) {
-        const dueDate = new Date();
-        dueDate.setMonth(dueDate.getMonth() + i);
-        installmentsToSave.push({
-          id: `inst_${now}_${i + 1}`,
-          escritorio_id: currentEscritorioId,
-          contractId: contract.id,
-          clientId: client.id,
-          clientName: client.name,
-          installmentNumber: i + 1,
-          totalInstallments: numInstallments,
-          value: installmentValue,
-          amount: installmentValue,
-          dueDate: dueDate.toISOString().split('T')[0],
-          status: 'pending',
-          paymentMethod: contract.paymentMethod || 'PIX',
-        });
-      }
+      installmentsToSave = scheduleToInstallments(contract, buildSchedule(contract), now);
     }
 
     if (installmentsToSave.length > 0) {
@@ -1263,15 +1273,57 @@ export function CRMProvider({ children }) {
       storageService.saveToSupabase('installments', installmentsToSave);
     }
 
-    // 4. Mover lead para contrato_assinado se leadId existir
+    // 4. Mover lead para a etapa de ganho (vai para "Leads Ganhos")
     if (leadId) {
-      moveLeadStage(leadId, 'contrato_assinado');
+      moveLeadStage(leadId, 'contrato_fechado');
     }
 
     logActivity('Fechamento de Negócio', contract.title, `Cliente: ${contract.clientName} | Valor: R$ ${contractValue.toLocaleString('pt-BR')}`);
     showToast('🎉 Negócio fechado com sucesso! Contrato, cliente e financeiro criados.');
     return contract;
   };
+
+  // --- RENOVAÇÃO AUTOMÁTICA DOS CONTRATOS MENSAIS ---
+  // Ao carregar os dados da nuvem: contrato mensal com renovação automática cuja última
+  // mensalidade vence em até 45 dias ganha o próximo ciclo (12 meses, ou o prazo do contrato).
+  const [cloudLoadedAt, setCloudLoadedAt] = useState(0);
+  useEffect(() => {
+    if (!cloudLoadedAt || !currentEscritorioId) return;
+    const limit = dayStr(new Date(Date.now() + RENEW_AHEAD_DAYS * 86400000));
+    const ENDED = ['cancelado', 'rescindido', 'encerrado', 'finalizado'];
+    const created = [];
+    const renewedNames = [];
+
+    contracts.forEach(c => {
+      if (!isRecurring(c) || !normalizePlan(c).autoRenew || ENDED.includes(c.status)) return;
+      const own = installments.filter(i => String(i.contractId || i.contract_id) === String(c.id));
+      if (own.length === 0) return;
+      let last = own.map(i => String(i.dueDate || i.due_date || '').split('T')[0]).sort().pop();
+      let cycle = Math.max(...own.map(i => Number(i.cycle) || 1));
+      let nextNumber = Math.max(...own.map(i => Number(i.installmentNumber) || 0)) + 1;
+      let guard = 0;
+      while (last && last <= limit && guard < 6) {
+        cycle += 1;
+        const rows = buildSchedule(c, { cycle, afterDate: last, startNumber: nextNumber });
+        created.push(...scheduleToInstallments(c, rows, `${String(c.id)}_r`));
+        last = rows[rows.length - 1].dueDate;
+        nextNumber += rows.length;
+        guard += 1;
+      }
+      if (guard > 0) renewedNames.push(c.clientName || 'Cliente');
+    });
+
+    if (created.length === 0) return;
+    setInstallments(prev => {
+      const ids = new Set(prev.map(i => String(i.id)));
+      const next = [...created.filter(i => !ids.has(String(i.id))), ...prev];
+      storageService.saveData('installments', next);
+      return next;
+    });
+    storageService.saveToSupabase('installments', created);
+    renewedNames.forEach(name => logActivity('Contrato Renovado', name, 'Novo ciclo de mensalidades gerado automaticamente.'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloudLoadedAt]);
 
   // --- PROPOSALS ACTIONS ---
   const addProposal = (propData) => {
@@ -1473,6 +1525,9 @@ export function CRMProvider({ children }) {
       const next = prev.map(t => {
         if (t.id === id) {
           updatedTask = { ...t, ...taskData, escritorio_id: currentEscritorioId };
+          // Guarda quando a tarefa foi concluída (usado no resumo do dia do menu)
+          if (taskData.status === 'completed' && t.status !== 'completed') updatedTask.completedAt = new Date().toISOString();
+          if (taskData.status && taskData.status !== 'completed') updatedTask.completedAt = null;
           return updatedTask;
         }
         return t;
@@ -1494,7 +1549,12 @@ export function CRMProvider({ children }) {
         if (t.id === id) {
           const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
           if (nextStatus === 'completed') showToast('Tarefa concluida!');
-          toggledTask = { ...t, status: nextStatus, escritorio_id: currentEscritorioId };
+          toggledTask = {
+            ...t,
+            status: nextStatus,
+            completedAt: nextStatus === 'completed' ? new Date().toISOString() : null,
+            escritorio_id: currentEscritorioId,
+          };
           return toggledTask;
         }
         return t;
@@ -1992,6 +2052,8 @@ export function CRMProvider({ children }) {
     }
   };
 
+  const mergedLegalAreas = useMemo(() => mergeLegalAreas(legalAreas), [legalAreas]);
+
   const addLegalArea = (area) => {
     setLegalAreas(prev => {
       const next = [...prev, { ...area, id: `area_${Date.now()}` }];
@@ -2073,8 +2135,9 @@ export function CRMProvider({ children }) {
         attendances,
         installments,
         documents,
-        legalAreas,
-        leadSources,
+        // Sempre a lista completa de áreas do Direito + as criadas pelo escritório (nunca vazia)
+        legalAreas: mergedLegalAreas,
+        leadSources: leadSources && leadSources.length ? leadSources : INITIAL_LEAD_SOURCES,
         activityLogs,
         notifications,
         officeSettings,

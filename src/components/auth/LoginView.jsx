@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CometOrbit } from '../common/CometOrbit';
 import {
   Scale,
   Lock,
@@ -16,7 +17,20 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useCRM } from '../../context/CRMContext';
 import { Modal } from '../common/Modal';
-import { BrandLogo } from '../common/BrandLogo';
+import logoEmblema from '../../assets/logo-emblema.png';
+import { Select } from '../common/Select';
+
+// Botão principal com a estrela cadente contornando a borda e brilho pulsante no hover.
+function CometButton({ className = '', children, ...props }) {
+  return (
+    <div className="btn-comet">
+      <CometOrbit />
+      <button {...props} className={`btn-comet__inner w-full flex items-center justify-center gap-2.5 py-3.5 text-[0.8rem] font-semibold uppercase tracking-[0.18em] active:scale-[0.99] transition-transform disabled:opacity-50 ${className}`}>
+        {children}
+      </button>
+    </div>
+  );
+}
 
 export function LoginView() {
   const { login, registerUser, authError, isLoading, resetPassword } = useAuth();
@@ -92,25 +106,51 @@ export function LoginView() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-navy-950 to-slate-900 selection:bg-brand-500 selection:text-white relative overflow-hidden">
-      {/* Elementos Decorativos de Fundo */}
-      <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-brand-600/10 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-gold-600/10 blur-3xl pointer-events-none" />
+    <div className="login-premium min-h-screen w-full flex items-center justify-center bg-[#060a13] selection:bg-gold-500 selection:text-navy-950 relative overflow-hidden">
+      {/* Fundo: luzes, grade fina e poeira dourada */}
+      <div className="login-bg" aria-hidden="true">
+        <div className="login-bg__grid" />
+        <div className="login-bg__glow login-bg__glow--gold" />
+        <div className="login-bg__glow login-bg__glow--blue" />
+        <div className="login-bg__dust" />
+      </div>
 
-      <div className="w-full max-w-md animate-fade-in relative z-10">
-        {/* Logotipo e Identidade */}
-        <div className="text-center mb-6 flex flex-col items-center">
-          <BrandLogo className="h-16 w-16 mb-3" iconSize="h-8 w-8" />
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">
-            JurisFlow <span className="text-gold-400 font-serif italic">CRM</span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-1 font-medium">
-            Sistema Integrado de Gestão Comercial Jurídica
+      <div className="relative z-10 w-full max-w-6xl grid lg:grid-cols-[1.15fr_1fr] items-center gap-8 lg:gap-16 px-4 sm:px-8 py-10">
+        {/* Marca: emblema em destaque */}
+        <section className="flex flex-col items-center text-center">
+          <div className="login-emblem">
+            <div className="login-emblem__halo" />
+            <div className="login-emblem__ring login-emblem__ring--outer"><span /></div>
+            <div className="login-emblem__ring login-emblem__ring--inner" />
+            <img src={logoEmblema} alt="" className="login-emblem__img" draggable="false" />
+            <div className="login-emblem__shine" style={{ '--emblem-src': `url(${logoEmblema})` }} />
+          </div>
+
+          <h1 className="login-wordmark font-display mt-6 lg:mt-8">JurisFlow</h1>
+          <div className="login-reveal flex items-center gap-3 mt-3" style={{ animationDelay: '0.5s' }} aria-hidden="true">
+            <span className="h-px w-12 bg-gradient-to-r from-transparent to-gold-500/70" />
+            <span className="h-1.5 w-1.5 rotate-45 bg-gold-400" />
+            <span className="h-px w-12 bg-gradient-to-l from-transparent to-gold-500/70" />
+          </div>
+          <p className="brand-lockup login-reveal text-[0.68rem] text-gold-200/70 mt-3 font-semibold uppercase tracking-[0.42em]" style={{ animationDelay: '0.6s' }}>
+            CRM Jurídico
           </p>
-        </div>
 
+          <p className="login-reveal hidden lg:block font-display italic text-[1.7rem] leading-snug text-slate-200/90 mt-10 max-w-md" style={{ animationDelay: '0.8s' }}>
+            A excelência da sua advocacia, agora também na gestão.
+          </p>
+          <div className="login-reveal hidden lg:flex items-center gap-4 mt-5 text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-slate-400" style={{ animationDelay: '1s' }}>
+            <span>Contratos</span>
+            <span className="h-1 w-1 rotate-45 bg-gold-500/80" />
+            <span>Processos</span>
+            <span className="h-1 w-1 rotate-45 bg-gold-500/80" />
+            <span>Honorários</span>
+          </div>
+        </section>
+
+        <div className="w-full max-w-md mx-auto lg:mr-0 login-reveal" style={{ animationDelay: '0.3s' }}>
         {/* Card Principal (Login / Cadastro) */}
-        <div className="rounded-3xl bg-white/10 dark:bg-navy-900/80 backdrop-blur-xl border border-white/10 dark:border-slate-800 p-8 shadow-2xl space-y-6">
+        <div className="login-card rounded-3xl p-8 space-y-6">
           
           {/* Seletor de Abas (Entrar / Criar Conta) */}
           <div className="flex rounded-2xl bg-black/30 p-1 border border-white/10">
@@ -150,7 +190,7 @@ export function LoginView() {
           {!isRegisterMode ? (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="login-label">
                   E-mail Corporativo
                 </label>
                 <div className="relative">
@@ -167,7 +207,7 @@ export function LoginView() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="login-label">
                   Senha de Acesso
                 </label>
                 <div className="relative">
@@ -214,10 +254,10 @@ export function LoginView() {
                 </button>
               </div>
 
-              <button
+              <CometButton
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 py-3 text-sm font-bold text-white shadow-lg shadow-brand-500/25 hover:from-brand-500 hover:to-brand-600 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                className="bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 text-white"
               >
                 {isLoading ? (
                   <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -227,7 +267,7 @@ export function LoginView() {
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
-              </button>
+              </CometButton>
 
               <div className="text-center pt-2">
                 <button
@@ -252,7 +292,7 @@ export function LoginView() {
               )}
               
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="login-label">
                   Nome Completo
                 </label>
                 <div className="relative">
@@ -269,7 +309,7 @@ export function LoginView() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="login-label">
                   E-mail Corporativo
                 </label>
                 <div className="relative">
@@ -286,7 +326,7 @@ export function LoginView() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="login-label">
                   Nome do Escritório / Empresa
                 </label>
                 <div className="relative">
@@ -302,12 +342,12 @@ export function LoginView() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="login-label">
                   Função / Cargo Inicial
                 </label>
                 <div className="relative">
                   <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <select
+                  <Select
                     value={regRole}
                     onChange={(e) => setRegRole(e.target.value)}
                     className="w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-4 py-2 text-sm text-white focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer"
@@ -316,7 +356,7 @@ export function LoginView() {
                     <option value="financial" className="bg-navy-950 text-white">Financeiro</option>
                     <option value="secretary" className="bg-navy-950 text-white">Administrativo</option>
                     <option value="sales" className="bg-navy-950 text-white">Comercial / SDR</option>
-                  </select>
+                  </Select>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
                   * O Administrador da banca poderá atribuir múltiplos cargos, especialidades e autorizações no painel da Equipe.
@@ -324,7 +364,7 @@ export function LoginView() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="login-label">
                   Senha de Acesso
                 </label>
                 <div className="relative">
@@ -347,28 +387,30 @@ export function LoginView() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-gold-500 to-amber-600 py-3 text-sm font-bold text-navy-950 shadow-lg shadow-gold-500/20 hover:from-gold-400 hover:to-amber-500 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 mt-2"
-              >
-                {isLoading ? (
-                  <div className="h-5 w-5 border-2 border-navy-950/30 border-t-navy-950 rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Criar Minha Conta no CRM</span>
-                  </>
-                )}
-              </button>
+              <div className="pt-2">
+                <CometButton
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 text-white"
+                >
+                  {isLoading ? (
+                    <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Criar Minha Conta</span>
+                    </>
+                  )}
+                </CometButton>
+              </div>
 
               <div className="text-center pt-1">
                 <button
                   type="button"
                   onClick={() => setIsRegisterMode(false)}
-                  className="text-xs text-slate-400 hover:text-white transition-colors font-medium"
+                  className="text-xs text-slate-400 hover:text-gold-400 transition-colors font-medium"
                 >
-                  Já possui uma conta? <span className="text-brand-400 underline font-bold">Fazer Login</span>
+                  Já possui uma conta? <span className="text-gold-400 underline font-bold">Fazer Login</span>
                 </button>
               </div>
             </form>
@@ -376,8 +418,9 @@ export function LoginView() {
         </div>
 
         {/* Rodape do Sistema */}
-        <div className="text-center mt-6 text-[11px] text-slate-500 font-medium">
-          JurisFlow CRM &copy; 2026 • Plataforma Comercial Jurídica Segura
+        <div className="text-center mt-6 text-[0.65rem] text-slate-500 font-medium tracking-[0.12em]">
+          JurisFlow CRM &copy; 2026 · Plataforma Jurídica Segura
+        </div>
         </div>
       </div>
 
@@ -406,7 +449,7 @@ export function LoginView() {
 
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 py-2.5 text-xs font-bold text-white shadow-md transition-all"
+            className="w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 py-2.5 text-xs font-bold text-white shadow-md transition-all"
           >
             Enviar Instruções por E-mail
           </button>

@@ -20,6 +20,7 @@ import { formatDate } from '../../utils/formatters';
 import { EmptyState } from '../common/EmptyState';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { AttendanceModal } from './AttendanceModal';
+import { Select } from '../common/Select';
 
 export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
   const { attendances = [], deleteAttendance } = useCRM();
@@ -75,8 +76,8 @@ export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
     switch (channel) {
       case 'whatsapp': return <MessageCircle className="h-4 w-4 text-emerald-500" />;
       case 'telefone': return <Phone className="h-4 w-4 text-blue-500" />;
-      case 'email': return <Mail className="h-4 w-4 text-amber-500" />;
-      case 'videoconferencia': return <Video className="h-4 w-4 text-indigo-500" />;
+      case 'email': return <Mail className="h-4 w-4 text-gold-500" />;
+      case 'videoconferencia': return <Video className="h-4 w-4 text-brand-500" />;
       case 'instagram': return <Instagram className="h-4 w-4 text-pink-500" />;
       default: return <MapPin className="h-4 w-4 text-purple-500" />;
     }
@@ -85,20 +86,11 @@ export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            <Headphones className="h-6 w-6 text-brand-600 dark:text-gold-400" />
-            Atendimentos & Contatos Comerciais
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Histórico completo de interações, ligações, reuniões e alinhamentos por cliente.
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
 
         <button
           onClick={onOpenNewAttendance}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/25 hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-900/20 hover:brightness-110 transition-all btn-tactile"
         >
           <Plus className="h-4 w-4" /> Novo Atendimento
         </button>
@@ -117,7 +109,7 @@ export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
           />
         </div>
 
-        <select
+        <Select
           value={selectedChannel}
           onChange={(e) => setSelectedChannel(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -129,7 +121,7 @@ export function AttendanceList({ onOpenNewAttendance, onEditAttendance }) {
           <option value="videoconferencia">Videoconferência</option>
           <option value="presencial">Presencial</option>
           <option value="instagram">Instagram Direct</option>
-        </select>
+        </Select>
 
         {(selectedChannel || search) && (
           <button

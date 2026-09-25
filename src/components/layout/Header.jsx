@@ -19,6 +19,29 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useCRM } from '../../context/CRMContext';
 import { NotificationCenter } from './NotificationCenter';
+import { PeriodFilter } from '../common/PeriodFilter';
+
+// Nome curto e completo de cada página, mostrado no topo
+const PAGE_NAMES = {
+  copilot: 'Copiloto IA',
+  account: 'Configurações',
+  dashboard: 'Dashboard',
+  kanban: 'Funil comercial',
+  leads: 'Funil comercial',
+  clients: 'Clientes',
+  proposals: 'Propostas',
+  contracts: 'Contratos & minutas',
+  processes: 'Processos',
+  agenda: 'Agenda & audiências',
+  tasks: 'Prazos & tarefas',
+  attendance: 'Atendimentos',
+  documents: 'Documentos',
+  financial: 'Contas & honorários',
+  reports: 'Relatórios',
+  team: 'Equipe',
+  security: 'Auditoria & LGPD',
+  settings: 'Escritório',
+};
 import { Avatar } from '../common/Avatar';
 import { UserProfileModal } from '../common/UserProfileModal';
 
@@ -35,7 +58,7 @@ export function Header({
 }) {
   const { currentUser, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
-  const { periodFilter, setPeriodFilter, currentEscritorio, escritorios = [], switchEscritorio, currentEscritorioId, officeSettings } = useCRM();
+  const { currentEscritorio, escritorios = [], switchEscritorio, currentEscritorioId, officeSettings } = useCRM();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [localProfileModalOpen, setLocalProfileModalOpen] = useState(false);
   const userMenuRef = useRef(null);
@@ -66,35 +89,14 @@ export function Header({
     };
   }, [showUserMenu]);
 
-  const tabTitles = {
-    dashboard: 'Painel Executivo & BI',
-    kanban: 'Funil Comercial & Conversão',
-    leads: 'Gestão de Leads & Oportunidades',
-    clients: 'Base de Clientes & Relacionamento',
-    proposals: 'Propostas de Honorários',
-    contracts: 'Contratos & Minutas',
-    processes: 'Dossiês & Processos Judiciais (CNJ)',
-    agenda: 'Agenda Jurídica & Audiências',
-    tasks: 'Tarefas & Prazos Fatais',
-    attendance: 'Central de Atendimento Multicanal',
-    documents: 'Documentos & GED Inteligente',
-    financial: 'Contas a Receber & Honorários',
-    reports: 'Relatórios & Inteligência Jurídica',
-    team: 'Equipe & Performance da Banca',
-    security: 'Trilha de Auditoria & LGPD',
-    settings: 'Configurações do Escritório',
-  };
-
-  const titleToDisplay = currentViewTitle || tabTitles[currentTab] || 'Dashboard Executivo';
-
-  const periodOptions = [
-    { id: 'today', label: 'Hoje' },
-    { id: '7d', label: 'Últimos 7 dias' },
-    { id: '30d', label: 'Últimos 30 dias' },
-    { id: '90d', label: 'Últimos 90 dias' },
-    { id: '12m', label: 'Últimos 12 meses' },
-    { id: 'all', label: 'Todo o Período' },
-  ];
+  // Relógio do topo: atualiza a cada 15 s
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+  const dateLabel = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const timeLabel = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
   const roleLabels = {
     dev: 'Dev / TI (Infra & Engenharia)',
@@ -108,89 +110,78 @@ export function Header({
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 dark:border-white/[0.08] bg-white/90 dark:bg-[#0b0f17]/90 px-4 sm:px-6 backdrop-blur-xl transition-colors">
-      {/* Left section: Hamburger button e Título da Tela */}
-      <div className="flex items-center gap-3">
+    <header className="app-header sticky top-0 z-30 flex h-[4.5rem] w-full items-center justify-between gap-4 app-glass bg-white/80 px-4 sm:px-6 lg:px-8 transition-colors">
+      {/* Esquerda: menu (celular) e título da tela, em estilo editorial */}
+      <div className="flex min-w-0 items-center gap-3">
         <button
           onClick={toggleSidebarFn}
-          className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 lg:hidden"
-          title="Abrir Menu"
+          className="header-icon-btn lg:hidden"
+          aria-label="Abrir menu"
         >
           <Menu className="h-5 w-5" />
         </button>
-
-        <div>
-          <h1 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2 font-sans tracking-tight">
-            {titleToDisplay}
+        {/* Nome da página (curto e completo) + usuário, data e hora; substitui os títulos de seção dentro das telas */}
+        <div className="min-w-0">
+          <h1 className="truncate font-display text-lg sm:text-xl font-semibold leading-tight text-slate-900 dark:text-white">
+            {PAGE_NAMES[currentTab] || 'Dashboard'}
           </h1>
+          <p className="flex items-center gap-2 whitespace-nowrap text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-gold-700/80 dark:text-gold-300/60 mt-0.5">
+            <span className="h-1 w-1 rotate-45 bg-gold-500/70" aria-hidden="true" />
+            <span className="max-w-[10rem] truncate normal-case tracking-[0.06em] text-slate-500 dark:text-slate-300">{currentUser?.name || 'Usuário'}</span>
+            <span className="text-slate-300 dark:text-white/20">·</span>
+            <span className="hidden sm:inline first-letter:uppercase">{dateLabel}</span>
+            <span className="hidden sm:inline text-slate-300 dark:text-white/20">·</span>
+            <span className="tabular-nums">{timeLabel}</span>
+          </p>
         </div>
       </div>
 
-      {/* Right Section: Ações Globais, Copiloto IA, WhatsApp e Perfil */}
-      <div className="flex items-center gap-2 sm:gap-2.5">
-        {/* BOTÃO COPILOTO IA JURÍDICA */}
-        {onOpenCopilot && (
-          <button
-            onClick={() => onOpenCopilot('chat')}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-amber-600/20 border border-amber-400/40 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 hover:from-amber-500/25 hover:to-amber-600/30 transition-all shadow-xs btn-tactile"
-            title="Copiloto Jurídico & Chatbot de IA para Dúvidas e Rotinas do Dia a Dia"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
-            <span className="hidden sm:inline">IA Jurídica</span>
-          </button>
-        )}
-
-        {/* BOTÃO WHATSAPP RÁPIDO */}
-        {onOpenWhatsApp && (
-          <button
-            onClick={() => onOpenWhatsApp()}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-400/30 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 transition-all shadow-xs btn-tactile"
-            title="Disparo Rápido de WhatsApp com Templates"
-          >
-            <MessageSquare className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="hidden md:inline">WhatsApp</span>
-          </button>
-        )}
-
-        {/* Global Spotlight Search Button */}
+      {/* Direita: busca, período, ações e perfil */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
+        {/* Busca global */}
         <button
           onClick={onOpenSearch}
-          className="hidden lg:flex items-center gap-2 rounded-xl bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:border-gold-500/50 transition-all shadow-xs btn-tactile"
+          className="hidden xl:flex w-60 2xl:w-72 items-center gap-2 rounded-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.07] px-4 py-2 text-xs text-slate-400 hover:border-gold-500/40 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
         >
-          <Search className="h-3.5 w-3.5 text-slate-400" />
-          <span>Busca global...</span>
-          <kbd className="rounded bg-white dark:bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-300 shadow-2xs border border-slate-200 dark:border-white/10">
-            Ctrl+K
+          <Search className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1 truncate text-left">Buscar clientes, processos...</span>
+          <kbd className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 border border-slate-200 dark:border-white/10">
+            Ctrl K
           </kbd>
         </button>
-
-        {/* Period Filter */}
-        <div className="hidden xl:flex items-center gap-1.5 bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] rounded-xl px-2.5 py-1 text-xs">
-          <Calendar className="h-3.5 w-3.5 text-gold-500" />
-          <select
-            value={periodFilter || '30d'}
-            onChange={(e) => setPeriodFilter(e.target.value)}
-            className="bg-transparent text-slate-700 dark:text-slate-200 focus:outline-none font-semibold cursor-pointer text-xs"
-          >
-            {periodOptions.map(opt => (
-              <option key={opt.id} value={opt.id} className="dark:bg-[#111827] dark:text-white">
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Theme Toggle */}
-        <button
-          onClick={toggleTheme}
-          className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 transition-colors btn-tactile"
-          title={isDark ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'}
-        >
-          {isDark ? <Sun className="h-4.5 w-4.5 text-amber-400" /> : <Moon className="h-4.5 w-4.5 text-slate-600" />}
+        <button onClick={onOpenSearch} className="header-icon-btn xl:hidden" aria-label="Buscar" data-tip="Buscar">
+          <Search className="h-[18px] w-[18px]" />
         </button>
 
-        {/* Notifications */}
-        <NotificationCenter />
+        {/* Filtro de período (vale para o funil e as listas) */}
+        <PeriodFilter className="hidden lg:block" />
+
+        {/* Ações rápidas: mesmo estilo discreto, a cor aparece só no hover */}
+        <div className="flex items-center gap-0.5 sm:rounded-full sm:border sm:border-slate-200 sm:dark:border-white/[0.07] sm:px-1 sm:py-0.5">
+          {onOpenWhatsApp && (
+            <button
+              onClick={() => onOpenWhatsApp()}
+              className="header-icon-btn hover:!text-emerald-600 dark:hover:!text-emerald-400"
+              aria-label="WhatsApp"
+              data-tip="WhatsApp"
+            >
+              <MessageSquare className="h-[18px] w-[18px]" />
+            </button>
+          )}
+
+          <NotificationCenter />
+
+          <button
+            onClick={toggleTheme}
+            className="header-icon-btn"
+            aria-label={isDark ? 'Tema claro' : 'Tema escuro'}
+            data-tip={isDark ? 'Tema claro' : 'Tema escuro'}
+          >
+            {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+          </button>
+        </div>
+
+        <span className="hidden sm:block h-6 w-px bg-slate-200 dark:bg-white/[0.08] mx-1" aria-hidden="true" />
 
         {/* User Profile Dropdown */}
         <div className="relative" ref={userMenuRef}>
@@ -203,16 +194,8 @@ export function Header({
               name={currentUser?.name || 'Helena Prado'}
               size="sm"
             />
-            <div className="hidden text-left xl:block">
-              <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                {currentUser?.name?.split(' ')[0]}
-                {(currentUser?.role === 'admin' || currentUser?.roles?.includes('admin')) && <Shield className="h-3 w-3 text-gold-500" />}
-              </div>
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[140px]">
-                {currentUser?.title || roleLabels[currentUser?.role] || 'Usuário'}
-              </div>
-            </div>
-            <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 xl:block" />
+            {/* O nome já aparece à esquerda; aqui fica só a foto com o menu da conta */}
+            <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 sm:block" />
           </button>
 
           {/* Dropdown Menu */}

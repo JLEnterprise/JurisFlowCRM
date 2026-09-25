@@ -3,6 +3,10 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { Sparkles, CheckCircle2, FileCheck2, DollarSign } from 'lucide-react';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
+import { PaymentPlanPicker } from './PaymentPlanPicker';
+import { normalizePlan } from '../../utils/paymentPlan';
 
 export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) {
   const { closeContractWorkflow } = useCRM();
@@ -58,8 +62,12 @@ export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.contractValue) {
-      alert('Por favor, informe os dados obrigatórios do cliente e valor dos honorários.');
+    // No mensal recorrente o valor do contrato é mensalidade × meses do ciclo
+    const plan = normalizePlan({ ...formData, value: formData.contractValue });
+    if (!formData.name || !plan.value) {
+      alert(plan.paymentType === 'recorrente'
+        ? 'Por favor, informe os dados do cliente e o valor da mensalidade.'
+        : 'Por favor, informe os dados obrigatórios do cliente e valor dos honorários.');
       return;
     }
 
@@ -79,10 +87,16 @@ export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) 
         state: formData.state,
         zipCode: formData.zipCode,
       },
-      contractValue: Number(formData.contractValue),
+      contractValue: plan.value,
       serviceDescription: formData.serviceDescription,
       paymentMethod: formData.paymentMethod,
-      installmentsCount: Number(formData.installmentsCount),
+      installmentsCount: plan.installmentsCount,
+      paymentType: plan.paymentType,
+      monthlyValue: plan.monthlyValue,
+      billingDay: plan.billingDay,
+      recurringMonths: plan.recurringMonths,
+      autoRenew: plan.autoRenew,
+      firstDueDate: plan.firstDueDate,
       responsibleLawyerId: formData.responsibleLawyerId,
       signedDate: formData.signedDate,
       observations: formData.observations,
@@ -149,55 +163,33 @@ export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) 
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
             2. Honorários & Condições de Pagamento
           </h4>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Valor Total dos Honorários (R$) *
-              </label>
-              <input
-                type="number"
-                required
-                value={formData.contractValue}
-                onChange={(e) => setFormData({ ...formData, contractValue: e.target.value })}
-                className="w-full rounded-xl border border-emerald-500/50 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm font-bold text-emerald-600 dark:text-emerald-400 focus:border-emerald-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Forma de Pagamento *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.paymentMethod}
-                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                placeholder="Ex: 5x de R$ 5.000 no PIX / Boleto"
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Número de Parcelas
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="36"
-                value={formData.installmentsCount}
-                onChange={(e) => setFormData({ ...formData, installmentsCount: e.target.value })}
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
-              />
-            </div>
-          </div>
+          <PaymentPlanPicker
+            plan={formData}
+            valueKey="contractValue"
+            onChange={(partial) => setFormData(prev => ({ ...prev, ...partial }))}
+            paymentMethodField={(
+              <div className="sm:w-1/2">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Forma de Pagamento *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.paymentMethod}
+                  onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                  placeholder={formData.paymentType === 'recorrente' ? 'Ex: Boleto mensal / PIX' : 'Ex: 5x de R$ 5.000 no PIX / Boleto'}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
+                />
+              </div>
+            )}
+          />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Advogado(a) Responsável pela Execução
               </label>
-              <select
+              <Select
                 value={formData.responsibleLawyerId}
                 onChange={(e) => setFormData({ ...formData, responsibleLawyerId: e.target.value })}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -205,14 +197,14 @@ export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) 
                 {users.map(u => (
                   <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Data de Fechamento / Assinatura
               </label>
-              <input
+              <DateField
                 type="date"
                 value={formData.signedDate}
                 onChange={(e) => setFormData({ ...formData, signedDate: e.target.value })}

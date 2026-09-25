@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { brasilApiService } from '../../services/brasilApiService';
 import { Search, Sparkles, CheckCircle2, Building2, Gavel } from 'lucide-react';
+import { Select } from '../common/Select';
 
 export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillData = null }) {
   const { addProcess, updateProcess, clients = [], legalAreas = [], showToast } = useCRM();
@@ -140,9 +141,9 @@ export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillDat
               type="button"
               onClick={handleLookupCNJ}
               disabled={isSearchingCNJ}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 border border-amber-200 dark:border-amber-800/60 transition-all"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-gold-50 dark:bg-gold-950/40 text-gold-700 dark:text-gold-300 hover:bg-gold-100 border border-gold-200 dark:border-gold-800/60 transition-all"
             >
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <Sparkles className="h-3.5 w-3.5 text-gold-500" />
               <span>{isSearchingCNJ ? 'Consultando CNJ...' : '🔍 Buscar no CNJ / DataJud'}</span>
             </button>
           </div>
@@ -175,7 +176,7 @@ export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillDat
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
             Cliente Vinculado *
           </label>
-          <select
+          <Select
             value={formData.clientId}
             onChange={(e) => handleClientChange(e.target.value)}
             className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -184,7 +185,7 @@ export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillDat
             {clients.map(c => (
               <option key={c.id} value={c.id}>{c.name || c.nome}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {/* Tribunal & Vara */}
@@ -223,7 +224,7 @@ export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillDat
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Área Jurídica *
             </label>
-            <select
+            <Select
               value={formData.legalArea}
               onChange={(e) => setFormData({ ...formData, legalArea: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -231,13 +232,13 @@ export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillDat
               {legalAreas.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Advogado Responsável
             </label>
-            <select
+            <Select
               value={formData.responsibleLawyerId}
               onChange={(e) => setFormData({ ...formData, responsibleLawyerId: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -245,13 +246,13 @@ export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillDat
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.name} ({Array.isArray(u.roles) ? u.roles.join(', ') : (u.role || 'Advogado')})</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Status Processual *
             </label>
-            <select
+            <Select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -260,7 +261,7 @@ export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillDat
               <option value="suspenso">Suspenso</option>
               <option value="encerrado">Encerrado</option>
               <option value="arquivado">Arquivado Definitivamente</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -289,7 +290,7 @@ export function ProcessModal({ isOpen, onClose, processToEdit = null, prefillDat
           </button>
           <button
             type="submit"
-            className="rounded-xl bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-brand-700 transition-colors"
+            className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 transition-colors"
           >
             {processToEdit ? 'Salvar Processo' : 'Cadastrar Processo'}
           </button>

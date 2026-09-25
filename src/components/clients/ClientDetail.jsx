@@ -45,6 +45,8 @@ import { Avatar } from '../common/Avatar';
 import { pdfService } from '../../services/pdfService';
 import { readFileAsDataUrl, sanitizeAttachmentForStorage, downloadAttachment, openAttachment, formatFileSize } from '../../utils/fileHelper';
 import { AttendanceModal } from '../attendance/AttendanceModal';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
 
 export function ClientDetail({
   clientId,
@@ -257,7 +259,7 @@ export function ClientDetail({
         <p className="text-sm text-slate-500">Cliente não encontrado ou excluído.</p>
         <button
           onClick={onBack}
-          className="rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-sm"
+          className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-bold text-white shadow-sm"
         >
           Voltar para Lista
         </button>
@@ -381,7 +383,7 @@ export function ClientDetail({
           </button>
           <button
             onClick={() => onOpenNewAttendance({ clientId: client.id, clientName: client.name })}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md hover:bg-brand-700 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md hover:brightness-110 transition-colors"
           >
             <Plus className="h-3.5 w-3.5" /> Registrar Atendimento
           </button>
@@ -462,8 +464,8 @@ export function ClientDetail({
             </div>
             {totalPending > 0 && (
               <div>
-                <div className="text-[11px] font-semibold text-amber-500 uppercase tracking-wider">Pendente</div>
-                <div className="text-xs font-bold text-amber-600 dark:text-amber-400">{formatCurrency(totalPending)}</div>
+                <div className="text-[11px] font-semibold text-gold-500 uppercase tracking-wider">Pendente</div>
+                <div className="text-xs font-bold text-gold-600 dark:text-gold-400">{formatCurrency(totalPending)}</div>
               </div>
             )}
           </div>
@@ -595,7 +597,7 @@ export function ClientDetail({
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Histórico de Atendimentos</h3>
               <button
                 onClick={() => onOpenNewAttendance({ clientId: client.id, clientName: client.name })}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-brand-700"
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:brightness-110"
               >
                 <Plus className="h-3.5 w-3.5" /> Novo Atendimento
               </button>
@@ -680,7 +682,7 @@ export function ClientDetail({
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Contratos de Honorários</h3>
               <button
                 onClick={onOpenNewContract}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-brand-700"
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:brightness-110"
               >
                 <Plus className="h-3.5 w-3.5" /> Novo Contrato
               </button>
@@ -732,7 +734,7 @@ export function ClientDetail({
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Processos Judiciais Vinculados</h3>
               <button
                 onClick={() => onOpenNewProcess(client)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-brand-700"
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:brightness-110"
               >
                 <Plus className="h-3.5 w-3.5" /> Vincular Processo
               </button>
@@ -764,7 +766,7 @@ export function ClientDetail({
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">Contratos, procurações, documentos pessoais e minutas digitalizadas.</p>
               </div>
 
-              <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition-colors">
+              <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:brightness-110 transition-colors">
                 <UploadCloud className="h-3.5 w-3.5" /> Anexar Documento / Procuração
                 <input
                   type="file"
@@ -856,8 +858,8 @@ export function ClientDetail({
               </div>
 
               <div className="p-4 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
-                <span className="text-[10px] font-bold text-amber-600 dark:text-gold-400 uppercase tracking-wider block">Saldo a Receber</span>
-                <span className="text-lg font-black text-amber-600 dark:text-gold-400 mt-1 block">
+                <span className="text-[10px] font-bold text-gold-600 dark:text-gold-400 uppercase tracking-wider block">Saldo a Receber</span>
+                <span className="text-lg font-black text-gold-600 dark:text-gold-400 mt-1 block">
                   {formatCurrency(totalPending)}
                 </span>
                 <span className="text-[11px] text-slate-400 mt-0.5 block">
@@ -1040,7 +1042,7 @@ export function ClientDetail({
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => unmarkInstallmentPaid(inst.id)}
-                                className="p-1 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-800 transition-colors"
+                                className="p-1 rounded-lg text-slate-400 hover:text-gold-600 hover:bg-gold-50 dark:hover:bg-slate-800 transition-colors"
                                 title="Estornar Baixa"
                               >
                                 <Undo2 className="h-4 w-4" />
@@ -1181,7 +1183,7 @@ export function ClientDetail({
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Status
                 </label>
-                <select
+                <Select
                   required
                   value={editInstallmentForm.status}
                   onChange={(e) => setEditInstallmentForm(prev => ({ ...prev, status: e.target.value }))}
@@ -1189,14 +1191,14 @@ export function ClientDetail({
                 >
                   <option value="pending">Pendente</option>
                   <option value="paid">Liquidado (Pago)</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Forma de Pagamento
                 </label>
-                <select
+                <Select
                   required
                   value={editInstallmentForm.paymentMethod}
                   onChange={(e) => setEditInstallmentForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
@@ -1209,14 +1211,14 @@ export function ClientDetail({
                   <option value="Dinheiro">Dinheiro em Espécie</option>
                   <option value="Êxito / Quota Litis">Êxito / Quota Litis</option>
                   <option value="A combinar">A combinar</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Data de Vencimento
                 </label>
-                <input
+                <DateField
                   type="date"
                   required
                   value={editInstallmentForm.dueDate}
@@ -1238,7 +1240,7 @@ export function ClientDetail({
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-500/30 hover:bg-brand-700 active:scale-95 transition-all"
+                  className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-500/30 hover:brightness-110 active:scale-95 transition-all"
                 >
                   Salvar Alterações
                 </button>

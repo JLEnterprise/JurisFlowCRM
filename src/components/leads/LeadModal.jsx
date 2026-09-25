@@ -3,6 +3,33 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { KANBAN_STAGES } from '../../data/legalAreas';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
+
+const HOW_FOUND_OPTIONS = [
+  'Indicação de cliente',
+  'Indicação de outro advogado',
+  'Instagram',
+  'Facebook',
+  'Google',
+  'YouTube',
+  'TikTok',
+  'Site do escritório',
+  'Passou em frente / placa',
+  'Evento ou palestra',
+  'Outro',
+];
+
+// Resumo das UTMs gravadas no lead (quando ele veio de um link/anúncio)
+function getUtmSummary(lead) {
+  if (!lead) return '';
+  const utm = {
+    source: lead.utmSource || lead.utm_source,
+    medium: lead.utmMedium || lead.utm_medium,
+    campaign: lead.utmCampaign || lead.utm_campaign,
+  };
+  return [utm.source, utm.medium, utm.campaign].filter(Boolean).join(' / ');
+}
 
 export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
   const { addLead, updateLead, legalAreas, leadSources } = useCRM();
@@ -17,7 +44,8 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
     city: '',
     state: 'SP',
     birthDate: '',
-    source: 'google',
+    source: 'manual',
+    howFound: '',
     legalArea: 'trabalhista',
     assignedTo: 'usr_4',
     lawyerId: 'usr_2',
@@ -46,7 +74,8 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
         city: 'São Paulo',
         state: 'SP',
         birthDate: '',
-        source: 'google',
+        source: 'manual',
+    howFound: '',
         legalArea: 'trabalhista',
         assignedTo: 'usr_4',
         lawyerId: 'usr_2',
@@ -59,6 +88,14 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
       });
     }
   }, [leadToEdit, isOpen]);
+
+  const utmSummary = getUtmSummary(formData);
+  const legacySource = (leadSources || []).find(s => s.id === formData.source)?.name;
+  const originLabel = utmSummary
+    ? `Link: ${utmSummary}`
+    : formData.source && formData.source !== 'manual'
+      ? (legacySource || formData.source)
+      : 'Manual';
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -185,7 +222,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Data de Nascimento
             </label>
-            <input
+            <DateField
               type="date"
               value={formData.birthDate}
               onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
@@ -197,24 +234,34 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
         {/* Row 4: Origem, Área Jurídica & Valor Estimado */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Origem do Lead *
+            {/* A origem não é escolhida à mão: vem das UTMs dos links/anúncios.
+                No cadastro manual fica "Manual" e perguntamos como a pessoa conheceu o escritório. */}
+            <label className="mb-1 flex items-center justify-between gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <span>Como conheceu o escritório?</span>
+              <span
+                className="rounded-full border border-gold-500/30 px-2 py-0.5 text-[10px] font-semibold text-gold-700 dark:text-gold-300"
+                title={utmSummary || 'Lead cadastrado manualmente'}
+              >
+                {originLabel}
+              </span>
             </label>
-            <select
-              value={formData.source}
-              onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
+            <Select
+              value={formData.howFound || ''}
+              onChange={(e) => setFormData({ ...formData, howFound: e.target.value })}
+              placeholder="Selecione..."
+              className="w-full"
             >
-              {leadSources.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+              <option value="">Selecione...</option>
+              {HOW_FOUND_OPTIONS.map(o => (
+                <option key={o} value={o}>{o}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Área Jurídica *
             </label>
-            <select
+            <Select
               value={formData.legalArea}
               onChange={(e) => setFormData({ ...formData, legalArea: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -222,7 +269,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
               {legalAreas.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -238,13 +285,28 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
           </div>
         </div>
 
+        {String(formData.howFound || '').startsWith('Indicação') && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Quem indicou?
+            </label>
+            <input
+              type="text"
+              value={formData.referredBy || ''}
+              onChange={(e) => setFormData({ ...formData, referredBy: e.target.value })}
+              placeholder="Nome do cliente ou advogado que indicou"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-gold-500/60 focus:outline-none"
+            />
+          </div>
+        )}
+
         {/* Row 5: Responsável, Estágio & Temperatura */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Responsável Comercial
             </label>
-            <select
+            <Select
               value={formData.assignedTo}
               onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -252,13 +314,13 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Estágio Inicial no Funil
             </label>
-            <select
+            <Select
               value={formData.stage}
               onChange={(e) => setFormData({ ...formData, stage: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -266,13 +328,13 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
               {KANBAN_STAGES.map(st => (
                 <option key={st.id} value={st.id}>{st.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Temperatura do Lead
             </label>
-            <select
+            <Select
               value={formData.temperature}
               onChange={(e) => setFormData({ ...formData, temperature: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -280,7 +342,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
               <option value="hot">🔥 Quente (Alto interesse / Imediato)</option>
               <option value="warm">🟡 Morno (Avaliando proposta)</option>
               <option value="cold">❄️ Frio (Contato inicial / Sem urgência)</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -289,7 +351,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
             Data e Horário da Próxima Ação / Follow-up
           </label>
-          <input
+          <DateField
             type="datetime-local"
             value={formData.nextActionDate}
             onChange={(e) => setFormData({ ...formData, nextActionDate: e.target.value })}
@@ -321,7 +383,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
           </button>
           <button
             type="submit"
-            className="rounded-xl bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-brand-700 transition-colors"
+            className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-sm font-semibold text-white shadow-md hover:brightness-110 transition-colors"
           >
             {leadToEdit ? 'Salvar Alterações' : 'Cadastrar Lead'}
           </button>

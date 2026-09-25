@@ -85,7 +85,7 @@ export function PasswordRecoveryModal() {
         <button
           type="submit"
           disabled={saving}
-          className="w-full rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-60 py-2.5 text-sm font-semibold text-white transition"
+          className="w-full rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 disabled:opacity-60 py-2.5 text-sm font-semibold text-white transition"
         >
           {saving ? 'Salvando…' : 'Salvar nova senha'}
         </button>

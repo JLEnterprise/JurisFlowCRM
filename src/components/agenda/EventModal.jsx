@@ -3,6 +3,8 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { Sparkles, UserCheck, UserPlus, Info, CheckCircle2 } from 'lucide-react';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
 
 export const PRESET_EVENT_GROUPS = [
   {
@@ -212,7 +214,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
             </div>
 
             {!isCustomType ? (
-              <select
+              <Select
                 value={formData.type}
                 onChange={(e) => {
                   if (e.target.value === 'custom') {
@@ -238,7 +240,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
                     Outro (Digitar personalizado...)
                   </option>
                 </optgroup>
-              </select>
+              </Select>
             ) : (
               <div className="space-y-1">
                 <input
@@ -338,7 +340,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Advogado / Responsável *
             </label>
-            <select
+            <Select
               value={formData.responsibleId}
               onChange={(e) => setFormData({ ...formData, responsibleId: e.target.value })}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -346,7 +348,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -356,7 +358,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Data *
             </label>
-            <input
+            <DateField
               type="date"
               required
               value={formData.date}
@@ -369,7 +371,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Horário de Início
             </label>
-            <input
+            <DateField
               type="time"
               value={formData.startTime}
               onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
@@ -381,7 +383,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Horário de Término
             </label>
-            <input
+            <DateField
               type="time"
               value={formData.endTime}
               onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
@@ -429,7 +431,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
           </button>
           <button
             type="submit"
-            className="rounded-xl bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-brand-700 transition-colors"
+            className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-sm font-semibold text-white shadow-md hover:brightness-110 transition-colors"
           >
             {eventToEdit ? 'Salvar Alterações' : 'Confirmar Agendamento'}
           </button>

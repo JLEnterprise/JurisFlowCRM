@@ -735,7 +735,7 @@ export function AuthProvider({ children }) {
 
   const userRoles = Array.isArray(currentUser?.roles) && currentUser.roles.length > 0
     ? currentUser.roles
-    : (currentUser?.role ? [currentUser.role] : ['admin']);
+    : (currentUser?.role ? [currentUser.role] : []);
 
   const isDev = userRoles.includes('dev') || currentUser?.role === 'dev';
   const isAdmin = userRoles.includes('admin') || currentUser?.role === 'admin' || isDev;
@@ -768,6 +768,8 @@ export function AuthProvider({ children }) {
     canAccessFunnel: isDev || isAdmin || isSales || isLawyer,
     canAccessProposals: isDev || isAdmin || isSales || isLawyer,
     canAccessAgenda: true,
+    // Agenda de toda a equipe: secretaria e administração; os demais (ex.: advogados) veem só a própria
+    canViewAllAgendas: isDev || isAdmin || isSecretary,
     canAccessTasks: true,
     canAccessAttendance: true,
     canAccessDocuments: isDev || isAdmin || isLawyer || isFinancial || isSecretary,

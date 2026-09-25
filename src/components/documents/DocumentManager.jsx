@@ -34,12 +34,22 @@ import {
   formatFileSize,
   getFileTypeInfo,
 } from '../../utils/fileHelper';
+import { Select } from '../common/Select';
+
+const NO_CLIENT = '__sem_cliente';
 
 export function DocumentManager() {
   const { documents = [], addDocument, deleteDocument, clients = [], showToast, logActivity } = useCRM();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedClient, setSelectedClient] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+
+  // Clientes para o filtro, em ordem alfabética
+  const clientOptions = [...(clients || [])]
+    .filter(c => c && c.id)
+    .map(c => ({ id: String(c.id), name: c.name || 'Cliente sem nome' }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
   // Deletion confirm modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -81,7 +91,17 @@ export function DocumentManager() {
 
     const matchesCat = !selectedCategory || (d.category || 'Outros') === selectedCategory;
 
-    return matchesSearch && matchesCat;
+    const docClientId = String(d.clientId || d.client_id || '');
+    let matchesClient = true;
+    if (selectedClient === NO_CLIENT) {
+      matchesClient = !docClientId && !clientName;
+    } else if (selectedClient) {
+      const client = clientOptions.find(c => c.id === selectedClient);
+      matchesClient = docClientId === selectedClient ||
+        (!!client && clientName === String(client.name || '').toLowerCase());
+    }
+
+    return matchesSearch && matchesCat && matchesClient;
   });
 
   // Função auxiliar para detectar categoria inteligente pelo nome do arquivo
@@ -250,62 +270,64 @@ export function DocumentManager() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Top action header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            <FolderLock className="h-6 w-6 text-brand-600 dark:text-gold-400" />
-            Documentos & GED Jurídico
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Gestão Eletrônica de Documentos com suporte total a PDF e Word, criptografia e controle de acesso LGPD.
-          </p>
-        </div>
-
-        <button
-          onClick={openUploadModal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/25 hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile cursor-pointer"
-        >
-          <Upload className="h-4 w-4" /> Anexar Documento
-        </button>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white dark:bg-navy-900/90 border border-slate-200/80 dark:border-white/[0.08] p-3 shadow-xs">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+    <div className="space-y-4 animate-fade-in">
+      {/* Barra única: busca e filtros compactos à esquerda, anexar à direita */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-60">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por documento, cliente ou arquivo..."
-            className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-navy-950/60 pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:border-brand-500 focus:outline-none"
+            placeholder="Buscar documento..."
+            className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:border-gold-500/60 focus:outline-none"
           />
         </div>
 
-        <select
+        <Select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
+          aria-label="Filtrar por categoria"
+          className="w-40 py-1.5 text-xs"
         >
           <option value="">Todas as Categorias</option>
           {categories.map(c => (
             <option key={c} value={c}>{c}</option>
           ))}
-        </select>
+        </Select>
 
-        {(selectedCategory || search) && (
+        <Select
+          value={selectedClient}
+          onChange={(e) => setSelectedClient(e.target.value)}
+          aria-label="Filtrar por cliente"
+          className="w-40 py-1.5 text-xs"
+        >
+          <option value="">Todos os Clientes</option>
+          <option value={NO_CLIENT}>Sem cliente vinculado</option>
+          {clientOptions.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </Select>
+
+        {(selectedCategory || selectedClient || search) && (
           <button
             onClick={() => {
               setSelectedCategory('');
+              setSelectedClient('');
               setSearch('');
             }}
-            className="text-xs text-rose-600 dark:text-rose-400 hover:underline px-2"
+            className="text-xs text-rose-600 dark:text-rose-400 hover:underline px-1"
           >
-            Limpar Filtros
+            Limpar
           </button>
         )}
+
+        <button
+          onClick={openUploadModal}
+          className="ml-auto inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-semibold tracking-wide text-white shadow-md shadow-brand-900/20 hover:brightness-110 transition btn-tactile"
+        >
+          <Upload className="h-3.5 w-3.5" /> Anexar Documento
+        </button>
       </div>
 
       {/* Documents Table / Grid */}
@@ -549,7 +571,7 @@ export function DocumentManager() {
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Categoria do Arquivo *
               </label>
-              <select
+              <Select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
@@ -557,14 +579,14 @@ export function DocumentManager() {
                 {categories.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Cliente Vinculado *
               </label>
-              <select
+              <Select
                 required
                 value={formData.clientId}
                 onChange={(e) => {
@@ -581,7 +603,7 @@ export function DocumentManager() {
                 {clients.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -601,7 +623,7 @@ export function DocumentManager() {
             <button
               type="submit"
               disabled={isUploading || selectedFiles.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-brand-700 transition-colors disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isUploading ? (
                 <>

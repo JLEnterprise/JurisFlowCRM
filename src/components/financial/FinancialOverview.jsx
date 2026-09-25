@@ -25,6 +25,7 @@ import {
   ChevronRight,
   UserCheck,
   Sparkles,
+  Repeat,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -33,6 +34,18 @@ import { Badge } from '../common/Badge';
 import { EmptyState } from '../common/EmptyState';
 import { exportService } from '../../services/exportService';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { Select } from '../common/Select';
+import { DateField } from '../common/DateField';
+import { Avatar } from '../common/Avatar';
+import { ClientPaymentHistory } from './ClientPaymentHistory';
+import {
+  instAmount, instDue, instPaidOn, instClientName, instNumber, instTotal, instMethod,
+  instState, fmtDay, relativeDay, clientKeyOf,
+} from './financeUtils';
+
+const KPI_ICONS = { FileText, DollarSign, Coins, TrendingUp, AlertTriangle };
+
+const ICON_BTN ='rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white';
 
 // Motivos pré-configurados de inadimplência comuns na advocacia
 const DEFAULT_OVERDUE_REASONS = [
@@ -71,6 +84,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState(''); // '', 'paid', 'pending', 'overdue'
   const [activeCardKey, setActiveCardKey] = useState(null); // 'contracted', 'received', 'pending', 'ticket', 'overdue'
+  const [historyClientKey, setHistoryClientKey] = useState(null); // cliente aberto no histórico de pagamentos
 
   // Modals de exclusão e edição padrão
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -163,6 +177,24 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
       return matchesSearch && matchesStatus;
     });
   }, [installments, search, selectedStatus]);
+
+  // Ordem da lista: atrasadas (mais antigas primeiro), depois a vencer (mais próximas), por fim pagas (mais recentes)
+  const sortedInstallments = useMemo(() => {
+    const rank = { overdue: 0, upcoming: 1, paid: 2 };
+    return [...filteredInstallments].sort((a, b) => {
+      const ra = rank[instState(a)];
+      const rb = rank[instState(b)];
+      if (ra !== rb) return ra - rb;
+      if (ra === 2) return (instPaidOn(b) || instDue(b)).localeCompare(instPaidOn(a) || instDue(a));
+      return instDue(a).localeCompare(instDue(b));
+    });
+  }, [filteredInstallments]);
+
+  const handleShowReceipt = (inst) => {
+    alert(
+      `Recibo de pagamento\n\nCliente: ${instClientName(inst)}\nParcela: ${instNumber(inst)} de ${instTotal(inst)}\nValor: ${formatCurrency(instAmount(inst))}\nData: ${fmtDay(instPaidOn(inst) || instDue(inst))}\nForma: ${instMethod(inst) || 'PIX'}`
+    );
+  };
 
   // Ações ao clicar em cada Card de KPI
   const handleCardClick = (cardKey) => {
@@ -310,476 +342,266 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
     exportService.exportToCSV('Relatorio_Financeiro_JurisFlow', filteredInstallments, headers);
   };
 
+  // Tela de histórico de um cliente (substitui a lista, com botão de voltar)
+  if (historyClientKey) {
+    return (
+      <ClientPaymentHistory
+        clientKey={historyClientKey}
+        onBack={() => setHistoryClientKey(null)}
+        onOpenWhatsApp={onOpenWhatsApp}
+        onOpenClient={onSelectClient ? (id) => onSelectClient(id) : undefined}
+      />
+    );
+  }
+
+  const STATUS_TABS = [
+    { id: '', label: 'Todas', count: installments.length },
+    { id: 'pending', label: 'A vencer', count: (installments || []).filter(i => i.status !== 'paid' && !checkIsOverdue(i)).length },
+    { id: 'overdue', label: 'Em atraso', count: overdueInstallments.length, tone: 'is-lost' },
+    { id: 'paid', label: 'Pagas', count: (installments || []).filter(i => i.status === 'paid').length, tone: 'is-won' },
+  ];
+
+  const kpis = [
+    { key: 'contracted', title: 'Receita contratada', value: formatCurrency(totalContracted), subtitle: `${activeContractsCount} contrato(s) ativo(s)`, iconName: 'FileText', color: 'gold' },
+    { key: 'received', title: 'Recebido', value: formatCurrency(totalReceived), subtitle: 'Honorários liquidados', iconName: 'DollarSign', color: 'emerald' },
+    { key: 'pending', title: 'A receber', value: formatCurrency(totalPending), subtitle: 'Parcelas em aberto', iconName: 'Coins', color: 'gold' },
+    { key: 'ticket', title: 'Ticket médio', value: formatCurrency(averageTicket), subtitle: 'Por contrato', iconName: 'TrendingUp', color: 'gold' },
+    {
+      key: 'overdue', title: 'Inadimplência', value: `${defaultRate}%`,
+      subtitle: overdueInstallments.length ? `${overdueInstallments.length} parcela(s) em atraso` : 'Nenhuma parcela em atraso',
+      iconName: 'AlertTriangle', color: overdueInstallments.length > 0 ? 'rose' : 'emerald',
+    },
+  ];
+
+  const STATE_PILL = {
+    paid: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/25 dark:text-emerald-300',
+    overdue: 'bg-rose-500/10 text-rose-700 ring-rose-500/30 dark:text-rose-300',
+    upcoming: 'bg-gold-500/10 text-gold-800 ring-gold-500/30 dark:text-gold-200',
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* 5 KPIs CLICÁVEIS E INTERATIVOS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Card 1: Receita Contratada */}
-        <div
-          onClick={() => handleCardClick('contracted')}
-          className={`cursor-pointer transition-all duration-200 transform hover:-translate-y-1 ${
-            activeCardKey === 'contracted'
-              ? 'ring-2 ring-brand-500 rounded-2xl shadow-lg shadow-brand-500/10'
-              : ''
-          }`}
-          title="Clique para ver todos os contratos e parcelas ativas"
-        >
-          <StatCard
-            title="Receita Contratada"
-            value={formatCurrency(totalContracted)}
-            subtitle="Total em contratos ativos (Clique p/ ver)"
-            iconName="FileText"
-            color="brand"
-            className="h-full"
-          />
-        </div>
-
-        {/* Card 2: Receita Recebida */}
-        <div
-          onClick={() => handleCardClick('received')}
-          className={`cursor-pointer transition-all duration-200 transform hover:-translate-y-1 ${
-            activeCardKey === 'received' || selectedStatus === 'paid'
-              ? 'ring-2 ring-emerald-500 rounded-2xl shadow-lg shadow-emerald-500/10'
-              : ''
-          }`}
-          title="Clique para filtrar apenas parcelas liquidadas/pagas"
-        >
-          <StatCard
-            title="Receita Recebida"
-            value={formatCurrency(totalReceived)}
-            subtitle="Honorários liquidados (Clique p/ filtrar)"
-            iconName="DollarSign"
-            color="emerald"
-            className="h-full"
-          />
-        </div>
-
-        {/* Card 3: Receita a Receber */}
-        <div
-          onClick={() => handleCardClick('pending')}
-          className={`cursor-pointer transition-all duration-200 transform hover:-translate-y-1 ${
-            activeCardKey === 'pending' || selectedStatus === 'pending'
-              ? 'ring-2 ring-gold-500 rounded-2xl shadow-lg shadow-gold-500/10'
-              : ''
-          }`}
-          title="Clique para filtrar apenas parcelas a receber"
-        >
-          <StatCard
-            title="Receita a Receber"
-            value={formatCurrency(totalPending)}
-            subtitle="Parcelas futuras e em aberto (Clique)"
-            iconName="Coins"
-            color="gold"
-            className="h-full"
-          />
-        </div>
-
-        {/* Card 4: Ticket Médio */}
-        <div
-          onClick={() => handleCardClick('ticket')}
-          className={`cursor-pointer transition-all duration-200 transform hover:-translate-y-1 ${
-            activeCardKey === 'ticket'
-              ? 'ring-2 ring-indigo-500 rounded-2xl shadow-lg shadow-indigo-500/10'
-              : ''
-          }`}
-          title="Clique para ir à aba de Contratos & Minutas"
-        >
-          <StatCard
-            title="Ticket Médio"
-            value={formatCurrency(averageTicket)}
-            subtitle="Média por contrato (Ir p/ Contratos)"
-            iconName="TrendingUp"
-            color="indigo"
-            className="h-full"
-          />
-        </div>
-
-        {/* Card 5: Inadimplência */}
-        <div
-          onClick={() => handleCardClick('overdue')}
-          className={`cursor-pointer transition-all duration-200 transform hover:-translate-y-1 ${
-            activeCardKey === 'overdue' || selectedStatus === 'overdue'
-              ? 'ring-2 ring-rose-500 rounded-2xl shadow-lg shadow-rose-500/20 animate-pulse'
-              : ''
-          }`}
-          title="Clique para abrir a Gestão de Inadimplência e Motivos de Atraso"
-        >
-          <StatCard
-            title="Inadimplência"
-            value={`${defaultRate}%`}
-            subtitle={`${overdueInstallments.length} parcela(s) em atraso (Ver Motivos)`}
-            iconName="AlertTriangle"
-            color={overdueInstallments.length > 0 ? 'rose' : 'emerald'}
-            className="h-full"
-          />
-        </div>
+      {/* Indicadores (clicáveis: filtram a lista) */}
+      <div className="dash-panel !p-0 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-slate-200/80 dark:divide-white/[0.06] lg:divide-x">
+        {kpis.map((k) => {
+          const active = activeCardKey === k.key || (k.key !== 'contracted' && k.key !== 'ticket' && selectedStatus === k.key);
+          const Icon = KPI_ICONS[k.iconName];
+          const tone = k.color === 'rose' ? 'text-rose-500' : k.color === 'emerald' ? 'text-emerald-500' : 'text-gold-600 dark:text-gold-400';
+          return (
+            <button
+              key={k.key}
+              type="button"
+              onClick={() => handleCardClick(k.key)}
+              className={`group relative px-5 py-4 text-left transition-colors hover:bg-gold-500/[0.04] ${active ? 'bg-gold-500/[0.07]' : ''}`}
+            >
+              {active && <span className="absolute inset-x-5 bottom-0 h-0.5 rounded-full bg-gold-500" />}
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-label text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{k.title}</span>
+                {Icon && <Icon className={`h-3.5 w-3.5 shrink-0 ${tone}`} />}
+              </div>
+              <div className="mt-2 whitespace-nowrap font-numeric text-lg font-semibold text-slate-900 dark:text-white">{k.value}</div>
+              <div className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-slate-400">{k.subtitle}</div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* BANNER INFORMATIVO DE FILTRO ATIVO (Feedback visual amigável) */}
-      {(selectedStatus || activeCardKey) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-brand-50/50 dark:bg-brand-950/20 border border-brand-200/60 dark:border-brand-900/40 text-xs text-brand-900 dark:text-brand-200 animate-in fade-in duration-150">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-brand-600 dark:text-brand-400 shrink-0" />
-            <span>
-              Filtro ativo por card:{' '}
-              <strong className="font-bold uppercase tracking-wider">
-                {selectedStatus === 'paid' && 'Honorários Liquidados (Pagas)'}
-                {selectedStatus === 'pending' && 'Parcelas Futuras / Pendentes'}
-                {selectedStatus === 'overdue' && `Inadimplência (${overdueInstallments.length} em atraso)`}
-                {activeCardKey === 'contracted' && 'Todas as Parcelas Contratadas'}
-                {activeCardKey === 'ticket' && 'Ticket Médio de Contratos'}
-              </strong>
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {selectedStatus === 'overdue' && (
-              <button
-                onClick={() => setOverdueModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition-all shadow-sm"
-              >
-                <AlertCircle className="h-3.5 w-3.5" /> Abrir Painel de Motivos
-              </button>
-            )}
-            {activeCardKey === 'contracted' && onNavigate && (
-              <button
-                onClick={() => onNavigate('contracts')}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold transition-all shadow-sm"
-              >
-                <FileText className="h-3.5 w-3.5" /> Ir para Contratos & Minutas
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setSelectedStatus('');
-                setActiveCardKey(null);
-              }}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors font-semibold"
-            >
-              <X className="h-3.5 w-3.5" /> Limpar Filtro
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* SEÇÃO PRINCIPAL: Gestão de Contas a Receber & Parcelas */}
-      <div className="rounded-3xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Contas a receber */}
+      <div className="dash-panel !p-0 overflow-hidden">
+        <div className="flex flex-col gap-4 px-5 pt-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-              <Coins className="h-5 w-5 text-gold-500" />
-              Gestão de Contas a Receber & Parcelas
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Controle detalhado de vencimentos, baixas manuais, motivos de inadimplência e recibos
-            </p>
+            <h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">Contas a receber</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Clique no cliente para ver o histórico de pagamentos e a projeção</p>
           </div>
-
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {overdueInstallments.length > 0 && (
               <button
                 onClick={() => {
                   setSelectedStatus('overdue');
                   setActiveCardKey('overdue');
-                  setOverdueModalOpen(true);
                   handleOpenOverdueDetail(overdueInstallments[0]);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 px-3.5 py-1.5 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/[0.07] px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-500/[0.12] dark:text-rose-300"
               >
-                <AlertTriangle className="h-3.5 w-3.5 text-rose-500 animate-pulse" />
-                Painel de Inadimplência ({overdueInstallments.length})
+                <AlertTriangle className="h-3.5 w-3.5" /> Inadimplência ({overdueInstallments.length})
               </button>
             )}
-
             <button
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-gold-500/40 hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:text-white"
             >
-              <Download className="h-3.5 w-3.5" /> Exportar Planilha
+              <Download className="h-3.5 w-3.5" /> Exportar
             </button>
           </div>
         </div>
 
-        {/* Barra de Filtros */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+        {/* Filtros numa linha só */}
+        <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+          <div className="funil-tabs">
+            {STATUS_TABS.map(t => (
+              <button
+                key={t.id || 'all'}
+                type="button"
+                onClick={() => { setSelectedStatus(t.id); setActiveCardKey(t.id || null); }}
+                className={`funil-tab ${t.tone || ''} ${selectedStatus === t.id ? 'is-active' : ''}`}
+              >
+                {t.label} <span className="funil-tab__count">{t.count}</span>
+              </button>
+            ))}
+          </div>
+          <div className="relative ml-auto w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por cliente contratante..."
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-navy-950 pl-9 pr-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none"
+              placeholder="Buscar cliente..."
+              className="w-full rounded-full border border-slate-200 bg-white/70 py-1.5 pl-8 pr-3 text-xs text-slate-900 focus:border-gold-500/50 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-white"
             />
           </div>
-
-          <select
-            value={selectedStatus}
-            onChange={(e) => {
-              setSelectedStatus(e.target.value);
-              setActiveCardKey(e.target.value);
-            }}
-            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-navy-950 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none"
-          >
-            <option value="">Todos os Status</option>
-            <option value="paid">✅ Liquidadas (Pagas)</option>
-            <option value="pending">⏳ Pendentes (A Vencer)</option>
-            <option value="overdue">🚨 Em Atraso (Inadimplentes)</option>
-          </select>
-
-          {selectedStatus && (
-            <button
-              onClick={() => {
-                setSelectedStatus('');
-                setActiveCardKey(null);
-              }}
-              className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline"
-            >
-              Ver todas ({installments.length})
-            </button>
-          )}
         </div>
 
-        {/* Tabela de Parcelas */}
-        {filteredInstallments.length === 0 ? (
-          <EmptyState
-            title="Nenhuma parcela encontrada"
-            description={
-              selectedStatus === 'overdue'
-                ? 'Excelente notícia! Nenhuma parcela em atraso registrada nesta carteira.'
-                : 'Não há registros financeiros correspondentes aos filtros selecionados.'
-            }
-            iconName={selectedStatus === 'overdue' ? 'CheckCircle2' : 'Coins'}
-          />
+        {sortedInstallments.length === 0 ? (
+          <div className="px-5 pb-6">
+            <EmptyState
+              title="Nenhuma parcela encontrada"
+              description={
+                selectedStatus === 'overdue'
+                  ? 'Nenhuma parcela em atraso nesta carteira.'
+                  : 'Não há parcelas para os filtros escolhidos.'
+              }
+              iconName={selectedStatus === 'overdue' ? 'CheckCircle2' : 'Coins'}
+            />
+          </div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 dark:bg-navy-950 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
-                <tr>
-                  <th className="px-4 py-3.5">Cliente Contratante</th>
-                  <th className="px-4 py-3.5">Parcela</th>
-                  <th className="px-4 py-3.5">Valor da Parcela</th>
-                  <th className="px-4 py-3.5">Vencimento</th>
-                  <th className="px-4 py-3.5">Status & Situação</th>
-                  <th className="px-4 py-3.5">Data do Pagamento</th>
-                  <th className="px-4 py-3.5">Forma</th>
-                  <th className="px-4 py-3.5 text-right">Ação</th>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="border-y border-slate-200/80 bg-slate-50/70 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-400">
+                  <th className="px-5 py-3 font-label">Cliente</th>
+                  <th className="px-4 py-3 font-label">Parcela</th>
+                  <th className="px-4 py-3 font-label">Vencimento</th>
+                  <th className="px-4 py-3 font-label text-right">Valor</th>
+                  <th className="px-4 py-3 font-label">Situação</th>
+                  <th className="px-5 py-3 font-label text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {filteredInstallments.map((inst) => {
-                  const isOverdue = checkIsOverdue(inst);
-                  const daysOverdue = getDaysOverdue(inst);
-
-                  const resolvedClientId =
-                    inst.clientId ||
-                    inst.client_id ||
-                    clients.find(
-                      (c) =>
-                        c.name?.trim().toLowerCase() ===
-                        (inst.clientName || inst.client_name || '').trim().toLowerCase()
-                    )?.id;
-
-                  const linkedContract = (contracts || []).find(
-                    (c) =>
-                      c.id === (inst.contractId || inst.contract_id) ||
-                      (inst.clientName && c.clientName?.trim().toLowerCase() === inst.clientName?.trim().toLowerCase()) ||
-                      (resolvedClientId && (c.clientId === resolvedClientId || c.client_id === resolvedClientId))
-                  );
-                  const resolvedContractId = inst.contractId || inst.contract_id || linkedContract?.id;
+              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+                {sortedInstallments.map((inst) => {
+                  const state = instState(inst);
+                  const due = instDue(inst);
+                  const paidOn = instPaidOn(inst);
+                  const number = instNumber(inst);
+                  const total = instTotal(inst);
+                  const reason = inst.overdueReason || inst.overdue_reason;
 
                   return (
-                    <tr
-                      key={inst.id}
-                      className={`hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors ${
-                        isOverdue ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''
-                      }`}
-                    >
-                      <td
-                        className={`px-4 py-3.5 font-bold text-slate-900 dark:text-white ${
-                          resolvedContractId || resolvedClientId ? 'cursor-pointer hover:text-brand-600 dark:hover:text-brand-400 group' : ''
-                        }`}
-                        title={
-                          resolvedContractId
-                            ? 'Clique para abrir o Contrato firmado'
-                            : resolvedClientId
-                            ? 'Clique para ver o Cliente'
-                            : ''
-                        }
-                        onClick={() => {
-                          if (resolvedContractId && onSelectContract) {
-                            onSelectContract(resolvedContractId);
-                          } else if (resolvedClientId && onSelectClient) {
-                            onSelectClient(resolvedClientId, 'contracts');
-                          }
-                        }}
-                      >
-                        <div className="flex flex-col">
-                          <span className="inline-flex items-center gap-1.5 group-hover:underline">
-                            {inst.clientName || inst.client_name || 'Cliente'}
-                            {(resolvedContractId || resolvedClientId) && (
-                              <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 text-brand-500 transition-opacity" />
+                    <tr key={inst.id} className="group transition-colors hover:bg-gold-500/[0.035]">
+                      <td className="px-5 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setHistoryClientKey(clientKeyOf(inst, clients))}
+                          className="flex items-center gap-3 text-left"
+                          title="Ver histórico de pagamentos"
+                        >
+                          <Avatar src={clients.find(c => String(c.id) === clientKeyOf(inst, clients))?.avatar} name={instClientName(inst)} size="sm" />
+                          <span className="min-w-0">
+                            <span className="block truncate font-semibold text-slate-900 transition-colors group-hover:text-gold-700 dark:text-white dark:group-hover:text-gold-300">
+                              {instClientName(inst)}
+                            </span>
+                            {state === 'overdue' && reason ? (
+                              <span className="block max-w-[14rem] truncate text-[11px] text-rose-600 dark:text-rose-400">{reason}</span>
+                            ) : (
+                              <span className="block text-[11px] text-slate-400">Ver histórico</span>
                             )}
                           </span>
-
-                          {/* Se tiver motivo de inadimplência cadastrado, exibe um mini badge */}
-                          {isOverdue && (inst.overdueReason || inst.overdue_reason) && (
-                            <span className="text-[10px] text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1 mt-0.5">
-                              📌 {inst.overdueReason || inst.overdue_reason}
-                            </span>
-                          )}
-                        </div>
+                        </button>
                       </td>
 
-                      <td className="px-4 py-3.5 font-semibold text-slate-600 dark:text-slate-300">
-                        {inst.installmentNumber || inst.number || 1} / {inst.totalInstallments || inst.total_installments || 1}
-                      </td>
-
-                      <td className="px-4 py-3.5 font-extrabold text-slate-900 dark:text-white">
-                        {formatCurrency(inst.amount || inst.value || 0)}
-                      </td>
-
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
-                        <div className="flex flex-col">
-                          <span>{formatDate(inst.dueDate || inst.due_date)}</span>
-                          {isOverdue && (
-                            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
-                              {daysOverdue} dia(s) de atraso
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3.5">
-                        {inst.status === 'paid' ? (
-                          <Badge variant="success">Liquidado</Badge>
-                        ) : isOverdue ? (
-                          <button
-                            onClick={() => handleOpenOverdueDetail(inst)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-bold text-[11px] hover:bg-rose-200 dark:hover:bg-rose-900/60 transition-colors"
-                            title="Clique para ver ou cadastrar motivo de inadimplência"
-                          >
-                            <AlertTriangle className="h-3 w-3 text-rose-500" />
-                            Em Atraso
-                          </button>
+                      <td className="px-4 py-3">
+                        {inst.recurring ? (
+                          <>
+                            <div className="inline-flex items-center gap-1 font-numeric text-xs font-semibold text-slate-700 dark:text-slate-200">
+                              <Repeat className="h-3 w-3 text-gold-600 dark:text-gold-400" /> Mensalidade {number}
+                            </div>
+                            <div className="text-[10px] text-slate-400">{inst.totalInstallments ? `de ${inst.totalInstallments} · recorrente` : 'recorrente'}</div>
+                          </>
                         ) : (
-                          <Badge variant="warning">Pendente</Badge>
+                        <>
+                        <div className="font-numeric text-xs font-semibold text-slate-700 dark:text-slate-200">{number} de {total}</div>
+                        <div className="mt-1 flex h-1 w-16 gap-[2px]">
+                          {Array.from({ length: Math.min(total, 12) }).map((_, n) => (
+                            <span
+                              key={n}
+                              className={`flex-1 rounded-full ${n < Math.round((number / total) * Math.min(total, 12)) ? 'bg-gold-500/80' : 'bg-slate-200 dark:bg-white/[0.08]'}`}
+                            />
+                          ))}
+                        </div>
+                        </>
                         )}
                       </td>
 
-                      <td className="px-4 py-3.5 text-slate-500 font-mono text-[11px]">
-                        {inst.status === 'paid'
-                          ? formatDate(inst.paymentDate || inst.payment_date || inst.paidDate || inst.paid_date || new Date())
-                          : '-'}
+                      <td className="px-4 py-3">
+                        <div className="font-numeric text-xs text-slate-800 dark:text-slate-200">{fmtDay(due)}</div>
+                        <div className={`text-[11px] ${state === 'overdue' ? 'font-semibold text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
+                          {state === 'paid' ? `pago ${fmtDay(paidOn || due, { day: '2-digit', month: '2-digit' })}` : relativeDay(due)}
+                        </div>
                       </td>
 
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
-                        {inst.paymentMethod || inst.payment_method || 'PIX'}
+                      <td className="px-4 py-3 text-right font-numeric font-semibold text-slate-900 dark:text-white">
+                        {formatCurrency(instAmount(inst))}
                       </td>
 
-                      <td className="px-4 py-3.5 text-right">
-                        {inst.status !== 'paid' ? (
-                          <div className="flex items-center justify-end gap-1">
-                            {/* Botão de Dar Baixa */}
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={state === 'overdue' ? () => handleOpenOverdueDetail(inst) : undefined}
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${STATE_PILL[state]} ${state === 'overdue' ? 'cursor-pointer' : 'cursor-default'}`}
+                          title={state === 'overdue' ? 'Registrar motivo do atraso' : undefined}
+                        >
+                          {state === 'paid' && <CheckCircle2 className="h-3 w-3" />}
+                          {state === 'overdue' && <AlertTriangle className="h-3 w-3" />}
+                          {state === 'upcoming' && <Clock className="h-3 w-3" />}
+                          {state === 'paid' ? `Pago${instMethod(inst) ? ` · ${instMethod(inst)}` : ''}` : state === 'overdue' ? `${getDaysOverdue(inst)} dia(s) de atraso` : 'A vencer'}
+                        </button>
+                      </td>
+
+                      <td className="px-5 py-3">
+                        <div className="flex items-center justify-end gap-0.5">
+                          {state !== 'paid' ? (
                             <button
                               onClick={() => markInstallmentPaid(inst.id)}
-                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors cursor-pointer"
-                              title="Dar Baixa"
+                              className="mr-1 inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 dark:text-emerald-300"
+                              title="Dar baixa (pago hoje)"
                             >
-                              <CheckCircle2 className="h-3 w-3" /> Baixa
+                              <Check className="h-3 w-3" /> Baixa
                             </button>
-
-                            {/* Botão de Cobrança / Motivo se estiver em atraso */}
-                            {isOverdue && (
-                              <>
-                                <button
-                                  onClick={() => handleOpenOverdueDetail(inst)}
-                                  className="p-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
-                                  title="Registrar / Ver Motivo da Inadimplência"
-                                >
-                                  <AlertCircle className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleSendCollectionWhatsApp(inst)}
-                                  className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
-                                  title="Cobrar via WhatsApp"
-                                >
-                                  <MessageSquare className="h-4 w-4" />
-                                </button>
-                              </>
-                            )}
-
-                            {/* Botão de Editar */}
-                            <button
-                              onClick={() => handleOpenEdit(inst)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800 transition-colors"
-                              title="Editar Parcela"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-
-                            {/* Botão de Excluir */}
-                            <button
-                              onClick={() => {
-                                setInstallmentToDelete(inst);
-                                setDeleteModalOpen(true);
-                              }}
-                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
-                              title="Excluir Parcela"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => unmarkInstallmentPaid(inst.id)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-800 transition-colors"
-                              title="Estornar Baixa"
-                            >
+                          ) : (
+                            <button onClick={() => unmarkInstallmentPaid(inst.id)} className={ICON_BTN} title="Estornar baixa">
                               <Undo2 className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => handleOpenEdit(inst)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800 transition-colors"
-                              title="Editar Recibo"
-                            >
-                              <Edit className="h-4 w-4" />
+                          )}
+                          {state === 'overdue' && (
+                            <button onClick={() => handleSendCollectionWhatsApp(inst)} className={`${ICON_BTN} hover:!text-emerald-600`} title="Cobrar no WhatsApp">
+                              <MessageSquare className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => {
-                                setInstallmentToDelete(inst);
-                                setDeleteModalOpen(true);
-                              }}
-                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
-                              title="Excluir Recibo"
-                            >
-                              <Trash2 className="h-4 w-4" />
+                          )}
+                          {state === 'paid' && (
+                            <button onClick={() => handleShowReceipt(inst)} className={ICON_BTN} title="Recibo">
+                              <Receipt className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => {
-                                const pDate = formatDate(
-                                  inst.paymentDate ||
-                                  inst.payment_date ||
-                                  inst.paidDate ||
-                                  inst.paid_date ||
-                                  new Date()
-                                );
-                                const pMethod = inst.paymentMethod || inst.payment_method || 'PIX';
-                                alert(
-                                  `Recibo de Pagamento:\n\nCliente: ${
-                                    inst.clientName || inst.client_name
-                                  }\nValor: ${formatCurrency(
-                                    inst.amount || inst.value
-                                  )}\nData: ${pDate}\nForma: ${pMethod}\n\nAutenticado pelo JurisFlow CRM`
-                                );
-                              }}
-                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
-                            >
-                              <Receipt className="h-3 w-3" /> Recibo
-                            </button>
-                          </div>
-                        )}
+                          )}
+                          <button onClick={() => handleOpenEdit(inst)} className={ICON_BTN} title="Editar parcela">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => { setInstallmentToDelete(inst); setDeleteModalOpen(true); }}
+                            className={`${ICON_BTN} hover:!text-rose-600`}
+                            title="Excluir parcela"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -800,7 +622,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
             if (e.target === e.currentTarget) setOverdueModalOpen(false);
           }}
         >
-          <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl dark:bg-navy-900 border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]">
+          <div className="premium-modal w-full max-w-4xl rounded-3xl bg-white shadow-2xl dark:bg-navy-900 border border-gold-500/25 overflow-hidden flex flex-col max-h-[92vh]">
             {/* Header do Modal */}
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 p-6 dark:border-slate-800 dark:bg-navy-950 shrink-0">
               <div className="flex items-center gap-3">
@@ -845,7 +667,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                       setSelectedStatus('pending');
                       setActiveCardKey('pending');
                     }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-gold-700 via-gold-600 to-gold-500 hover:brightness-110 text-white text-xs font-bold transition-all shadow-sm"
                   >
                     Ver Parcelas a Vencer <ChevronRight className="h-4 w-4" />
                   </button>
@@ -942,17 +764,17 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                           <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                             Motivo Principal da Inadimplência
                           </label>
-                          <select
+                          <Select
                             value={overdueForm.overdueReason}
                             onChange={(e) => setOverdueForm((prev) => ({ ...prev, overdueReason: e.target.value }))}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950 dark:text-white font-medium"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-gold-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950 dark:text-white font-medium"
                           >
                             {DEFAULT_OVERDUE_REASONS.map((reason) => (
                               <option key={reason} value={reason}>
                                 {reason}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </div>
 
                         {/* Campo 2: Fase da Cobrança */}
@@ -960,17 +782,17 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                           <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                             Fase / Etapa da Cobrança
                           </label>
-                          <select
+                          <Select
                             value={overdueForm.collectionStage}
                             onChange={(e) => setOverdueForm((prev) => ({ ...prev, collectionStage: e.target.value }))}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950 dark:text-white font-medium"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-gold-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950 dark:text-white font-medium"
                           >
                             {COLLECTION_STAGES.map((st) => (
                               <option key={st.id} value={st.id}>
                                 {st.label}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </div>
 
                         {/* Campo 3: Data Prometida para Pagamento */}
@@ -978,11 +800,11 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                           <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                             Data Prometida para Quitação / Reagendamento
                           </label>
-                          <input
+                          <DateField
                             type="date"
                             value={overdueForm.promisedDate}
                             onChange={(e) => setOverdueForm((prev) => ({ ...prev, promisedDate: e.target.value }))}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950 dark:text-white"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-gold-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950 dark:text-white"
                           />
                         </div>
 
@@ -996,7 +818,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                             value={overdueForm.overdueNotes}
                             onChange={(e) => setOverdueForm((prev) => ({ ...prev, overdueNotes: e.target.value }))}
                             placeholder="Ex: Cliente atendeu informando que o benefício cai dia 15. Combinado pagamento integral via PIX."
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950 dark:text-white resize-none"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 focus:border-gold-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950 dark:text-white resize-none"
                           />
                         </div>
 
@@ -1022,7 +844,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
 
                           <button
                             type="submit"
-                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-lg shadow-brand-500/20 active:scale-95"
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-gold-700 via-gold-600 to-gold-500 hover:brightness-110 text-white text-xs font-bold transition-all shadow-lg shadow-gold-500/20 active:scale-95"
                           >
                             <Save className="h-4 w-4" /> Salvar Motivo & Histórico
                           </button>
@@ -1075,10 +897,10 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
             }
           }}
         >
-          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl dark:bg-navy-900 overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="premium-modal w-full max-w-md rounded-3xl bg-white shadow-2xl dark:bg-navy-900 border border-gold-500/25 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-navy-950/50 shrink-0">
               <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <Edit className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+                <Edit className="h-5 w-5 text-gold-600 dark:text-gold-400" />
                 Editar Parcela / Recibo
               </h2>
               <button
@@ -1098,26 +920,26 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Status
                 </label>
-                <select
+                <Select
                   required
                   value={editForm.status}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, status: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950/50 dark:text-white"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-gold-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950/50 dark:text-white"
                 >
                   <option value="pending">Pendente</option>
                   <option value="paid">Liquidado (Pago)</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Forma de Pagamento
                 </label>
-                <select
+                <Select
                   required
                   value={editForm.paymentMethod}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, paymentMethod: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950/50 dark:text-white"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-gold-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950/50 dark:text-white"
                 >
                   <option value="PIX">PIX</option>
                   <option value="Boleto">Boleto</option>
@@ -1126,19 +948,19 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                   <option value="Dinheiro">Dinheiro em Espécie</option>
                   <option value="Êxito / Quota Litis">Êxito / Quota Litis</option>
                   <option value="A combinar">A combinar</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Data de Vencimento
                 </label>
-                <input
+                <DateField
                   type="date"
                   required
                   value={editForm.dueDate}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, dueDate: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950/50 dark:text-white [&::-webkit-calendar-picker-indicator]:dark:invert"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 focus:border-gold-500 focus:outline-none dark:border-slate-800 dark:bg-navy-950/50 dark:text-white [&::-webkit-calendar-picker-indicator]:dark:invert"
                 />
               </div>
 
@@ -1155,7 +977,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-500/30 hover:bg-brand-700 active:scale-95 transition-all"
+                  className="rounded-full bg-gradient-to-r from-gold-700 via-gold-600 to-gold-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-gold-500/25 hover:brightness-110 active:scale-95 transition-all"
                 >
                   Salvar Alterações
                 </button>

@@ -1,15 +1,43 @@
+// Áreas do Direito oferecidas em todo o sistema (clientes, leads, contratos, propostas).
+// Os ids antigos foram mantidos para não quebrar cadastros existentes; "Outros Ramos" fica por último.
 export const INITIAL_LEGAL_AREAS = [
   { id: 'trabalhista', name: 'Direito Trabalhista', color: '#3b82f6', icon: 'Briefcase' },
-  { id: 'familia', name: 'Direito de Família', color: '#ec4899', icon: 'HeartHandshake' },
-  { id: 'civil', name: 'Direito Civil', color: '#8b5cf6', icon: 'Scale' },
-  { id: 'empresarial', name: 'Direito Empresarial', color: '#0ea5e9', icon: 'Building2' },
   { id: 'previdenciario', name: 'Direito Previdenciário', color: '#10b981', icon: 'ShieldCheck' },
-  { id: 'criminal', name: 'Direito Criminal', color: '#ef4444', icon: 'Gavel' },
-  { id: 'imobiliario', name: 'Direito Imobiliário', color: '#f59e0b', icon: 'Home' },
-  { id: 'tributario', name: 'Direito Tributário', color: '#6366f1', icon: 'Coins' },
+  { id: 'familia', name: 'Direito de Família', color: '#ec4899', icon: 'HeartHandshake' },
+  { id: 'sucessoes', name: 'Direito das Sucessões (Inventário e Herança)', color: '#db2777', icon: 'Users' },
+  { id: 'civil', name: 'Direito Civil', color: '#8b5cf6', icon: 'Scale' },
+  { id: 'contratual', name: 'Direito Contratual', color: '#7c3aed', icon: 'FileText' },
   { id: 'consumidor', name: 'Direito do Consumidor', color: '#14b8a6', icon: 'ShoppingBag' },
+  { id: 'bancario', name: 'Direito Bancário', color: '#0891b2', icon: 'Landmark' },
+  { id: 'empresarial', name: 'Direito Empresarial / Societário', color: '#0ea5e9', icon: 'Building2' },
+  { id: 'tributario', name: 'Direito Tributário', color: '#6366f1', icon: 'Coins' },
+  { id: 'imobiliario', name: 'Direito Imobiliário', color: '#f59e0b', icon: 'Home' },
+  { id: 'condominial', name: 'Direito Condominial', color: '#d97706', icon: 'Building' },
+  { id: 'criminal', name: 'Direito Penal / Criminal', color: '#ef4444', icon: 'Gavel' },
+  { id: 'administrativo', name: 'Direito Administrativo', color: '#475569', icon: 'Landmark' },
+  { id: 'constitucional', name: 'Direito Constitucional', color: '#1e40af', icon: 'BookOpen' },
+  { id: 'saude', name: 'Direito Médico e da Saúde', color: '#059669', icon: 'HeartPulse' },
+  { id: 'digital', name: 'Direito Digital / LGPD', color: '#2563eb', icon: 'Shield' },
+  { id: 'propriedade_intelectual', name: 'Propriedade Intelectual (Marcas e Patentes)', color: '#9333ea', icon: 'Lightbulb' },
+  { id: 'ambiental', name: 'Direito Ambiental', color: '#16a34a', icon: 'Leaf' },
+  { id: 'agrario', name: 'Direito Agrário / Agronegócio', color: '#65a30d', icon: 'Wheat' },
+  { id: 'securitario', name: 'Direito Securitário (Seguros)', color: '#0d9488', icon: 'Umbrella' },
+  { id: 'transito', name: 'Direito de Trânsito', color: '#ea580c', icon: 'Car' },
+  { id: 'eleitoral', name: 'Direito Eleitoral', color: '#4f46e5', icon: 'Vote' },
+  { id: 'militar', name: 'Direito Militar', color: '#57534e', icon: 'Shield' },
+  { id: 'internacional', name: 'Direito Internacional / Imigração', color: '#0284c7', icon: 'Globe' },
+  { id: 'aduaneiro', name: 'Direito Aduaneiro e Marítimo', color: '#0369a1', icon: 'Ship' },
+  { id: 'desportivo', name: 'Direito Desportivo', color: '#e11d48', icon: 'Trophy' },
+  { id: 'energia', name: 'Direito Regulatório e de Energia', color: '#ca8a04', icon: 'Zap' },
   { id: 'outros', name: 'Outros Ramos', color: '#64748b', icon: 'FileText' },
 ];
+
+// Junta a lista padrão com as áreas criadas pelo escritório (nunca fica vazia)
+export function mergeLegalAreas(stored) {
+  const custom = (Array.isArray(stored) ? stored : []).filter(a => a && a.id && !INITIAL_LEGAL_AREAS.some(d => d.id === a.id));
+  const base = INITIAL_LEGAL_AREAS.filter(a => a.id !== 'outros');
+  return [...base, ...custom, INITIAL_LEGAL_AREAS.find(a => a.id === 'outros')];
+}
 
 export const INITIAL_LEAD_SOURCES = [
   { id: 'instagram', name: 'Instagram', color: '#e1306c', icon: 'Instagram' },

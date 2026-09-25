@@ -115,9 +115,9 @@ export function SignatureModal({ isOpen, onClose, contract = null }) {
         {!signatureDone ? (
           <div className="space-y-4">
             {/* Opção 1: Enviar Link para o Cliente Assinar */}
-            <div className="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-2">
-              <span className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                <ExternalLink className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            <div className="p-3.5 rounded-2xl bg-gold-50/60 dark:bg-gold-950/30 border border-gold-200 dark:border-gold-800/60 space-y-2">
+              <span className="text-xs font-bold text-gold-900 dark:text-gold-200 flex items-center gap-1.5">
+                <ExternalLink className="h-3.5 w-3.5 text-gold-600 dark:text-gold-400" />
                 Opção 1: Enviar Link para o Cliente Assinar no Celular / WhatsApp
               </span>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
@@ -188,7 +188,7 @@ export function SignatureModal({ isOpen, onClose, contract = null }) {
                   type="button"
                   disabled={isSigning}
                   onClick={handleExecuteSign}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-2 text-xs font-bold text-white shadow-md hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 transition-all btn-tactile"
                 >
                   <FileCheck className="h-4 w-4" />
                   {isSigning ? 'Processando Assinatura...' : 'Assinar Digitalmente Agora'}

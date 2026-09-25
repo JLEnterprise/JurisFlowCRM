@@ -21,6 +21,7 @@ import { ProposalDetailModal } from './ProposalDetailModal';
 import { pdfService } from '../../services/pdfService';
 import { storageService } from '../../services/storageService';
 import { PROPOSAL_STATUSES } from '../../data/legalAreas';
+import { Select } from '../common/Select';
 
 export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToContract }) {
   const { proposals = [], deleteProposal, addProposal, officeSettings = {}, showToast, logActivity, legalAreas = [] } = useCRM();
@@ -143,20 +144,11 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            <FileCheck2 className="h-6 w-6 text-brand-600 dark:text-gold-400" />
-            Propostas Comerciais & Honorários
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Elabore, envie e converta propostas jurídicas estruturadas com cálculo automático de honorários.
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
 
         <button
           onClick={onOpenNewProposal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/25 hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-900/20 hover:brightness-110 transition-all btn-tactile"
         >
           <Plus className="h-4 w-4" /> Nova Proposta
         </button>
@@ -175,7 +167,7 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
           />
         </div>
 
-        <select
+        <Select
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -184,9 +176,9 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
           {PROPOSAL_STATUSES.map(s => (
             <option key={s.id} value={s.id}>{s.label}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={selectedArea}
           onChange={(e) => setSelectedArea(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -195,7 +187,7 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
           {legalAreas.map(a => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
-        </select>
+        </Select>
 
         {(selectedStatus || selectedArea || search) && (
           <button
@@ -256,7 +248,7 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
                     {formatCurrency(prop.value || 0)}
                   </div>
                   {Number(prop.successFeePercent) > 0 && (
-                    <div className="text-[10px] text-amber-600 dark:text-gold-400 font-semibold mt-0.5">
+                    <div className="text-[10px] text-gold-600 dark:text-gold-400 font-semibold mt-0.5">
                       + {prop.successFeePercent}% de taxa de êxito
                     </div>
                   )}

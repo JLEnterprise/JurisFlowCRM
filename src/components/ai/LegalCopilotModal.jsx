@@ -56,6 +56,7 @@ import {
 } from '../../services/aiService';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { Select } from '../common/Select';
 
 /**
  * Renderizador de Markdown Jurídico Enriquecido para o Chat
@@ -74,7 +75,7 @@ function MarkdownRenderer({ content }) {
         <ul key={`list-${renderedElements.length}`} className="my-2 space-y-1 pl-4">
           {listItems.map((item, idx) => (
             <li key={idx} className="flex items-start gap-2 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-              <span className="text-amber-500 font-bold shrink-0 mt-0.5">•</span>
+              <span className="text-gold-500 font-bold shrink-0 mt-0.5">•</span>
               <span>{formatInlineMarkdown(item)}</span>
             </li>
           ))}
@@ -92,7 +93,7 @@ function MarkdownRenderer({ content }) {
     return parts.map((part, index) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return (
-          <strong key={index} className="font-bold text-slate-900 dark:text-amber-300">
+          <strong key={index} className="font-bold text-slate-900 dark:text-gold-300">
             {part.slice(2, -2)}
           </strong>
         );
@@ -106,7 +107,7 @@ function MarkdownRenderer({ content }) {
       }
       if (part.startsWith('`') && part.endsWith('`')) {
         return (
-          <code key={index} className="rounded bg-slate-200/70 dark:bg-slate-800 px-1.5 py-0.5 font-mono text-[11px] text-amber-700 dark:text-amber-400 border border-slate-300/60 dark:border-slate-700">
+          <code key={index} className="rounded bg-slate-200/70 dark:bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-gold-700 dark:text-gold-400 border border-slate-300/60 dark:border-white/[0.08]">
             {part.slice(1, -1)}
           </code>
         );
@@ -128,8 +129,8 @@ function MarkdownRenderer({ content }) {
       flushList();
       const text = line.replace(/^#{1,2}\s+/, '');
       renderedElements.push(
-        <h3 key={`h2-${i}`} className="mt-4 mb-2 text-sm font-extrabold text-slate-900 dark:text-amber-400 flex items-center gap-1.5 border-b border-slate-200/80 dark:border-slate-800 pb-1.5">
-          <Scale className="h-4 w-4 text-amber-500" />
+        <h3 key={`h2-${i}`} className="mt-4 mb-2 text-sm font-extrabold text-slate-900 dark:text-gold-400 flex items-center gap-1.5 border-b border-slate-200/80 dark:border-white/[0.06] pb-1.5">
+          <Scale className="h-4 w-4 text-gold-500" />
           {formatInlineMarkdown(text)}
         </h3>
       );
@@ -141,8 +142,8 @@ function MarkdownRenderer({ content }) {
       flushList();
       const text = line.replace(/^###\s+/, '');
       renderedElements.push(
-        <h4 key={`h3-${i}`} className="mt-3 mb-1.5 text-xs font-bold text-slate-800 dark:text-amber-300 flex items-center gap-1.5">
-          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+        <h4 key={`h3-${i}`} className="mt-3 mb-1.5 text-xs font-bold text-slate-800 dark:text-gold-300 flex items-center gap-1.5">
+          <Sparkles className="h-3.5 w-3.5 text-gold-500" />
           {formatInlineMarkdown(text)}
         </h4>
       );
@@ -154,7 +155,7 @@ function MarkdownRenderer({ content }) {
       flushList();
       const text = line.replace(/^>\s*/, '');
       renderedElements.push(
-        <blockquote key={`quote-${i}`} className="my-2 rounded-r-xl border-l-4 border-amber-500 bg-amber-500/5 dark:bg-amber-500/10 p-3 text-xs italic text-slate-700 dark:text-slate-300">
+        <blockquote key={`quote-${i}`} className="my-2 rounded-r-xl border-l-4 border-gold-500 bg-gold-500/5 dark:bg-gold-500/10 p-3 text-xs italic text-slate-700 dark:text-slate-300">
           {formatInlineMarkdown(text)}
         </blockquote>
       );
@@ -182,7 +183,9 @@ function MarkdownRenderer({ content }) {
   return <div className="space-y-1">{renderedElements}</div>;
 }
 
-export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = null, initialTab = null }) {
+// variant 'page': tela do sistema (menu lateral); 'modal': janela por cima (uso legado)
+export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = null, initialTab = null, variant = 'modal' }) {
+  const isPage = variant === 'page';
   const {
     showToast,
     addTask,
@@ -541,14 +544,14 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
 
   // Categorias de Atalhos para o Chatbot
   const categoryChips = [
-    { id: 'advogado', label: '⚖️ Consultoria Jurídica & Teses', icon: Scale },
-    { id: 'briefing', label: '☀️ Briefing & Dados do CRM', icon: Calendar },
-    { id: 'prazos', label: '⏱️ Prazos & CPC/CLT', icon: Clock },
-    { id: 'trabalhista', label: '💼 Direito Trabalhista', icon: Briefcase },
-    { id: 'execucao', label: '🛡️ Penhoras & SISBAJUD', icon: ShieldCheck },
-    { id: 'rotinas', label: '🏛️ Rotinas Forenses & PJe', icon: BookOpen },
-    { id: 'whatsapp', label: '💬 WhatsApp do Cliente', icon: MessageSquare },
-    { id: 'crm', label: '🚀 Gestão do Escritório', icon: Compass },
+    { id: 'advogado', label: 'Consultoria Jurídica & Teses', icon: Scale },
+    { id: 'briefing', label: 'Briefing & Dados do CRM', icon: Calendar },
+    { id: 'prazos', label: 'Prazos & CPC/CLT', icon: Clock },
+    { id: 'trabalhista', label: 'Direito Trabalhista', icon: Briefcase },
+    { id: 'execucao', label: 'Penhoras & SISBAJUD', icon: ShieldCheck },
+    { id: 'rotinas', label: 'Rotinas Forenses & PJe', icon: BookOpen },
+    { id: 'whatsapp', label: 'WhatsApp do Cliente', icon: MessageSquare },
+    { id: 'crm', label: 'Gestão do Escritório', icon: Compass },
   ];
 
   const categoryPrompts = {
@@ -603,266 +606,117 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4 backdrop-blur-md animate-fade-in">
-      <div className={`flex flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#0f172a] transition-all duration-200 ${
-        isFullScreen ? 'h-full w-full max-w-none rounded-none' : 'h-[95vh] w-full max-w-6xl'
+    <div className={isPage
+      ? 'animate-fade-in'
+      : 'fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-2 sm:p-4 backdrop-blur-sm animate-fade-in'}
+    >
+      <div className={`copilot-shell relative isolate flex flex-col overflow-hidden border border-slate-200/80 bg-white transition-all duration-200 ${
+        isPage
+          // Tela do sistema: ocupa a área útil abaixo do topo, sobre o fundo com textura do app
+          ? 'w-full rounded-3xl dark:border-white/[0.08] dark:bg-[#070b14]/60 h-[calc(100dvh-4.5rem-2rem)] sm:h-[calc(100dvh-4.5rem-3rem)] lg:h-[calc(100dvh-4.5rem-4rem)]'
+          : `shadow-2xl dark:border-gold-500/15 dark:bg-[#070b14] ${isFullScreen ? 'h-full w-full max-w-none rounded-none' : 'h-[95vh] w-full max-w-6xl rounded-3xl'}`
       }`}>
+        {/* Mesmo fundo com textura dourada do sistema (a tela já fica sobre ele) */}
+        {!isPage && (
+          <div className="app-bg hidden dark:block" aria-hidden="true">
+            <div className="app-bg__grid" />
+            <div className="app-bg__glow app-bg__glow--gold" />
+            <div className="app-bg__glow app-bg__glow--blue" />
+          </div>
+        )}
 
-        {/* Header Superior com Seletor de Modelo e Ações */}
-        <div className="flex flex-wrap items-center justify-between border-b border-slate-200/80 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 px-5 py-3 text-white dark:border-white/[0.08] gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 shadow-md ring-2 ring-amber-400/30">
-              <Bot className="h-5 w-5" />
+        {/* Topo no padrão do sistema: marca à esquerda, ações discretas à direita */}
+        <div className="app-header app-glass relative flex flex-wrap items-center justify-between gap-3 bg-white/80 px-5 py-3.5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/[0.08]">
+              <Sparkles className="h-[18px] w-[18px] text-gold-600 dark:text-gold-400" />
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-bold text-base sm:text-lg text-white tracking-tight flex items-center gap-1.5">
-                  Copiloto & Agente AdvJuris
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="truncate font-display text-xl font-semibold leading-tight text-slate-900 dark:text-white">
+                  Copiloto AdvJuris
                 </h3>
-                <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-300 ring-1 ring-emerald-400/40 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Agente Ativo (Incluso)
-                </span>
-                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-400/30">
-                  Advogado Sênior • Legal Engineer
+                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> AdvJuris conectado
                 </span>
               </div>
-              <p className="text-[11px] text-slate-300 mt-0.5">
-                Inteligência jurídica e operacional para dúvidas, gestão do CRM ({officeSettings.officeName || 'JurisFlow Advocacia'}), prazos e minutas
+              <p className="truncate text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-gold-700/80 dark:text-gold-300/60 mt-0.5">
+                Consultor jurídico · {officeSettings.officeName || 'JurisFlow Advocacia'}
               </p>
             </div>
           </div>
 
+          {/* O Copiloto roda só com o AdvJuris (agentes próprios), sem escolha de motor */}
           <div className="flex items-center gap-2">
-            {/* Seletor de Provedor de IA */}
-            <div className="flex items-center rounded-xl bg-slate-800/90 p-1 border border-slate-700 shadow-inner">
-              <button
-                onClick={() => handleProviderChange('local')}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                  currentProvider === 'local'
-                    ? 'bg-amber-500 text-slate-950 shadow-sm'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title="Agente AdvJuris Nativo (100% Incluso / Sem necessidade de chave)"
-              >
-                <span>🛡️</span> AdvJuris Nativo
-              </button>
-              <button
-                onClick={() => handleProviderChange('gemini')}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                  currentProvider === 'gemini'
-                    ? 'bg-amber-500 text-slate-950 shadow-sm'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title="Google Gemini (Nuvem Turbo Opcional)"
-              >
-                <span>⚡</span> Gemini Nuvem
-              </button>
-              <button
-                onClick={() => handleProviderChange('openai')}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                  currentProvider === 'openai'
-                    ? 'bg-emerald-500 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title="OpenAI ChatGPT (Nuvem Turbo Opcional)"
-              >
-                <span>🤖</span> ChatGPT Nuvem
-              </button>
+            <div className="flex items-center gap-0.5 rounded-full border border-slate-200 dark:border-white/[0.07] px-1 py-0.5">
+              {activeTab === 'chat' && (
+                <button onClick={handleClearChat} className="header-icon-btn" aria-label="Nova conversa" data-tip="Nova conversa">
+                  <Trash2 className="h-[18px] w-[18px]" />
+                </button>
+              )}
+              {activeTab === 'chat' && (
+                <button onClick={handleExportChat} className="header-icon-btn" aria-label="Exportar conversa" data-tip="Exportar">
+                  <Download className="h-[18px] w-[18px]" />
+                </button>
+              )}
+              {!isPage && (
+                <button
+                  onClick={() => setIsFullScreen(!isFullScreen)}
+                  className="header-icon-btn hidden sm:inline-flex"
+                  aria-label={isFullScreen ? 'Restaurar tamanho' : 'Tela cheia'}
+                  data-tip={isFullScreen ? 'Restaurar' : 'Tela cheia'}
+                >
+                  {isFullScreen ? <Minimize2 className="h-[18px] w-[18px]" /> : <Maximize2 className="h-[18px] w-[18px]" />}
+                </button>
+              )}
+              {!isPage && (
+                <button onClick={onClose} className="header-icon-btn hover:!text-rose-500" aria-label="Fechar" data-tip="Fechar">
+                  <X className="h-5 w-5" />
+                </button>
+              )}
             </div>
-
-            {/* Configurar Conexão / Chaves Opcionais */}
-            <button
-              onClick={() => setShowKeyConfig(!showKeyConfig)}
-              className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800/90 text-slate-300 hover:bg-slate-700 hover:text-white transition-all border border-slate-700 btn-tactile"
-              title="Configurações de Conexão / Modo Turbo (Opcional)"
-            >
-              <Settings className="h-4 w-4" />
-            </button>
-
-            {/* Limpar Chat */}
-            {activeTab === 'chat' && (
-              <button
-                onClick={handleClearChat}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800/90 text-slate-300 hover:bg-slate-700 hover:text-amber-400 transition-all border border-slate-700 btn-tactile"
-                title="Limpar Conversa / Novo Chat"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
-
-            {/* Exportar Conversa */}
-            {activeTab === 'chat' && (
-              <button
-                onClick={handleExportChat}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800/90 text-slate-300 hover:bg-slate-700 hover:text-emerald-400 transition-all border border-slate-700 btn-tactile"
-                title="Exportar Conversa (TXT)"
-              >
-                <Download className="h-4 w-4" />
-              </button>
-            )}
-
-            {/* Maximizar Tela */}
-            <button
-              onClick={() => setIsFullScreen(!isFullScreen)}
-              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800/90 text-slate-300 hover:bg-slate-700 hover:text-white transition-all border border-slate-700 btn-tactile"
-              title={isFullScreen ? "Restaurar Tamanho" : "Tela Cheia"}
-            >
-              {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </button>
-
-            {/* Fechar Modal */}
-            <button
-              onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800/90 text-slate-400 hover:bg-rose-500/20 hover:text-rose-400 transition-all border border-slate-700 btn-tactile"
-            >
-              <X className="h-5 w-5" />
-            </button>
           </div>
         </div>
 
-        {/* Painel de Configuração de Chaves de API (Opcional) */}
-        {showKeyConfig && (
-          <div className="border-b border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-slate-800/70 animate-fade-in space-y-3">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200">
-                  Conexões de IA: Agente Nativo (Incluso) vs Modo Turbo em Nuvem (Opcional)
-                </h4>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setActiveKeyTab('gemini')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    activeKeyTab === 'gemini' ? 'bg-amber-500 text-slate-950' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  Google Gemini (Opcional)
-                </button>
-                <button
-                  onClick={() => setActiveKeyTab('openai')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    activeKeyTab === 'openai' ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  OpenAI ChatGPT (Opcional)
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-              <span>
-                <strong>Nenhuma chave é obrigatória para usar o CRM.</strong> O Agente AdvJuris já vem 100% ativo para responder dúvidas jurídicas, consultar clientes/processos e gerar minutas. As chaves abaixo são exclusivamente para escritórios que desejam usar seus próprios créditos em nuvem.
-              </span>
-            </div>
-
-            {activeKeyTab === 'gemini' ? (
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="password"
-                  value={geminiKeyInput}
-                  onChange={(e) => setGeminiKeyInput(e.target.value)}
-                  placeholder="Cole sua Gemini API Key (ex: AIzaSy... - Opcional)"
-                  className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                />
-                <button
-                  onClick={handleSaveGeminiKey}
-                  disabled={testingKey}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-all shadow-sm btn-tactile"
-                >
-                  {testingKey ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  Salvar Chave Gemini
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="password"
-                  value={openAiKeyInput}
-                  onChange={(e) => setOpenAiKeyInput(e.target.value)}
-                  placeholder="Cole sua OpenAI API Key (ex: sk-proj-... - Opcional)"
-                  className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                />
-                <button
-                  onClick={handleSaveOpenAiKey}
-                  disabled={testingKey}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-400 disabled:opacity-50 transition-all shadow-sm btn-tactile"
-                >
-                  {testingKey ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  Salvar Chave OpenAI
-                </button>
-              </div>
-            )}
+        {/* Abas no mesmo padrão do funil */}
+        <div className="relative flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 pt-4">
+          <div className="funil-tabs max-w-full overflow-x-auto" role="tablist" aria-label="Ferramentas do Copiloto">
+            {[
+              { id: 'chat', label: 'Consultor Jurídico', icon: MessageSquare },
+              { id: 'publicacoes', label: 'Intimações & Prazos', icon: FileText },
+              { id: 'minutas', label: 'Peças & Minutas', icon: FileCheck },
+              { id: 'whatsapp', label: 'WhatsApp do Cliente', icon: MessageSquare },
+              { id: 'manual', label: 'Manual', icon: BookOpen },
+            ].map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === id}
+                onClick={() => setActiveTab(id)}
+                className={`funil-tab shrink-0 ${activeTab === id ? 'is-active' : ''}`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
-        )}
 
-        {/* Barra de 5 Abas Estratégicas */}
-        <div className="flex border-b border-slate-200/80 bg-slate-50/90 dark:border-white/[0.08] dark:bg-slate-900/60 px-4 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all shrink-0 ${
-              activeTab === 'chat'
-                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
-            }`}
-          >
-            <MessageSquare className="h-4 w-4" />
-            ChatGPT & Consultor Jurídico Sênior
-          </button>
-
-          <button
-            onClick={() => setActiveTab('publicacoes')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all shrink-0 ${
-              activeTab === 'publicacoes'
-                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
-            }`}
-          >
-            <FileText className="h-4 w-4" />
-            Auditor de Intimações & Prazos
-          </button>
-
-          <button
-            onClick={() => setActiveTab('minutas')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all shrink-0 ${
-              activeTab === 'minutas'
-                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
-            }`}
-          >
-            <FileCheck className="h-4 w-4" />
-            Gerador de Peças & Minutas
-          </button>
-
-          <button
-            onClick={() => setActiveTab('whatsapp')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all shrink-0 ${
-              activeTab === 'whatsapp'
-                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
-            }`}
-          >
-            <Sparkles className="h-4 w-4" />
-            Central WhatsApp do Cliente
-          </button>
-
-          <button
-            onClick={() => setActiveTab('manual')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all shrink-0 ${
-              activeTab === 'manual'
-                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
-            }`}
-          >
-            <BookOpen className="h-4 w-4" />
-            Manual Prático do Colaborador
-          </button>
+          {/* Ação principal da aba, na mesma linha das abas */}
+          {activeTab === 'minutas' && (
+            <button
+              onClick={handleGenerateDraft}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-semibold tracking-wide text-white shadow-md shadow-brand-900/20 hover:brightness-110 disabled:opacity-50 transition btn-tactile"
+            >
+              {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FileCheck className="h-3.5 w-3.5" />}
+              Gerar Minuta Profissional
+            </button>
+          )}
         </div>
 
         {/* Corpo Principal das Abas */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col">
+        <div className="relative flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col">
 
           {/* ========================================================================= */}
           {/* ABA 1: CHATBOT INTELIGENTE & CONSULTOR                                    */}
@@ -878,10 +732,10 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     <button
                       key={cat.id}
                       onClick={() => setActiveCategory(cat.id)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all ${
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all ${
                         activeCategory === cat.id
-                          ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800/80 dark:hover:bg-slate-700 dark:text-slate-300'
+                          ? 'bg-slate-900 text-white dark:bg-gold-500/[0.12] dark:text-gold-100 ring-1 ring-inset ring-gold-500/35 font-bold'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] dark:text-slate-300'
                       }`}
                     >
                       <Icon className="h-3.5 w-3.5" />
@@ -899,15 +753,15 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {msg.role === 'assistant' && (
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-500 ring-1 ring-amber-500/30">
-                        <Bot className="h-4 w-4" />
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/[0.08] text-gold-600 dark:text-gold-400">
+                        <Sparkles className="h-4 w-4" />
                       </div>
                     )}
                     <div
                       className={`max-w-[94%] sm:max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed ${
                         msg.role === 'user'
-                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-semibold rounded-tr-none shadow-md'
-                          : 'bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100 rounded-tl-none border border-slate-200 dark:border-white/[0.08] shadow-sm'
+                          ? 'bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 text-white font-semibold rounded-tr-none shadow-md'
+                          : 'bg-slate-50 dark:bg-white/[0.04] text-slate-800 dark:text-slate-100 rounded-tl-none border border-slate-200 dark:border-white/[0.08] shadow-sm'
                       }`}
                     >
                       {msg.role === 'assistant' ? (
@@ -918,15 +772,15 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
 
                       {/* Ações da Resposta do Assistente */}
                       {msg.role === 'assistant' && idx > 0 && (
-                        <div className="mt-3.5 pt-2.5 border-t border-slate-200 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-2">
+                        <div className="mt-3.5 pt-2.5 border-t border-slate-200 dark:border-white/[0.08] flex flex-wrap items-center justify-between gap-2">
                           <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1.5">
-                            <ShieldCheck className="h-3.5 w-3.5 text-amber-500" />
+                            <ShieldCheck className="h-3.5 w-3.5 text-gold-500" />
                             {msg.provider ? `Fonte: ${msg.provider}` : 'AdvJuris Sênior'}
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5">
                             <button
                               onClick={() => handleCopy(msg.content, idx)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10px] font-semibold text-slate-700 dark:text-slate-200 hover:text-amber-500 transition-colors shadow-2xs"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] text-[10px] font-semibold text-slate-700 dark:text-slate-200 hover:text-gold-500 transition-colors shadow-2xs"
                               title="Copiar texto da resposta"
                             >
                               {copiedIdx === idx ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
@@ -944,10 +798,10 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
 
                             <button
                               onClick={() => handleUseAsDraft(msg.content)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 border border-amber-400/30 text-[10px] font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-500/30 transition-colors shadow-2xs"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gold-500/10 dark:bg-gold-500/20 border border-gold-400/30 text-[10px] font-semibold text-gold-700 dark:text-gold-300 hover:bg-gold-500/30 transition-colors shadow-2xs"
                               title="Transferir para a aba de Minutas & Peças"
                             >
-                              <FileCheck className="h-3 w-3 text-amber-500" />
+                              <FileCheck className="h-3 w-3 text-gold-500" />
                               <span>Usar como Minuta</span>
                             </button>
                           </div>
@@ -957,8 +811,8 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                   </div>
                 ))}
                 {loading && (
-                  <div className="flex gap-3 items-center text-xs text-slate-500 dark:text-slate-400 animate-pulse bg-slate-100/60 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-200 dark:border-slate-700/60">
-                    <RefreshCw className="h-4 w-4 animate-spin text-amber-500 shrink-0" />
+                  <div className="flex gap-3 items-center text-xs text-slate-500 dark:text-slate-400 animate-pulse bg-slate-100/60 dark:bg-white/[0.03] p-3 rounded-2xl border border-slate-200 dark:border-white/[0.08]">
+                    <RefreshCw className="h-4 w-4 animate-spin text-gold-500 shrink-0" />
                     <span>O Copiloto AdvJuris está analisando as normas jurídicas vigentes, precedentes e a base do CRM...</span>
                   </div>
                 )}
@@ -971,7 +825,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                   <button
                     key={i}
                     onClick={() => handleSendMessage(sug)}
-                    className="shrink-0 rounded-full border border-slate-200 bg-slate-50 hover:bg-amber-500/10 hover:border-amber-500/40 px-3 py-1 text-[11px] text-slate-600 hover:text-amber-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-amber-400 dark:hover:text-amber-400 transition-all font-medium"
+                    className="shrink-0 rounded-full border border-slate-200 bg-slate-50 hover:bg-gold-500/10 hover:border-gold-500/40 px-3 py-1 text-[11px] text-slate-600 hover:text-gold-600 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-gold-500/50 dark:hover:text-gold-400 transition-all font-medium"
                   >
                     {sug}
                   </button>
@@ -991,12 +845,12 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     }
                   }}
                   placeholder="Pergunte qualquer dúvida jurídica, de rotina de escritório, cálculo de prazos ou sobre clientes e processos do CRM... (Pressione Enter para enviar, Shift+Enter para nova linha)"
-                  className="flex-1 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 resize-none"
+                  className="flex-1 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-xs text-slate-900 shadow-sm focus:border-gold-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100 resize-none"
                 />
                 <button
                   onClick={() => handleSendMessage()}
                   disabled={loading || !chatQuestion.trim()}
-                  className="flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-3 text-xs font-bold text-slate-950 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 transition-all shadow-md btn-tactile self-end shrink-0"
+                  className="flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-3 text-xs font-semibold tracking-wide text-white hover:brightness-110 disabled:opacity-50 transition-all shadow-md shadow-brand-900/20 btn-tactile self-end shrink-0"
                 >
                   <Send className="h-4 w-4" />
                   <span className="hidden sm:inline">Enviar</span>
@@ -1010,9 +864,9 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
           {/* ========================================================================= */}
           {activeTab === 'publicacoes' && (
             <div className="space-y-4">
-              <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200 dark:border-slate-800 dark:bg-slate-900/50">
+              <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200 dark:border-white/[0.06] dark:bg-white/[0.02]">
                 <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center gap-1.5">
-                  <FileText className="h-4 w-4 text-amber-500" />
+                  <FileText className="h-4 w-4 text-gold-500" />
                   Cole o Texto da Publicação Judicial / Intimação do Diário Oficial:
                 </label>
                 <textarea
@@ -1020,7 +874,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                   value={pubText}
                   onChange={(e) => setPubText(e.target.value)}
                   placeholder="Ex: 'Fica intimado o patrono do autor para que, no prazo legal de 15 (quinze) dias úteis, manifeste-se sobre a contestação e documentos juntados nos autos do processo nº 1002345-67.2024.8.26.0100...'"
-                  className="w-full rounded-xl border border-slate-300 bg-white p-3.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="w-full rounded-xl border border-slate-300 bg-white p-3.5 text-xs text-slate-900 shadow-sm focus:border-gold-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100"
                 />
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mt-3">
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -1029,7 +883,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                   <button
                     onClick={handleAnalyzePublication}
                     disabled={loading}
-                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-xs font-bold text-slate-950 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 transition-all shadow-md btn-tactile shrink-0"
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-50 transition-all shadow-md btn-tactile shrink-0"
                   >
                     {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
                     Analisar Publicação & Extrair Prazos
@@ -1038,8 +892,8 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
               </div>
 
               {pubResult && (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/80 space-y-4 animate-fade-in">
-                  <div className="flex flex-wrap items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-700 gap-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-white/[0.08] dark:bg-white/[0.04] space-y-4 animate-fade-in">
+                  <div className="flex flex-wrap items-center justify-between border-b border-slate-200 pb-3 dark:border-white/[0.08] gap-2">
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-500">
                         <Check className="h-4 w-4" />
@@ -1051,7 +905,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleCopy(pubResult.text)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-amber-500 transition-colors shadow-sm"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-gold-500 transition-colors shadow-sm"
                       >
                         <Copy className="h-3.5 w-3.5" />
                         Copiar Análise
@@ -1083,10 +937,10 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Tipo de Peça / Minuta Blindada:
                   </label>
-                  <select
+                  <Select
                     value={draftType}
                     onChange={(e) => setDraftType(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-gold-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100 font-medium"
                   >
                     <option value="desbloqueio_sisbajud">🛡️ Desbloqueio SISBAJUD (Impenhorabilidade Salarial / Poupança)</option>
                     <option value="procuracao">📑 Procuração Ad Judicia et Extra (Poderes Especiais)</option>
@@ -1095,27 +949,27 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     <option value="inicial">🏛️ Petição Inicial (Cobrança / Cumprimento de Obrigação)</option>
                     <option value="contestacao">🛡️ Contestação com Preliminares (Inépcia e Ilegitimidade)</option>
                     <option value="agravo">⚡ Agravo de Instrumento (Art. 1.015 CPC / Efeito Suspensivo)</option>
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Vincular Cliente Cadastrado no CRM:
                   </label>
-                  <select
+                  <Select
                     value={draftClientId}
                     onChange={(e) => {
                       setDraftClientId(e.target.value);
                       const c = clients.find(cl => String(cl.id) === String(e.target.value));
                       if (c) setDraftClientName(c.name);
                     }}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-gold-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100 font-medium"
                   >
                     <option value="">Selecione um cliente cadastrado ou preencha abaixo</option>
                     {clients.map(c => (
                       <option key={c.id} value={c.id}>{c.name} (CPF/CNPJ: {c.cpf || c.cnpj || 'N/I'})</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
 
@@ -1129,7 +983,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     value={draftSubject}
                     onChange={(e) => setDraftSubject(e.target.value)}
                     placeholder="Ex: Bloqueio indevido de conta salário / Cobrança de duplicata"
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-gold-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100"
                   />
                 </div>
                 <div>
@@ -1141,32 +995,21 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     value={draftValue}
                     onChange={(e) => setDraftValue(e.target.value)}
                     placeholder="Ex: 8.500,00"
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-gold-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <button
-                  onClick={handleGenerateDraft}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-2.5 text-xs font-bold text-slate-950 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 transition-all shadow-md btn-tactile"
-                >
-                  {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FileCheck className="h-3.5 w-3.5" />}
-                  Gerar Minuta Profissional
-                </button>
-              </div>
-
               {draftResult && (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/80 space-y-3 animate-fade-in">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
-                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-white/[0.04] space-y-3 animate-fade-in">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2 dark:border-white/[0.08]">
+                    <span className="text-xs font-bold text-gold-600 dark:text-gold-400 flex items-center gap-1.5">
                       <Sparkles className="h-3.5 w-3.5" />
                       Minuta Blindada Elaborada pelo AdvJuris
                     </span>
                     <button
                       onClick={() => handleCopy(draftResult)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-amber-500 transition-colors shadow-sm"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-gold-500 transition-colors shadow-sm"
                     >
                       <Copy className="h-3.5 w-3.5" />
                       Copiar Minuta Completa
@@ -1195,7 +1038,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     value={explainerClient}
                     onChange={(e) => setExplainerClient(e.target.value)}
                     placeholder="Ex: João Silva"
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-gold-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100"
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -1207,7 +1050,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                     value={explainerInput}
                     onChange={(e) => setExplainerInput(e.target.value)}
                     placeholder="Ex: 'Vistos. Especifiquem as partes as provas que pretendem produzir, justificando a pertinência.'"
-                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-gold-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100"
                   />
                 </div>
               </div>
@@ -1224,15 +1067,15 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
               </div>
 
               {explainerResult && (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/80 space-y-3 animate-fade-in">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-2 dark:border-slate-700">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-white/[0.04] space-y-3 animate-fade-in">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2 dark:border-white/[0.08]">
                     <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                       <MessageSquare className="h-3.5 w-3.5" />
                       Mensagem Pronta para WhatsApp
                     </span>
                     <button
                       onClick={() => handleCopy(explainerResult)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-emerald-500 transition-colors shadow-sm"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-emerald-500 transition-colors shadow-sm"
                     >
                       <Copy className="h-3.5 w-3.5" />
                       Copiar Mensagem
@@ -1251,9 +1094,9 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
           {/* ========================================================================= */}
           {activeTab === 'manual' && (
             <div className="space-y-4 overflow-y-auto pr-1">
-              <div className="rounded-2xl bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 p-4 border border-amber-500/20">
+              <div className="rounded-2xl bg-gold-500/[0.05] p-4 border border-gold-500/20">
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-amber-500" />
+                  <BookOpen className="h-4 w-4 text-gold-500" />
                   Guia Rápido de Rotinas & Procedimentos para a Equipe
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
@@ -1262,8 +1105,8 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                  <h5 className="font-bold text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+                  <h5 className="font-bold text-xs text-gold-600 dark:text-gold-400 flex items-center gap-1.5 mb-2">
                     <Scale className="h-3.5 w-3.5" />
                     Regras de Contagem de Prazos
                   </h5>
@@ -1275,8 +1118,8 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                   </ul>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                  <h5 className="font-bold text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 mb-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+                  <h5 className="font-bold text-xs text-brand-600 dark:text-brand-400 flex items-center gap-1.5 mb-2">
                     <Briefcase className="h-3.5 w-3.5" />
                     Substabelecimento & Renúncia
                   </h5>
@@ -1287,7 +1130,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                   </ul>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
                   <h5 className="font-bold text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mb-2">
                     <FileSpreadsheet className="h-3.5 w-3.5" />
                     Alvarás, RPVs e Precatórios
@@ -1299,7 +1142,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                   </ul>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
                   <h5 className="font-bold text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1.5 mb-2">
                     <ShieldCheck className="h-3.5 w-3.5" />
                     Desbloqueio de Penhora (SISBAJUD)

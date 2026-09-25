@@ -47,29 +47,32 @@ export function Modal({
         className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity duration-200"
       />
 
-      {/* Modal Card */}
+      {/* Janela: moldura dourada fina, fio dourado no topo e título centralizado */}
       <div
         className={clsx(
-          'relative w-full overflow-hidden rounded-2xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800 shadow-2xl transition-all duration-200 animate-fade-in my-8 max-h-[90vh] flex flex-col z-10',
+          'premium-modal relative w-full overflow-hidden rounded-2xl bg-white dark:bg-[#0a1120] border border-gold-500/30 shadow-2xl transition-all duration-200 animate-fade-in my-8 max-h-[90vh] flex flex-col z-10',
           maxWidth
         )}
       >
-        {/* Header */}
-        <div className="flex items-start justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-4 bg-slate-50/50 dark:bg-navy-950/50">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-              {title}
-            </h3>
-            {subtitle && (
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                {subtitle}
-              </p>
-            )}
+        <div className="relative border-b border-gold-500/15 px-12 pt-5 pb-4 text-center">
+          <div className="mx-auto mb-2 flex items-center justify-center gap-2" aria-hidden="true">
+            <span className="h-px w-8 bg-gradient-to-r from-transparent to-gold-500/60" />
+            <span className="h-1 w-1 rotate-45 bg-gold-500" />
+            <span className="h-px w-8 bg-gradient-to-l from-transparent to-gold-500/60" />
           </div>
+          <h3 className="font-display text-2xl font-semibold leading-tight text-slate-900 dark:text-white">
+            {title}
+          </h3>
+          {subtitle && (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {subtitle}
+            </p>
+          )}
           {showCloseButton && (
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors"
+              aria-label="Fechar"
+              className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 hover:bg-gold-500/10 hover:text-gold-600 dark:hover:text-gold-300 transition-colors"
             >
               <X className="h-5 w-5" />
             </button>

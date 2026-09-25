@@ -27,6 +27,7 @@ import { pdfService } from '../../services/pdfService';
 import { CONTRACT_STATUSES } from '../../data/legalAreas';
 import { QuickAttachModal } from './QuickAttachModal';
 import { formatFileSize, getFileTypeInfo, downloadAttachment, openAttachment } from '../../utils/fileHelper';
+import { Select } from '../common/Select';
 
 export function ContractList({ onOpenNewContract, onEditContract, onSelectContract, onOpenContractDetail, onNavigate, onSignContract }) {
   const { contracts = [], deleteContract, clients = [], legalAreas = [], officeSettings = {}, addContract, showToast, logActivity } = useCRM();
@@ -147,16 +148,7 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top Actions & Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            <FileText className="h-6 w-6 text-brand-600 dark:text-gold-400" />
-            Contratos & Minutas Jurídicas
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Gestão estratégica de honorários, minutas, laudas e arquivos anexados (.pdf, .docx, .doc).
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
 
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
           {/* Botão de Anexar Arquivos PDF/Word */}
@@ -171,7 +163,7 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           {/* Botão de Novo Contrato */}
           <button
             onClick={onOpenNewContract}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/25 hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-900/20 hover:brightness-110 transition-all btn-tactile"
           >
             <Plus className="h-4 w-4" /> Novo Contrato
           </button>
@@ -191,7 +183,7 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           />
         </div>
 
-        <select
+        <Select
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -200,9 +192,9 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           {CONTRACT_STATUSES.map(s => (
             <option key={s.id} value={s.id}>{s.label}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={selectedArea}
           onChange={(e) => setSelectedArea(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -211,9 +203,9 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           {legalAreas.map(a => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={selectedLawyer}
           onChange={(e) => setSelectedLawyer(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -222,7 +214,7 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
-        </select>
+        </Select>
 
         {(selectedStatus || selectedArea || selectedLawyer || search) && (
           <button

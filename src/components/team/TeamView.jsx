@@ -34,6 +34,7 @@ import { Modal } from '../common/Modal';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { Avatar } from '../common/Avatar';
 import { compressAvatarImage } from '../../utils/imageUtils';
+import { Select } from '../common/Select';
 
 // Lista de Cargos e Especialidades Jurídicas Sugeridas
 export const PREDEFINED_JOB_TITLES = [
@@ -66,7 +67,7 @@ export const SYSTEM_ROLES = [
   { id: 'lawyer', label: 'Advogado(a) Pleno / Associado', desc: 'Processos, contratos, agenda, tarefas e clientes', color: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' },
   { id: 'financial', label: 'Controller / Financeiro', desc: 'Honorários, parcelas, faturamento e relatórios', color: 'bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-800' },
   { id: 'sales_manager', label: 'Head Comercial', desc: 'Gestão de funil, metas de vendas e propostas', color: 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800' },
-  { id: 'sales', label: 'Comercial / SDR', desc: 'Atendimentos, novos leads e propostas', color: 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800' },
+  { id: 'sales', label: 'Comercial / SDR', desc: 'Atendimentos, novos leads e propostas', color: 'bg-gold-100 dark:bg-gold-950/60 text-gold-700 dark:text-gold-300 border-gold-300 dark:border-gold-800' },
   { id: 'secretary', label: 'Secretaria & GED', desc: 'Agenda, recepção de clientes e documentos', color: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700' },
   { id: 'dev', label: 'Dev / TI', desc: 'Engenharia, banco de dados Supabase e acesso irrestrito', color: 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800' },
 ];
@@ -315,16 +316,7 @@ export function TeamView() {
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       {/* Header & Stats Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
-        <div>
-          <h2 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            <UserCog className="h-5 w-5 text-brand-600 dark:text-gold-400" />
-            Gestão de Equipe & Múltiplos Cargos
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Atribua múltiplos cargos, especialidades jurídicas e permissões de acesso simultâneas para cada funcionário
-          </p>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
 
         <div className="flex items-center gap-2">
           <button
@@ -343,7 +335,7 @@ export function TeamView() {
           
           <button
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-600/25 hover:from-brand-500 hover:to-brand-600 transition-all btn-tactile"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-brand-900/20 hover:brightness-110 transition-all btn-tactile"
           >
             <Plus className="h-4 w-4" /> Novo Membro
           </button>
@@ -364,7 +356,7 @@ export function TeamView() {
         </div>
 
         {/* Filtro por Cargo */}
-        <select
+        <Select
           value={filterTitle}
           onChange={(e) => setFilterTitle(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -373,10 +365,10 @@ export function TeamView() {
           {allUniqueTitles.map((t, idx) => (
             <option key={idx} value={t}>{t}</option>
           ))}
-        </select>
+        </Select>
 
         {/* Filtro por Perfil RBAC */}
-        <select
+        <Select
           value={filterRole}
           onChange={(e) => setFilterRole(e.target.value)}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 shadow-xs focus:outline-none"
@@ -385,7 +377,7 @@ export function TeamView() {
           {SYSTEM_ROLES.map(r => (
             <option key={r.id} value={r.id}>{r.label}</option>
           ))}
-        </select>
+        </Select>
 
         {(searchTerm || filterTitle || filterRole) && (
           <button
@@ -682,7 +674,7 @@ export function TeamView() {
                   type="button"
                   onClick={() => addTitle(customTitleInput)}
                   disabled={!customTitleInput.trim()}
-                  className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all btn-tactile"
+                  className="px-4 py-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 text-white text-xs font-bold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all btn-tactile"
                 >
                   <Plus className="h-4 w-4" /> Adicionar
                 </button>
@@ -774,7 +766,7 @@ export function TeamView() {
               <Avatar src={formData.avatar} name={formData.name || 'Novo Membro'} size="lg" />
               <div className="flex-1 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-sm transition-all btn-tactile">
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 text-white text-xs font-bold shadow-sm transition-all btn-tactile">
                     <Upload className="h-3.5 w-3.5" />
                     <span>Escolher Foto do Computador</span>
                     <input
@@ -833,7 +825,7 @@ export function TeamView() {
                   console.error('Erro ao salvar usuário:', e);
                 }
               }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-lg shadow-brand-600/25 transition-all btn-tactile"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-brand-900/20 transition-all btn-tactile"
             >
               <CheckCircle2 className="h-4 w-4" />
               {editingUserId ? 'Salvar Alterações de Cargos' : 'Adicionar Membro à Equipe'}
