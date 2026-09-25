@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 
 // Base dos menus premium (Select, DateField): abre um painel flutuante preso ao botão,
 // renderizado no <body> para não ser cortado por modais com rolagem.
-export function useFloatingPanel({ minWidth = 0 } = {}) {
+export function useFloatingPanel({ minWidth = 0, maxWidth = Infinity } = {}) {
   const [open, setOpen] = useState(false);
   const [style, setStyle] = useState(null);
   const triggerRef = useRef(null);
@@ -14,7 +14,7 @@ export function useFloatingPanel({ minWidth = 0 } = {}) {
     const panel = panelRef.current;
     if (!trigger) return;
     const r = trigger.getBoundingClientRect();
-    const width = Math.max(r.width, minWidth);
+    const width = Math.min(Math.max(r.width, minWidth), maxWidth, window.innerWidth - 16);
     const panelHeight = panel ? panel.offsetHeight : 320;
     const gap = 6;
     const spaceBelow = window.innerHeight - r.bottom;
@@ -27,7 +27,7 @@ export function useFloatingPanel({ minWidth = 0 } = {}) {
       top: openUp ? Math.max(8, r.top - panelHeight - gap) : r.bottom + gap,
       zIndex: 10050, // acima dos modais (z-[9999])
     });
-  }, [minWidth]);
+  }, [minWidth, maxWidth]);
 
   useLayoutEffect(() => {
     if (open) place();

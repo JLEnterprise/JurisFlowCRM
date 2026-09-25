@@ -63,7 +63,10 @@ export function DateField({
 }) {
   const { date, time } = parseValue(type, value);
   const compact = isCompact(className);
-  const { open, setOpen, triggerRef, panelRef, style, place } = useFloatingPanel({ minWidth: type === 'time' ? 180 : 292 });
+  const { open, setOpen, triggerRef, panelRef, style, place } = useFloatingPanel({
+    minWidth: type === 'time' ? 180 : 296,
+    maxWidth: type === 'time' ? 220 : 312, // calendário compacto, sem esticar com o campo
+  });
   const [view, setView] = useState(() => date || new Date());
 
   useEffect(() => {
@@ -285,7 +288,7 @@ function TimeColumns({ value, onPick, bordered }) {
   }, []);
 
   const col = (list, current, ref, make) => (
-    <div ref={ref} className="h-40 flex-1 overflow-y-auto space-y-0.5 pr-0.5">
+    <div ref={ref} className="h-32 flex-1 overflow-y-auto space-y-0.5 pr-0.5">
       {list.map(v => (
         <button
           key={v}
