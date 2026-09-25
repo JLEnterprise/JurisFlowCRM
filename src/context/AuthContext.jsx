@@ -768,6 +768,8 @@ export function AuthProvider({ children }) {
     canAccessFunnel: isDev || isAdmin || isSales || isLawyer,
     canAccessProposals: isDev || isAdmin || isSales || isLawyer,
     canAccessAgenda: true,
+    // Agenda de toda a equipe: secretaria e administração; os demais (ex.: advogados) veem só a própria
+    canViewAllAgendas: isDev || isAdmin || isSecretary,
     canAccessTasks: true,
     canAccessAttendance: true,
     canAccessDocuments: isDev || isAdmin || isLawyer || isFinancial || isSecretary,
