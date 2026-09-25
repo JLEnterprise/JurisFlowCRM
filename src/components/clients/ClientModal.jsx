@@ -3,7 +3,9 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { brasilApiService } from '../../services/brasilApiService';
-import { Sparkles, Building2, MapPin, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Building2, MapPin, CheckCircle2, Camera, Upload, Trash2 } from 'lucide-react';
+import { Avatar } from '../common/Avatar';
+import { compressAvatarImage } from '../../utils/imageUtils';
 import { Select } from '../common/Select';
 import { DateField } from '../common/DateField';
 
@@ -13,6 +15,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
 
   const [formData, setFormData] = useState({
     name: '',
+    avatar: '',
     cpf: '',
     cnpj: '',
     rg: '',
@@ -47,6 +50,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
     } else {
       setFormData({
         name: '',
+        avatar: '',
         cpf: '',
         cnpj: '',
         rg: '',
@@ -131,6 +135,24 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
     }
   };
 
+  // Foto do cliente: comprimida no navegador (256px) antes de salvar
+  const [isCompressing, setIsCompressing] = useState(false);
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setIsCompressing(true);
+    try {
+      const compressed = await compressAvatarImage(file, 256, 0.85);
+      if (compressed) setFormData(prev => ({ ...prev, avatar: compressed }));
+    } catch (err) {
+      console.error('Erro ao processar foto do cliente:', err);
+      showToast('Não foi possível usar essa imagem. Tente outra.', 'danger');
+    } finally {
+      setIsCompressing(false);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
@@ -155,6 +177,40 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null }) {
       maxWidth="max-w-3xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Foto do cliente */}
+        <div className="flex items-center gap-4 rounded-2xl border border-gold-500/20 bg-gold-500/[0.04] p-3.5">
+          <label className="group relative shrink-0 cursor-pointer" title="Escolher foto">
+            <Avatar src={formData.avatar} name={formData.name || 'Cliente'} size="lg" />
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-slate-900/55 text-white opacity-0 transition-opacity group-hover:opacity-100">
+              <Camera className="h-4 w-4" />
+            </span>
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoChange} />
+          </label>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold text-slate-900 dark:text-white">Foto do cliente</div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              {isCompressing ? 'Processando a imagem...' : 'Opcional · JPG, PNG ou WEBP. Aparece na lista, no financeiro e na ficha.'}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-gold-500/40 px-3 py-1.5 text-xs font-semibold text-gold-800 transition-colors hover:bg-gold-500/10 dark:text-gold-200">
+              <Upload className="h-3.5 w-3.5" />
+              {formData.avatar ? 'Trocar' : 'Adicionar'}
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoChange} />
+            </label>
+            {formData.avatar && (
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, avatar: '' }))}
+                className="rounded-xl p-1.5 text-slate-400 transition-colors hover:bg-rose-500/10 hover:text-rose-500"
+                title="Remover foto"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Row 1: Nome & CPF/CNPJ com Botão de Consulta */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="sm:col-span-2">

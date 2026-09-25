@@ -503,7 +503,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
                           className="flex items-center gap-3 text-left"
                           title="Ver histórico de pagamentos"
                         >
-                          <Avatar name={instClientName(inst)} size="sm" />
+                          <Avatar src={clients.find(c => String(c.id) === clientKeyOf(inst, clients))?.avatar} name={instClientName(inst)} size="sm" />
                           <span className="min-w-0">
                             <span className="block truncate font-semibold text-slate-900 transition-colors group-hover:text-gold-700 dark:text-white dark:group-hover:text-gold-300">
                               {instClientName(inst)}
