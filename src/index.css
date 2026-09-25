@@ -391,6 +391,38 @@
   box-shadow: 0 0 0 3px rgb(7 11 20 / 0.9), 0 0 18px rgb(var(--accent-rgb) / 0.5);
 }
 
+/* ===== Tema claro: leitura forte =====
+   Os cinzas do Tailwind (slate-300 a 600) ficavam apagados sobre o fundo claro.
+   No tema claro cada tom de texto fica 2 degraus mais escuro; títulos quase pretos;
+   bordas mais visíveis; fundo cinza-azulado para os cartões brancos destacarem.
+   Vale só dentro do app e das janelas (a tela de login é sempre escura). */
+html:not(.dark) .app-shell {
+  background-color: #e8ecf2 !important;
+  color: #0b1220;
+}
+html:not(.dark) :is(.app-shell, .premium-modal, .premium-panel) .text-slate-300 { color: #64748b; }
+html:not(.dark) :is(.app-shell, .premium-modal, .premium-panel) .text-slate-400 { color: #475569; }
+html:not(.dark) :is(.app-shell, .premium-modal, .premium-panel) .text-slate-500 { color: #334155; }
+html:not(.dark) :is(.app-shell, .premium-modal, .premium-panel) .text-slate-600 { color: #1e293b; }
+html:not(.dark) :is(.app-shell, .premium-modal, .premium-panel) :is(.text-slate-700, .text-slate-800, .text-slate-900) { color: #0b1220; }
+html:not(.dark) :is(.app-shell, .premium-modal, .premium-panel) :is(input, textarea)::placeholder { color: #64748b; }
+html:not(.dark) :is(.app-shell, .premium-modal, .premium-panel) :is(.border-slate-100, .border-slate-200, .border-slate-200\/80, .border-slate-200\/60) {
+  border-color: #cfd8e3;
+}
+html:not(.dark) :is(.app-shell, .premium-modal, .premium-panel) :is(.divide-slate-100, .divide-slate-200) > * + * {
+  border-color: #dde4ec;
+}
+/* Rótulos pequenos em maiúsculas (ex.: "RECEITA RECEBIDA"): mais peso para ler de longe */
+html:not(.dark) :is(.app-shell, .premium-modal) .uppercase.text-slate-400,
+html:not(.dark) :is(.app-shell, .premium-modal) .uppercase.text-slate-500 {
+  color: #334155;
+  font-weight: 700;
+}
+/* Menu lateral e topo: vidro mais opaco para o texto não "sumir" no fundo */
+html:not(.dark) .app-glass {
+  background-color: rgb(255 255 255 / 0.92);
+}
+
 /* Tema claro: molduras sempre com a cor de destaque (azul) e cometa azul bem suave no hover */
 :root:not(.dark) .dash-panel,
 :root:not(.dark) .executive-card,
