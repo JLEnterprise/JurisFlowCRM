@@ -271,8 +271,14 @@ export function Sidebar({
                   handleCloseMobile();
                 }}
                 title={collapsed ? 'Copiloto IA' : undefined}
-                className="group flex w-full items-center justify-between rounded-xl border border-gold-500/30 bg-gold-500/[0.07] px-3 py-2.5 text-xs font-semibold text-slate-800 dark:text-gold-100 hover:bg-gold-500/[0.12] hover:border-gold-500/50 transition-colors"
+                aria-current={activeTabId === 'copilot' ? 'page' : undefined}
+                className={`group relative flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${
+                  activeTabId === 'copilot'
+                    ? 'border-gold-500/60 bg-gold-500/[0.16] text-slate-900 dark:text-gold-50'
+                    : 'border-gold-500/30 bg-gold-500/[0.07] text-slate-800 dark:text-gold-100 hover:bg-gold-500/[0.12] hover:border-gold-500/50'
+                }`}
               >
+                {activeTabId === 'copilot' && <span className="absolute left-0 inset-y-2 w-1 rounded-r-full bg-gold-400" />}
                 <span className="flex items-center gap-3">
                   <Sparkles className="h-4 w-4 shrink-0 text-gold-600 dark:text-gold-400" />
                   {!collapsed && <span className="truncate">Copiloto IA</span>}

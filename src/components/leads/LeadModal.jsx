@@ -6,6 +6,31 @@ import { KANBAN_STAGES } from '../../data/legalAreas';
 import { Select } from '../common/Select';
 import { DateField } from '../common/DateField';
 
+const HOW_FOUND_OPTIONS = [
+  'Indicação de cliente',
+  'Indicação de outro advogado',
+  'Instagram',
+  'Facebook',
+  'Google',
+  'YouTube',
+  'TikTok',
+  'Site do escritório',
+  'Passou em frente / placa',
+  'Evento ou palestra',
+  'Outro',
+];
+
+// Resumo das UTMs gravadas no lead (quando ele veio de um link/anúncio)
+function getUtmSummary(lead) {
+  if (!lead) return '';
+  const utm = {
+    source: lead.utmSource || lead.utm_source,
+    medium: lead.utmMedium || lead.utm_medium,
+    campaign: lead.utmCampaign || lead.utm_campaign,
+  };
+  return [utm.source, utm.medium, utm.campaign].filter(Boolean).join(' / ');
+}
+
 export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
   const { addLead, updateLead, legalAreas, leadSources } = useCRM();
   const { users } = useAuth();
@@ -19,7 +44,8 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
     city: '',
     state: 'SP',
     birthDate: '',
-    source: 'google',
+    source: 'manual',
+    howFound: '',
     legalArea: 'trabalhista',
     assignedTo: 'usr_4',
     lawyerId: 'usr_2',
@@ -48,7 +74,8 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
         city: 'São Paulo',
         state: 'SP',
         birthDate: '',
-        source: 'google',
+        source: 'manual',
+    howFound: '',
         legalArea: 'trabalhista',
         assignedTo: 'usr_4',
         lawyerId: 'usr_2',
@@ -61,6 +88,14 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
       });
     }
   }, [leadToEdit, isOpen]);
+
+  const utmSummary = getUtmSummary(formData);
+  const legacySource = (leadSources || []).find(s => s.id === formData.source)?.name;
+  const originLabel = utmSummary
+    ? `Link: ${utmSummary}`
+    : formData.source && formData.source !== 'manual'
+      ? (legacySource || formData.source)
+      : 'Manual';
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -199,16 +234,26 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
         {/* Row 4: Origem, Área Jurídica & Valor Estimado */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Origem do Lead *
+            {/* A origem não é escolhida à mão: vem das UTMs dos links/anúncios.
+                No cadastro manual fica "Manual" e perguntamos como a pessoa conheceu o escritório. */}
+            <label className="mb-1 flex items-center justify-between gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <span>Como conheceu o escritório?</span>
+              <span
+                className="rounded-full border border-gold-500/30 px-2 py-0.5 text-[10px] font-semibold text-gold-700 dark:text-gold-300"
+                title={utmSummary || 'Lead cadastrado manualmente'}
+              >
+                {originLabel}
+              </span>
             </label>
             <Select
-              value={formData.source}
-              onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 focus:outline-none"
+              value={formData.howFound || ''}
+              onChange={(e) => setFormData({ ...formData, howFound: e.target.value })}
+              placeholder="Selecione..."
+              className="w-full"
             >
-              {leadSources.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+              <option value="">Selecione...</option>
+              {HOW_FOUND_OPTIONS.map(o => (
+                <option key={o} value={o}>{o}</option>
               ))}
             </Select>
           </div>
@@ -239,6 +284,21 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
             />
           </div>
         </div>
+
+        {String(formData.howFound || '').startsWith('Indicação') && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Quem indicou?
+            </label>
+            <input
+              type="text"
+              value={formData.referredBy || ''}
+              onChange={(e) => setFormData({ ...formData, referredBy: e.target.value })}
+              placeholder="Nome do cliente ou advogado que indicou"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-gold-500/60 focus:outline-none"
+            />
+          </div>
+        )}
 
         {/* Row 5: Responsável, Estágio & Temperatura */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

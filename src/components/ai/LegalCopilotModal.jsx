@@ -183,7 +183,9 @@ function MarkdownRenderer({ content }) {
   return <div className="space-y-1">{renderedElements}</div>;
 }
 
-export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = null, initialTab = null }) {
+// variant 'page': tela do sistema (menu lateral); 'modal': janela por cima (uso legado)
+export function LegalCopilotModal({ isOpen, onClose, onAddTask, initialData = null, initialTab = null, variant = 'modal' }) {
+  const isPage = variant === 'page';
   const {
     showToast,
     addTask,
@@ -604,16 +606,24 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-2 sm:p-4 backdrop-blur-sm animate-fade-in">
-      <div className={`copilot-shell relative isolate flex flex-col overflow-hidden border border-slate-200/80 bg-white shadow-2xl dark:border-gold-500/15 dark:bg-[#070b14] transition-all duration-200 ${
-        isFullScreen ? 'h-full w-full max-w-none rounded-none' : 'h-[95vh] w-full max-w-6xl rounded-3xl'
+    <div className={isPage
+      ? 'animate-fade-in'
+      : 'fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-2 sm:p-4 backdrop-blur-sm animate-fade-in'}
+    >
+      <div className={`copilot-shell relative isolate flex flex-col overflow-hidden border border-slate-200/80 bg-white transition-all duration-200 ${
+        isPage
+          // Tela do sistema: ocupa a área útil abaixo do topo, sobre o fundo com textura do app
+          ? 'w-full rounded-3xl dark:border-white/[0.08] dark:bg-[#070b14]/60 h-[calc(100dvh-4.5rem-2rem)] sm:h-[calc(100dvh-4.5rem-3rem)] lg:h-[calc(100dvh-4.5rem-4rem)]'
+          : `shadow-2xl dark:border-gold-500/15 dark:bg-[#070b14] ${isFullScreen ? 'h-full w-full max-w-none rounded-none' : 'h-[95vh] w-full max-w-6xl rounded-3xl'}`
       }`}>
-        {/* Mesmo fundo com textura dourada do sistema */}
-        <div className="app-bg hidden dark:block" aria-hidden="true">
-          <div className="app-bg__grid" />
-          <div className="app-bg__glow app-bg__glow--gold" />
-          <div className="app-bg__glow app-bg__glow--blue" />
-        </div>
+        {/* Mesmo fundo com textura dourada do sistema (a tela já fica sobre ele) */}
+        {!isPage && (
+          <div className="app-bg hidden dark:block" aria-hidden="true">
+            <div className="app-bg__grid" />
+            <div className="app-bg__glow app-bg__glow--gold" />
+            <div className="app-bg__glow app-bg__glow--blue" />
+          </div>
+        )}
 
         {/* Topo no padrão do sistema: marca à esquerda, ações discretas à direita */}
         <div className="app-header app-glass relative flex flex-wrap items-center justify-between gap-3 bg-white/80 px-5 py-3.5">
@@ -649,17 +659,21 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
                   <Download className="h-[18px] w-[18px]" />
                 </button>
               )}
-              <button
-                onClick={() => setIsFullScreen(!isFullScreen)}
-                className="header-icon-btn hidden sm:inline-flex"
-                aria-label={isFullScreen ? 'Restaurar tamanho' : 'Tela cheia'}
-                data-tip={isFullScreen ? 'Restaurar' : 'Tela cheia'}
-              >
-                {isFullScreen ? <Minimize2 className="h-[18px] w-[18px]" /> : <Maximize2 className="h-[18px] w-[18px]" />}
-              </button>
-              <button onClick={onClose} className="header-icon-btn hover:!text-rose-500" aria-label="Fechar" data-tip="Fechar">
-                <X className="h-5 w-5" />
-              </button>
+              {!isPage && (
+                <button
+                  onClick={() => setIsFullScreen(!isFullScreen)}
+                  className="header-icon-btn hidden sm:inline-flex"
+                  aria-label={isFullScreen ? 'Restaurar tamanho' : 'Tela cheia'}
+                  data-tip={isFullScreen ? 'Restaurar' : 'Tela cheia'}
+                >
+                  {isFullScreen ? <Minimize2 className="h-[18px] w-[18px]" /> : <Maximize2 className="h-[18px] w-[18px]" />}
+                </button>
+              )}
+              {!isPage && (
+                <button onClick={onClose} className="header-icon-btn hover:!text-rose-500" aria-label="Fechar" data-tip="Fechar">
+                  <X className="h-5 w-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>

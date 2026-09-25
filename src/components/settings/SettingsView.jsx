@@ -152,7 +152,6 @@ export function SettingsView() {
     { id: 'ai', label: 'Agente AdvJuris & IA', icon: Sparkles },
     ...(isDevUser ? [{ id: 'multitenant', label: 'Multi-Escritórios (Exclusivo Dev/TI)', icon: Layers }] : []),
     { id: 'areas', label: 'Áreas Jurídicas', icon: Scale },
-    { id: 'sources', label: 'Origens de Leads', icon: Share2 },
     { id: 'system', label: 'Dados & Sistema', icon: RotateCcw },
   ];
 

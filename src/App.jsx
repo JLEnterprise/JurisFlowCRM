@@ -103,7 +103,6 @@ export function App() {
   const [attendanceToEdit, setAttendanceToEdit] = useState(null);
 
   // Power-Ups Modals
-  const [copilotModalOpen, setCopilotModalOpen] = useState(false);
   const [copilotInitialTab, setCopilotInitialTab] = useState('chat');
 
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
@@ -215,9 +214,10 @@ export function App() {
     setWhatsAppModalOpen(true);
   };
 
+  // O Copiloto é uma tela do sistema (não mais janela): abre na ferramenta pedida
   const handleOpenCopilotModal = (tab = 'chat') => {
-    setCopilotInitialTab(tab);
-    setCopilotModalOpen(true);
+    setCopilotInitialTab(typeof tab === 'string' ? tab : 'chat');
+    handleNavigate('copilot');
   };
 
   const handleOpenNewProposal = (prefill) => {
@@ -337,6 +337,17 @@ export function App() {
     }
 
     switch (currentTab) {
+      case 'copilot':
+        return (
+          <LegalCopilotModal
+            key={copilotInitialTab}
+            variant="page"
+            isOpen
+            onClose={() => handleNavigate('dashboard')}
+            initialTab={copilotInitialTab}
+          />
+        );
+
       case 'dashboard':
         return (
           <div className="space-y-6">
@@ -606,13 +617,6 @@ export function App() {
       />
 
       {/* POWER-UPS MODALS */}
-      {/* 1. Copiloto IA Jurídica Modal */}
-      <LegalCopilotModal
-        isOpen={copilotModalOpen}
-        onClose={() => setCopilotModalOpen(false)}
-        initialTab={copilotInitialTab}
-      />
-
       {/* 2. WhatsApp Engine Modal */}
       <WhatsAppModal
         isOpen={whatsAppModalOpen}
