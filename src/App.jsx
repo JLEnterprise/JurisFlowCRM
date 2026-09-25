@@ -439,6 +439,9 @@ export function App() {
         );
 
       case 'documents':
+        if (!permissions?.canAccessDocuments) {
+          return renderAccessRestricted('Gestão de Documentos', 'Advogados, Financeiro, Secretaria, Sócia Administradora e Dev');
+        }
         return <DocumentManager />;
 
       case 'financial':
@@ -448,6 +451,9 @@ export function App() {
         return <FinancialOverview onOpenWhatsApp={handleOpenWhatsAppModal} onSelectClient={handleViewClientDetail} onSelectContract={handleViewContractDetail} onNavigate={handleNavigate} />;
 
       case 'reports':
+        if (!permissions?.canAccessReports) {
+          return renderAccessRestricted('Relatórios Gerenciais', 'Sócia Administradora, Financeiro, Advogado Sênior, Gerente Comercial e Dev');
+        }
         return <ReportsView />;
 
       case 'team':
