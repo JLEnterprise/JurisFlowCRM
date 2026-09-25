@@ -17,6 +17,7 @@ import {
 import { useCRM } from '../../context/CRMContext';
 import { formatCurrency } from '../../utils/formatters';
 import { StatCard } from '../common/StatCard';
+import { CometOrbit } from '../common/CometOrbit';
 
 export function DashboardStats({ onNavigate }) {
   const { leads, clients, contracts, proposals, installments } = useCRM();
@@ -60,170 +61,120 @@ export function DashboardStats({ onNavigate }) {
   const averageTicket = contractsClosed > 0 ? totalContractedValue / contractsClosed : (safeContracts.length > 0 ? totalContractedValue / safeContracts.length : 0);
 
   // Conversions
-  const leadConversionRate = leadsReceived > 0 ? ((contractsClosed / leadsReceived) * 100).toFixed(1) : '0.0';
-  const proposalConversionRate = proposalsSent > 0 ? ((contractsClosed / proposalsSent) * 100).toFixed(1) : '0.0';
+  // Conversões sempre entre 0% e 100%: leads ganhos / leads; propostas aceitas / propostas
+  const wonLeads = safeLeads.filter(l => l && l.stage === 'contrato_fechado').length;
+  const acceptedProposals = safeProposals.filter(p => p && ['aceita', 'aprovada', 'accepted', 'convertida'].includes(String(p.status || '').toLowerCase())).length;
+  const leadConversionRate = leadsReceived > 0 ? ((wonLeads / leadsReceived) * 100).toFixed(1) : '0.0';
+  const proposalConversionRate = proposalsSent > 0 ? ((acceptedProposals / proposalsSent) * 100).toFixed(1) : '0.0';
+
+  const pendingCount = safeInstallments.filter(i => i && i.status === 'pending').length;
+
+  // Fluxo operacional: número em branco/grafite; verde e vermelho só para ganho e perda (status)
+  const flow = [
+    { label: 'Leads totais', value: leadsReceived, hint: 'Recebidos', tab: 'kanban' },
+    { label: 'Em atendimento', value: leadsInAttendance, hint: 'Triagem inicial', tab: 'kanban' },
+    { label: 'Qualificados', value: leadsQualified, hint: 'Em consulta', tab: 'kanban' },
+    { label: 'Propostas', value: proposalsSent, hint: 'Enviadas', tab: 'proposals' },
+    { label: 'Em negociação', value: contractsInNegotiation, hint: 'Aguardando', tab: 'kanban' },
+    { label: 'Contratos ganhos', value: contractsClosed, hint: 'Assinados', tab: 'contracts', tone: 'good' },
+    { label: 'Clientes ativos', value: activeClients, hint: 'Na base', tab: 'clients' },
+    { label: 'Perdidos', value: lostLeads, hint: 'Não fechados', tab: 'kanban', tone: 'bad' },
+  ];
+
+  const SectionTitle = ({ icon: Icon, children, aside }) => (
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <h2 className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+        <Icon className="h-3.5 w-3.5 text-gold-500" /> {children}
+      </h2>
+      {aside && <span className="text-[11px] text-slate-400">{aside}</span>}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
-      {/* Primary Financial & Pipeline KPIs */}
+      {/* Indicadores financeiros e de pipeline */}
       <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-            <Coins className="h-4 w-4 text-gold-500" /> Indicadores Financeiros & Pipeline
-          </h2>
-          <span className="text-xs text-slate-400 font-medium">Valores consolidados em tempo real</span>
-        </div>
-
+        <SectionTitle icon={Coins} aside="Valores em tempo real">Indicadores financeiros & pipeline</SectionTitle>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            title="Pipeline Potencial"
+            title="Pipeline potencial"
             value={formatCurrency(pipelinePotentialValue)}
             subtitle="Em negociação no funil comercial"
             iconName="TrendingUp"
-            color="brand"
-            trend="+18.4% este mês"
             onClick={() => onNavigate('kanban')}
           />
           <StatCard
-            title="Valor Contratado"
+            title="Valor contratado"
             value={formatCurrency(totalContractedValue)}
             subtitle={`${contractsClosed} contratos ativos assinados`}
             iconName="FileCheck2"
-            color="emerald"
-            trend="+24.2% a.m."
             onClick={() => onNavigate('contracts')}
           />
           <StatCard
-            title="Receita Recebida"
+            title="Receita recebida"
             value={formatCurrency(totalReceivedValue)}
             subtitle="Honorários liquidados em conta"
             iconName="DollarSign"
-            color="purple"
-            trend="100% conciliado"
             onClick={() => onNavigate('financial')}
           />
           <StatCard
-            title="Receita a Receber"
+            title="Receita a receber"
             value={formatCurrency(totalPendingValue)}
-            subtitle="Parcelas futuras e vincendas"
+            subtitle={`${pendingCount} ${pendingCount === 1 ? 'parcela' : 'parcelas'} a vencer`}
             iconName="Coins"
-            color="gold"
-            trend={`${installments.filter(i => i.status === 'pending').length} parcelas`}
             onClick={() => onNavigate('financial')}
           />
         </div>
       </div>
 
-      {/* Conversion & Efficiency Metrics */}
+      {/* Conversão e eficiência */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
-          title="Ticket Médio de Honorários"
+          title="Ticket médio de honorários"
           value={formatCurrency(averageTicket)}
           subtitle="Valor médio por contrato fechado"
-          iconName="DollarSign"
-          color="indigo"
+          iconName="Scale"
           onClick={() => onNavigate('contracts')}
         />
         <StatCard
-          title="Taxa de Conversão de Leads"
+          title="Conversão de leads"
           value={`${leadConversionRate}%`}
-          subtitle="Proporção de leads que fecharam contrato"
+          subtitle="Leads que viraram contrato"
           iconName="Percent"
-          color="emerald"
-          trend="+3.2%"
           onClick={() => onNavigate('reports')}
         />
         <StatCard
-          title="Conversão de Propostas"
+          title="Conversão de propostas"
           value={`${proposalConversionRate}%`}
-          subtitle="Propostas comerciais aceitas e assinadas"
+          subtitle="Propostas aceitas e assinadas"
           iconName="Sparkles"
-          color="gold"
-          trend="+5.8%"
           onClick={() => onNavigate('proposals')}
         />
       </div>
 
-      {/* Volume & Funnel Status Cards */}
+      {/* Fluxo operacional de leads e clientes */}
       <div>
-        <div className="mb-3">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-            <Users className="h-4 w-4 text-brand-500" /> Fluxo Operacional de Leads & Clientes
-          </h2>
-        </div>
-
+        <SectionTitle icon={Users}>Fluxo operacional de leads & clientes</SectionTitle>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-          <div
-            onClick={() => onNavigate('leads')}
-            className="rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm hover:border-brand-500/50 cursor-pointer transition-all text-center"
-          >
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Leads Totais</div>
-            <div className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{leadsReceived}</div>
-            <div className="mt-1 text-[10px] text-brand-600 dark:text-brand-400 font-semibold">Recebidos</div>
-          </div>
-
-          <div
-            onClick={() => onNavigate('kanban')}
-            className="rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm hover:border-cyan-500/50 cursor-pointer transition-all text-center"
-          >
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Em Atendimento</div>
-            <div className="mt-1 text-xl font-bold text-cyan-600 dark:text-cyan-400">{leadsInAttendance}</div>
-            <div className="mt-1 text-[10px] text-slate-400">Triagem inicial</div>
-          </div>
-
-          <div
-            onClick={() => onNavigate('kanban')}
-            className="rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm hover:border-amber-500/50 cursor-pointer transition-all text-center"
-          >
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Qualificados</div>
-            <div className="mt-1 text-xl font-bold text-amber-600 dark:text-amber-400">{leadsQualified}</div>
-            <div className="mt-1 text-[10px] text-slate-400">Em consulta</div>
-          </div>
-
-          <div
-            onClick={() => onNavigate('proposals')}
-            className="rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm hover:border-indigo-500/50 cursor-pointer transition-all text-center"
-          >
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Propostas</div>
-            <div className="mt-1 text-xl font-bold text-indigo-600 dark:text-indigo-400">{proposalsSent}</div>
-            <div className="mt-1 text-[10px] text-slate-400">Enviadas</div>
-          </div>
-
-          <div
-            onClick={() => onNavigate('kanban')}
-            className="rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm hover:border-orange-500/50 cursor-pointer transition-all text-center"
-          >
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Em Negociação</div>
-            <div className="mt-1 text-xl font-bold text-orange-600 dark:text-orange-400">{contractsInNegotiation}</div>
-            <div className="mt-1 text-[10px] text-slate-400">Aguardando</div>
-          </div>
-
-          <div
-            onClick={() => onNavigate('contracts')}
-            className="rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm hover:border-emerald-500/50 cursor-pointer transition-all text-center"
-          >
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Contratos Ganhos</div>
-            <div className="mt-1 text-xl font-bold text-emerald-600 dark:text-emerald-400">{contractsClosed}</div>
-            <div className="mt-1 text-[10px] text-emerald-500 font-semibold">Assinados 🎉</div>
-          </div>
-
-          <div
-            onClick={() => onNavigate('clients')}
-            className="rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm hover:border-purple-500/50 cursor-pointer transition-all text-center"
-          >
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Clientes Ativos</div>
-            <div className="mt-1 text-xl font-bold text-purple-600 dark:text-purple-400">{activeClients}</div>
-            <div className="mt-1 text-[10px] text-slate-400">Na base</div>
-          </div>
-
-          <div
-            onClick={() => onNavigate('leads')}
-            className="rounded-2xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm hover:border-rose-500/50 cursor-pointer transition-all text-center"
-          >
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Perdidos</div>
-            <div className="mt-1 text-xl font-bold text-rose-600 dark:text-rose-400">{lostLeads}</div>
-            <div className="mt-1 text-[10px] text-slate-400">Não fechados</div>
-          </div>
+          {flow.map(item => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => onNavigate(item.tab)}
+              className="dash-panel has-orbit !p-3.5 text-center transition-all hover:-translate-y-0.5 focus:outline-none"
+            >
+              <CometOrbit className="card-orbit" />
+              <div className="text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{item.label}</div>
+              <div className={`mt-1.5 text-2xl font-bold tabular-nums ${
+                item.tone === 'good' ? 'text-emerald-600 dark:text-emerald-400'
+                  : item.tone === 'bad' ? 'text-rose-600 dark:text-rose-400'
+                  : 'text-slate-900 dark:text-white'
+              }`}>
+                {item.value}
+              </div>
+              <div className="mt-1 text-[10px] text-gold-700/80 dark:text-gold-300/60">{item.hint}</div>
+            </button>
+          ))}
         </div>
       </div>
     </div>
