@@ -23,7 +23,8 @@ import {
   Tag,
   Users,
   Link as LinkIcon,
-  Copy
+  Copy,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCRM } from '../../context/CRMContext';
@@ -73,7 +74,7 @@ export const SYSTEM_ROLES = [
 ];
 
 export function TeamView() {
-  const { users = [], createUser, updateUser, deleteUser, currentUser } = useAuth();
+  const { users = [], createUser, updateUser, deleteUser, currentUser, resetPassword } = useAuth();
   const { leads = [], contracts = [], showToast, logActivity } = useCRM();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -116,6 +117,17 @@ export function TeamView() {
     });
     setCustomTitleInput('');
     setIsModalOpen(true);
+  };
+
+  // Envia o e-mail do Supabase com o link para a pessoa criar/redefinir a própria senha
+  const handleSendPasswordLink = async (member) => {
+    const result = await resetPassword(member.email);
+    if (result?.rateLimited) {
+      showToast('Limite de e-mails atingido. Aguarde alguns minutos e tente de novo.', 'warning');
+      return;
+    }
+    logActivity && logActivity('Link de Senha Enviado', member.name || member.email, 'Link para criar/redefinir a senha enviado por e-mail.');
+    showToast(`Link de senha enviado para ${member.email}.`, 'success');
   };
 
   const handleOpenEditModal = (member) => {
@@ -440,6 +452,15 @@ export function TeamView() {
 
                   {/* Edit & Delete Action Buttons */}
                   <div className="flex items-center gap-1 shrink-0">
+                    {member.email && member.id !== currentUser?.id && (
+                      <button
+                        onClick={() => handleSendPasswordLink(member)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-gold-600 hover:bg-gold-500/10 transition-colors"
+                        title="Enviar por e-mail o link para criar/redefinir a senha"
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleOpenEditModal(member)}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800 transition-colors"

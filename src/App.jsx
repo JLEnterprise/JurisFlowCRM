@@ -337,6 +337,21 @@ export function App() {
       );
     }
 
+    // Telas liberadas pelos "Níveis de acesso" do escritório (Configurações)
+    const TAB_PERMISSION = {
+      kanban: ['canAccessFunnel', 'Funil Comercial'],
+      leads: ['canAccessFunnel', 'Funil Comercial'],
+      clients: ['canAccessClients', 'Clientes'],
+      proposals: ['canAccessProposals', 'Propostas'],
+      attendance: ['canAccessAttendance', 'Atendimentos'],
+      agenda: ['canAccessAgenda', 'Agenda & Audiências'],
+      tasks: ['canAccessTasks', 'Prazos & Tarefas'],
+    };
+    const gate = TAB_PERMISSION[currentTab];
+    if (gate && permissions && !permissions[gate[0]]) {
+      return renderAccessRestricted(gate[1], 'os cargos liberados em Configurações → Níveis de acesso');
+    }
+
     switch (currentTab) {
       case 'copilot':
         return (

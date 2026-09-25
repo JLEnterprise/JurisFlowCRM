@@ -100,9 +100,13 @@ export function LoginView() {
   const handleRecoverySubmit = async (e) => {
     e.preventDefault();
     if (!recoveryEmail) return;
-    await resetPassword(recoveryEmail);
+    const result = await resetPassword(recoveryEmail);
+    if (result?.rateLimited) {
+      showToast('Muitos pedidos seguidos. Aguarde alguns minutos e peça o link de novo.', 'warning');
+      return;
+    }
     setRecoverySent(true);
-    showToast('Instruções de redefinição enviadas para o e-mail informado!', 'info');
+    showToast('Se o e-mail estiver cadastrado, você receberá o link para criar uma nova senha.', 'info');
   };
 
   return (

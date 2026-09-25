@@ -25,7 +25,7 @@ import { buildSchedule, normalizePlan, isRecurring, dayStr, RENEW_AHEAD_DAYS } f
 const CRMContext = createContext();
 
 export function CRMProvider({ children }) {
-  const { currentUser } = useAuth();
+  const { currentUser, setRoleMatrix } = useAuth();
 
   // Multi-Tenant State estritamente acoplado ao usuário autenticado
   const activeTenantId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId() || null;
@@ -1288,6 +1288,12 @@ export function CRMProvider({ children }) {
     showToast('🎉 Negócio fechado com sucesso! Contrato, cliente e financeiro criados.');
     return contract;
   };
+
+  // Níveis de acesso do escritório → controle de acesso (AuthContext)
+  useEffect(() => {
+    if (setRoleMatrix) setRoleMatrix(officeSettings?.rolePermissions || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [officeSettings?.rolePermissions]);
 
   // --- RENOVAÇÃO AUTOMÁTICA DOS CONTRATOS MENSAIS ---
   // Ao carregar os dados da nuvem: contrato mensal com renovação automática cuja última
