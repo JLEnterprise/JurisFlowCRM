@@ -406,6 +406,15 @@
   stroke: rgb(var(--accent-rgb) / 0.6) !important;
 }
 
+/* Funil de vendas do Dashboard: cada faixa abre do centro, em sequência */
+.funnel-band {
+  animation: funnel-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes funnel-in {
+  from { scale: 0.15 1; filter: saturate(0.6); }
+  to   { scale: 1 1; }
+}
+
 /* Menu rola sozinho acima do resumo do dia; borda de baixo esmaece para indicar rolagem */
 .sidebar-nav {
   scrollbar-width: none;

@@ -187,7 +187,12 @@ export function DashboardCharts() {
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-      <Panel index={0} title="Evolução de leads & fechamentos" subtitle="Leads captados e contratos fechados nos últimos 6 meses"
+      <Panel index={0} title="Funil de vendas" subtitle="Quantos leads chegaram a cada etapa e quantos por cento seguiram para a próxima"
+        className="lg:col-span-2" height="h-auto">
+        {(play) => <SalesFunnel key={play} leads={safeLeads} />}
+      </Panel>
+
+      <Panel index={1} title="Evolução de leads & fechamentos" subtitle="Leads captados e contratos fechados nos últimos 6 meses"
         legend={[{ label: 'Leads captados', color: PALETTE[0] }, { label: 'Contratos fechados', color: PALETTE[1] }]}>
         {(play) => (
           <ResponsiveContainer width="100%" height="100%" key={play}>
@@ -211,7 +216,7 @@ export function DashboardCharts() {
         )}
       </Panel>
 
-      <Panel index={1} title="Receita de honorários contratados" subtitle="Valor dos contratos fechados por mês">
+      <Panel index={2} title="Receita de honorários contratados" subtitle="Valor dos contratos fechados por mês">
         {(play) => (
           <ResponsiveContainer width="100%" height="100%" key={play}>
             <BarChart data={data.revenue} margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
@@ -221,22 +226,6 @@ export function DashboardCharts() {
               <YAxis tick={AXIS} axisLine={false} tickLine={false} tickFormatter={(v) => (v >= 1000 ? `R$${Math.round(v / 1000)}k` : `R$${v}`)} />
               <Tooltip cursor={BAR_CURSOR} content={<ChartTooltip currency />} />
               <Bar dataKey="valor" name="Valor contratado" fill="url(#revBar)" radius={[5, 5, 0, 0]} maxBarSize={44}
-                activeBar={{ fill: BRIGHT[PALETTE[0]] }} {...ANIM} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </Panel>
-
-      <Panel index={2} title="Volume por etapa do funil" subtitle="Leads em cada etapa, até o contrato fechado">
-        {(play) => (
-          <ResponsiveContainer width="100%" height="100%" key={play}>
-            <BarChart layout="vertical" data={data.funnel} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-              <defs>{gradient('funnelBar', PALETTE[0], { horizontal: true })}</defs>
-              <CartesianGrid horizontal={false} stroke={GRID} />
-              <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
-              <YAxis dataKey="etapa" type="category" tick={AXIS} axisLine={false} tickLine={false} width={118} />
-              <Tooltip cursor={BAR_CURSOR} content={<ChartTooltip />} />
-              <Bar dataKey="quantidade" name="Leads" fill="url(#funnelBar)" radius={[0, 5, 5, 0]} maxBarSize={18}
                 activeBar={{ fill: BRIGHT[PALETTE[0]] }} {...ANIM} />
             </BarChart>
           </ResponsiveContainer>
@@ -292,6 +281,95 @@ export function DashboardCharts() {
 }
 
 /* ============================== Peças ============================== */
+
+// Funil de vendas de cima para baixo. Cada faixa mostra quantos leads CHEGARAM àquela etapa
+// (estão nela ou já passaram dela); o topo inclui também os perdidos, que entraram no funil.
+// À direita: % que seguiu da etapa anterior para esta e % sobre o total.
+function SalesFunnel({ leads }) {
+  const stages = KANBAN_STAGES.filter(s => s.id !== 'perdido').sort((a, b) => a.order - b.order);
+  const orderOf = Object.fromEntries(stages.map(s => [s.id, s.order]));
+  const total = leads.length;
+  const active = leads.filter(l => l.stage !== 'perdido');
+  const lost = total - active.length;
+
+  const rows = stages.map((s, i) => {
+    const reached = i === 0 ? total : active.filter(l => (orderOf[l.stage] || 1) >= s.order).length;
+    const here = leads.filter(l => l.stage === s.id).length;
+    return { ...s, reached, here };
+  });
+
+  if (total === 0) return <EmptyChart />;
+
+  const MIN = 16; // largura mínima (%) para a faixa de baixo continuar legível
+  const widthOf = (n) => MIN + (100 - MIN) * (n / total);
+  const won = rows[rows.length - 1].reached;
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap gap-x-8 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
+        <span><span className="font-numeric text-base font-semibold text-slate-900 dark:text-white">{total}</span> leads no funil</span>
+        <span><span className="font-numeric text-base font-semibold text-emerald-600 dark:text-emerald-400">{won}</span> viraram contrato</span>
+        <span><span className="font-numeric text-base font-semibold text-slate-900 dark:text-white">{total ? Math.round((won / total) * 100) : 0}%</span> de conversão total</span>
+        {lost > 0 && <span><span className="font-numeric text-base font-semibold text-rose-600 dark:text-rose-400">{lost}</span> perdidos</span>}
+      </div>
+
+      <div className="space-y-[3px]">
+        {rows.map((r, i) => {
+          const next = rows[i + 1];
+          const top = widthOf(r.reached);
+          const bottom = next ? widthOf(next.reached) : top * 0.86;
+          const inset = ((top - bottom) / 2 / top) * 100; // afunila até a largura da faixa seguinte
+          const isLast = i === rows.length - 1;
+          const step = i === 0 ? null : rows[i - 1].reached ? Math.round((r.reached / rows[i - 1].reached) * 100) : 0;
+          const ofTotal = Math.round((r.reached / total) * 100);
+          const color = isLast ? STATUS.good : PALETTE[0];
+          const shade = isLast ? 1 : 1 - (i / rows.length) * 0.45;
+
+          return (
+            <div key={r.id} className="group grid grid-cols-[7.5rem_1fr_6.5rem] items-center gap-3 sm:grid-cols-[9.5rem_1fr_8rem]">
+              <div className="truncate text-right text-xs font-medium text-slate-600 dark:text-slate-300" title={r.name}>
+                {r.name}
+              </div>
+
+              <div className="relative h-9">
+                <div
+                  className="funnel-band absolute inset-y-0 left-1/2 flex items-center justify-center transition-[filter] duration-200 group-hover:brightness-110"
+                  style={{
+                    width: `${top}%`,
+                    transform: 'translateX(-50%)',
+                    clipPath: `polygon(0 0, 100% 0, ${100 - inset}% 100%, ${inset}% 100%)`,
+                    background: `linear-gradient(90deg, ${color}, ${BRIGHT[color] || color} 50%, ${color})`,
+                    opacity: shade,
+                    animationDelay: `${i * 70}ms`,
+                  }}
+                  title={`${r.name}: ${r.reached} chegaram · ${r.here} estão nesta etapa agora`}
+                >
+                  <span className="font-numeric text-sm font-bold text-white drop-shadow-[0_1px_1px_rgb(0_0_0_/_0.35)]">{r.reached}</span>
+                </div>
+              </div>
+
+              <div className="text-xs">
+                {step === null ? (
+                  <span className="text-slate-400">entrada · 100%</span>
+                ) : (
+                  <>
+                    <span className={`font-numeric font-semibold ${step >= 50 ? 'text-emerald-600 dark:text-emerald-400' : step >= 25 ? 'text-slate-800 dark:text-slate-100' : 'text-rose-600 dark:text-rose-400'}`}>
+                      ↓ {step}%
+                    </span>
+                    <span className="ml-1.5 text-slate-400">{ofTotal}% do total</span>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-[11px] text-slate-400">
+        ↓ = quantos por cento dos leads da etapa de cima chegaram a esta. Passe o mouse numa faixa para ver quantos estão parados nela.
+      </p>
+    </div>
+  );
+}
 
 // Painel com entrada animada em sequência; ao passar o mouse o gráfico se redesenha (no máx. a cada 2,5 s)
 function Panel({ index = 0, title, subtitle, legend, badge, className = '', height = 'h-64', children }) {
