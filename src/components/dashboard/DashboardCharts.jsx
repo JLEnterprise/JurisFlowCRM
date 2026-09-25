@@ -383,7 +383,7 @@ function DonutWithList({ id, data, centerLabel }) {
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold leading-none text-slate-900 dark:text-white tabular-nums">
+          <span className="font-numeric text-2xl font-semibold leading-none text-slate-900 dark:text-white">
             {active >= 0 ? data[active].value : total}
           </span>
           <span className="mt-1 max-w-[6.5rem] truncate text-center text-[10px] uppercase tracking-[0.16em] text-slate-400">
@@ -443,7 +443,7 @@ function CommercialBalance({ data, won, lost }) {
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-bold leading-none text-slate-900 dark:text-white tabular-nums">{winRate}%</span>
+          <span className="font-numeric text-3xl font-semibold leading-none text-slate-900 dark:text-white">{winRate}%</span>
           <span className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">conversão</span>
         </div>
       </div>
@@ -461,7 +461,7 @@ function CommercialBalance({ data, won, lost }) {
                 <Icon className="h-4 w-4" style={{ color: BRIGHT[d.color] }} />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{d.value}</span>
+                <span className="font-numeric text-2xl font-semibold text-slate-900 dark:text-white">{d.value}</span>
                 <span className="text-xs tabular-nums text-slate-400">{pct}%</span>
               </div>
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06]">

@@ -1,53 +1,92 @@
-// Seletor de tipografia (temporário, para escolher a combinação definitiva).
-// Títulos usam --font-display; textos e informações usam --font-body.
+// Seletor de tipografia (temporário, para escolher a identidade definitiva).
+// Cada estilo define 4 papéis: títulos, rótulos em maiúsculas, números de destaque e textos.
 
-export const DISPLAY_FONTS = [
-  { id: 'cormorant', name: 'Cormorant Garamond', note: 'Clássica e elegante', stack: "'Cormorant Garamond', Georgia, serif" },
-  { id: 'playfair', name: 'Playfair Display', note: 'Editorial, alto contraste', stack: "'Playfair Display', Georgia, serif" },
-  { id: 'fraunces', name: 'Fraunces', note: 'Serifada moderna e macia', stack: "'Fraunces', Georgia, serif" },
-  { id: 'marcellus', name: 'Marcellus', note: 'Inspirada em inscrições romanas', stack: "'Marcellus', Georgia, serif" },
-  { id: 'sora', name: 'Sora', note: 'Sem serifa, geométrica', stack: "'Sora', system-ui, sans-serif" },
-];
+const SERIF = 'Georgia, serif';
+const SANS = 'system-ui, sans-serif';
 
-export const BODY_FONTS = [
-  { id: 'manrope', name: 'Manrope', note: 'Atual · limpa e técnica', stack: "'Manrope', system-ui, sans-serif" },
-  { id: 'inter', name: 'Inter', note: 'Neutra, ótima leitura', stack: "'Inter', system-ui, sans-serif" },
-  { id: 'jakarta', name: 'Plus Jakarta Sans', note: 'Amigável e moderna', stack: "'Plus Jakarta Sans', system-ui, sans-serif" },
-  { id: 'dmsans', name: 'DM Sans', note: 'Compacta e elegante', stack: "'DM Sans', system-ui, sans-serif" },
-  { id: 'figtree', name: 'Figtree', note: 'Leve e arredondada', stack: "'Figtree', system-ui, sans-serif" },
-];
-
-// Combinações prontas: um clique troca título e texto juntos
 export const FONT_PAIRS = [
-  { id: 'classica', name: 'Clássica', note: 'Cormorant Garamond + Manrope', display: 'cormorant', body: 'manrope' },
-  { id: 'editorial', name: 'Editorial', note: 'Playfair Display + Inter', display: 'playfair', body: 'inter' },
-  { id: 'contemporanea', name: 'Contemporânea', note: 'Fraunces + Figtree', display: 'fraunces', body: 'figtree' },
-  { id: 'institucional', name: 'Institucional', note: 'Marcellus + DM Sans', display: 'marcellus', body: 'dmsans' },
-  { id: 'tecnologica', name: 'Tecnológica', note: 'Sora + Plus Jakarta Sans', display: 'sora', body: 'jakarta' },
+  {
+    id: 'classica',
+    name: 'Clássica',
+    note: 'Cormorant Garamond + Manrope · a atual',
+    display: `'Cormorant Garamond', ${SERIF}`,
+    label: `'Manrope', ${SANS}`,
+    numeric: `'Manrope', ${SANS}`,
+    body: `'Manrope', ${SANS}`,
+  },
+  {
+    id: 'imperial',
+    name: 'Imperial',
+    note: 'Cinzel + Cormorant + Lato · letras romanas, cara de escritório tradicional',
+    display: `'Cinzel', ${SERIF}`,
+    label: `'Cinzel', ${SERIF}`,
+    numeric: `'Cormorant Garamond', ${SERIF}`,
+    body: `'Lato', ${SANS}`,
+  },
+  {
+    id: 'joalheria',
+    name: 'Alta Joalheria',
+    note: 'Bodoni Moda + Jost · alto contraste de revista de luxo',
+    display: `'Bodoni Moda', ${SERIF}`,
+    label: `'Jost', ${SANS}`,
+    numeric: `'Bodoni Moda', ${SERIF}`,
+    body: `'Jost', ${SANS}`,
+  },
+  {
+    id: 'editorial',
+    name: 'Editorial',
+    note: 'Playfair Display + Source Sans 3 · jornal financeiro',
+    display: `'Playfair Display', ${SERIF}`,
+    label: `'Playfair Display SC', ${SERIF}`,
+    numeric: `'Playfair Display', ${SERIF}`,
+    body: `'Source Sans 3', ${SANS}`,
+  },
+  {
+    id: 'galeria',
+    name: 'Galeria',
+    note: 'DM Serif Display + Tenor Sans + DM Sans · sofisticada e arejada',
+    display: `'DM Serif Display', ${SERIF}`,
+    label: `'Tenor Sans', ${SANS}`,
+    numeric: `'DM Serif Display', ${SERIF}`,
+    body: `'DM Sans', ${SANS}`,
+  },
+  {
+    id: 'artdeco',
+    name: 'Art Déco',
+    note: 'Josefin Sans + Nunito Sans · geométrica anos 20, moderna',
+    display: `'Josefin Sans', ${SANS}`,
+    label: `'Josefin Sans', ${SANS}`,
+    numeric: `'Josefin Sans', ${SANS}`,
+    body: `'Nunito Sans', ${SANS}`,
+  },
 ];
 
-export const fontStack = (list, id) => (list.find(f => f.id === id) || list[0]).stack;
+const KEY = 'jurisflow_tipografia_estilo';
+export const DEFAULT_PAIR = 'classica';
 
-const KEY = 'jurisflow_tipografia';
-export const DEFAULT_FONTS = { display: 'cormorant', body: 'manrope' };
-
-export function getFontPrefs() {
+export function getFontPairId() {
   try {
-    return { ...DEFAULT_FONTS, ...JSON.parse(window.localStorage.getItem(KEY) || '{}') };
+    const id = window.localStorage.getItem(KEY);
+    return FONT_PAIRS.some(p => p.id === id) ? id : DEFAULT_PAIR;
   } catch {
-    return { ...DEFAULT_FONTS };
+    return DEFAULT_PAIR;
   }
 }
 
-export function applyFontPrefs(prefs = getFontPrefs()) {
-  const display = DISPLAY_FONTS.find(f => f.id === prefs.display) || DISPLAY_FONTS[0];
-  const body = BODY_FONTS.find(f => f.id === prefs.body) || BODY_FONTS[0];
+export function applyFontPair(id = getFontPairId()) {
+  const pair = FONT_PAIRS.find(p => p.id === id) || FONT_PAIRS[0];
   const root = document.documentElement;
-  root.style.setProperty('--font-display', display.stack);
-  root.style.setProperty('--font-body', body.stack);
+  root.style.setProperty('--font-display', pair.display);
+  root.style.setProperty('--font-label', pair.label);
+  root.style.setProperty('--font-numeric', pair.numeric);
+  root.style.setProperty('--font-body', pair.body);
+  root.dataset.fontPair = pair.id;
 }
 
-export function saveFontPrefs(prefs) {
-  try { window.localStorage.setItem(KEY, JSON.stringify(prefs)); } catch { /* sem storage: vale só nesta sessão */ }
-  applyFontPrefs(prefs);
+export function saveFontPair(id) {
+  try { window.localStorage.setItem(KEY, id); } catch { /* sem storage: vale só nesta sessão */ }
+  applyFontPair(id);
 }
+
+// Compatibilidade com o nome antigo usado no main.jsx
+export const applyFontPrefs = () => applyFontPair();

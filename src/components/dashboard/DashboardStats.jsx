@@ -163,7 +163,7 @@ export function DashboardStats({ onNavigate }) {
             >
               <CometOrbit className="card-orbit" />
               <div className="text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{item.label}</div>
-              <div className={`mt-1.5 text-2xl font-bold tabular-nums ${
+              <div className={`font-numeric mt-1.5 text-2xl font-semibold ${
                 item.tone === 'good' ? 'text-emerald-600 dark:text-emerald-400'
                   : item.tone === 'bad' ? 'text-rose-600 dark:text-rose-400'
                   : 'text-slate-900 dark:text-white'

@@ -7,6 +7,8 @@
     /* Tipografia: trocada pelo seletor de fontes (utils/fontPrefs.js) */
     --font-display: 'Cormorant Garamond', Georgia, serif;
     --font-body: 'Manrope', system-ui, sans-serif;
+    --font-label: 'Manrope', system-ui, sans-serif;   /* rótulos em maiúsculas */
+    --font-numeric: 'Manrope', system-ui, sans-serif; /* números de destaque (indicadores) */
     --color-surface-light: #f8fafc;
     --color-surface-dark: #0b0f17;
   }
@@ -118,15 +120,27 @@
 }
 
 /* Marca "JURISFLOW" em ouro */
+/* Rótulos em maiúsculas (ex.: "PIPELINE POTENCIAL") e números de destaque seguem o estilo escolhido */
+.app-shell .uppercase,
+.premium-modal .uppercase,
+.font-label {
+  font-family: var(--font-label);
+}
+
+.font-numeric {
+  font-family: var(--font-numeric);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
 /* Marca: fonte FIXA (não segue o seletor de tipografia) — será trocada pela logo definitiva */
 .brand-lockup,
 .brand-lockup * {
-  font-family: 'Manrope', system-ui, sans-serif;
+  font-family: 'Manrope', system-ui, sans-serif !important;
 }
 
 .brand-wordmark,
 .brand-lockup .brand-wordmark {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', Georgia, serif !important;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.16em;
