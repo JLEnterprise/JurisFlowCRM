@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import { storageService, INITIAL_ESCRITORIOS } from '../services/storageService';
 import { supabase } from '../lib/supabase';
@@ -17,7 +17,7 @@ import {
   INITIAL_NOTIFICATIONS,
   INITIAL_OFFICE_SETTINGS,
 } from '../data/initialData';
-import { INITIAL_LEGAL_AREAS, INITIAL_LEAD_SOURCES } from '../data/legalAreas';
+import { INITIAL_LEGAL_AREAS, INITIAL_LEAD_SOURCES, mergeLegalAreas } from '../data/legalAreas';
 import { useAuth } from './AuthContext';
 import { deleteFileFromIndexedDB, formatFileSize } from '../utils/fileHelper';
 import { buildSchedule, normalizePlan, isRecurring, dayStr, RENEW_AHEAD_DAYS } from '../utils/paymentPlan';
@@ -2052,6 +2052,8 @@ export function CRMProvider({ children }) {
     }
   };
 
+  const mergedLegalAreas = useMemo(() => mergeLegalAreas(legalAreas), [legalAreas]);
+
   const addLegalArea = (area) => {
     setLegalAreas(prev => {
       const next = [...prev, { ...area, id: `area_${Date.now()}` }];
@@ -2133,8 +2135,9 @@ export function CRMProvider({ children }) {
         attendances,
         installments,
         documents,
-        legalAreas,
-        leadSources,
+        // Sempre a lista completa de áreas do Direito + as criadas pelo escritório (nunca vazia)
+        legalAreas: mergedLegalAreas,
+        leadSources: leadSources && leadSources.length ? leadSources : INITIAL_LEAD_SOURCES,
         activityLogs,
         notifications,
         officeSettings,

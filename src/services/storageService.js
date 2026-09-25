@@ -936,11 +936,12 @@ export const storageService = {
         return this.getCurrentEscritorioId() || fallback;
       }
 
-      const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-      if (!activeEscritorio) return Array.isArray(fallback) ? [] : fallback;
-
       // Metadados do sistema (áreas e origens de lead) podem ter fallback se não salvos
       const isSystemMeta = ['legal_areas', 'lead_sources'].includes(key);
+
+      const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
+      // Sem escritório ainda (abrindo antes do login): listas do sistema voltam o padrão, nunca vazias
+      if (!activeEscritorio) return isSystemMeta ? fallback : (Array.isArray(fallback) ? [] : fallback);
       const effectiveFallback = isSystemMeta ? fallback : (Array.isArray(fallback) ? [] : fallback);
 
       const tenantKey = this.getTenantStorageKey(key, activeEscritorio);
