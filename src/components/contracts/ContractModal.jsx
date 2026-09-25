@@ -8,6 +8,7 @@ import { UploadCloud, FileText, X, Download, Eye, Paperclip, Sparkles, ShieldChe
 import { generateContractWithAdvJuris } from '../../services/aiService';
 import { Select } from '../common/Select';
 import { PaymentPlanPicker } from './PaymentPlanPicker';
+import { DateField } from '../common/DateField';
 import { normalizePlan } from '../../utils/paymentPlan';
 
 export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillData = null }) {
@@ -309,6 +310,37 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
             </div>
           )}
         />
+
+        {/* Datas: assinatura e término (vencimento do contrato) */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Data de Assinatura
+            </label>
+            <DateField
+              type="date"
+              value={formData.signedDate || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, signedDate: e.target.value }))}
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Término do Contrato <span className="font-normal text-slate-400">(opcional)</span>
+            </label>
+            <DateField
+              type="date"
+              value={formData.endDate || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
+            />
+          </div>
+          <p className="self-end pb-2 text-[11px] leading-snug text-slate-400">
+            {formData.paymentType === 'recorrente' && Number(formData.recurringMonths) === 0
+              ? 'Mensal sem prazo: deixe o término vazio.'
+              : 'Sem término, o vencimento considera a última parcela.'}
+          </p>
+        </div>
 
         {/* Row 4: Objeto do Contrato */}
         <div>
