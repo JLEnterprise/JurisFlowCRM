@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -8,28 +8,40 @@ import {
   PieChart,
   Pie,
   Cell,
+  Sector,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
 } from 'recharts';
+import { CheckCircle2, Clock3, XCircle } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
 import { KANBAN_STAGES } from '../../data/legalAreas';
 
-// Paleta da marca, validada (tema escuro, superfície #0b1220): contraste, daltonismo e
-// separação entre vizinhas. Ordem fixa — a cor segue a categoria, nunca a posição no ranking.
+// Paleta da marca, validada (tema escuro, superfície #0b1220): contraste, daltonismo e separação
+// entre vizinhas. Ordem fixa — a cor segue a categoria, nunca a posição no ranking.
+// Cada cor ganha um tom "vivo" (topo do degradê) para dar brilho sem perder a identidade.
 const PALETTE = ['#b8893a', '#3f7fc4', '#d0703a', '#2f9b74', '#8a6ad0'];
 const OTHER_COLOR = '#64748b';
-const GOLD_TOP = '#d9b76e';
-const GOLD_BOTTOM = '#8f6a2b';
-const STATUS = { good: '#2f9b74', critical: '#d9534f', neutral: '#b8893a' };
+const BRIGHT = {
+  '#b8893a': '#f2d08a',
+  '#3f7fc4': '#7fbaf5',
+  '#d0703a': '#f5a66e',
+  '#2f9b74': '#62d6a8',
+  '#8a6ad0': '#b9a0f7',
+  '#64748b': '#a3b1c2',
+  '#d9534f': '#f5918d',
+};
+const STATUS = { good: '#2f9b74', neutral: '#b8893a', critical: '#d9534f' };
+const SERIES_COLOR = { leads: PALETTE[0], fechados: PALETTE[1], contratos: PALETTE[1], valor: PALETTE[0], quantidade: PALETTE[0] };
 
 const AXIS = { fill: '#7b8798', fontSize: 11 };
-const GRID = 'rgba(148, 163, 184, 0.12)';
-const BAR_CURSOR = { fill: 'rgba(197, 160, 89, 0.08)' };           // substitui o quadrado branco padrão
+const GRID = 'rgba(148, 163, 184, 0.10)';
+const BAR_CURSOR = { fill: 'rgba(197, 160, 89, 0.07)' };           // substitui o quadrado branco padrão
 const LINE_CURSOR = { stroke: 'rgba(197, 160, 89, 0.45)', strokeWidth: 1 };
+const ANIM = { isAnimationActive: true, animationDuration: 1100, animationEasing: 'ease-out' };
 
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -59,13 +71,38 @@ function lastMonths(n) {
   });
 }
 
-// Agrupa em até 5 categorias + "Outros" (nunca inventa uma 6ª cor)
+// Até 5 categorias + "Outros" (nunca inventa uma 6ª cor)
 function topWithOther(entries) {
   const sorted = [...entries].sort((a, b) => b.value - a.value);
   if (sorted.length <= PALETTE.length) return sorted;
   const top = sorted.slice(0, PALETTE.length);
   const rest = sorted.slice(PALETTE.length).reduce((acc, e) => acc + e.value, 0);
   return [...top, { name: 'Outros', value: rest, isOther: true }];
+}
+
+// <defs> com degradê vivo → cor da marca. Função (não componente): o Recharts só desenha filhos que conhece.
+function gradient(id, color, { horizontal = false, fade = false } = {}) {
+  const bright = BRIGHT[color] || color;
+  return (
+    <linearGradient key={id} id={id} x1="0" y1="0" x2={horizontal ? '1' : '0'} y2={horizontal ? '0' : '1'}>
+      {fade ? (
+        <>
+          <stop offset="0%" stopColor={bright} stopOpacity={0.55} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </>
+      ) : horizontal ? (
+        <>
+          <stop offset="0%" stopColor={color} />
+          <stop offset="100%" stopColor={bright} />
+        </>
+      ) : (
+        <>
+          <stop offset="0%" stopColor={bright} />
+          <stop offset="100%" stopColor={color} />
+        </>
+      )}
+    </linearGradient>
+  );
 }
 
 export function DashboardCharts() {
@@ -88,9 +125,7 @@ export function DashboardCharts() {
 
     const revenue = months.map(m => ({
       mes: m.label,
-      valor: safeContracts
-        .filter(c => monthKey(contractDate(c)) === m.key)
-        .reduce((acc, c) => acc + (Number(c.value) || 0), 0),
+      valor: safeContracts.filter(c => monthKey(contractDate(c)) === m.key).reduce((acc, c) => acc + (Number(c.value) || 0), 0),
     }));
 
     const funnel = KANBAN_STAGES
@@ -107,7 +142,8 @@ export function DashboardCharts() {
     });
     const realChannels = Object.entries(channelCount).map(([name, value]) => ({ name, value }));
     const channelsAreExample = realChannels.length < 3;
-    const channels = topWithOther(channelsAreExample ? EXAMPLE_CHANNELS : realChannels);
+    const channels = topWithOther(channelsAreExample ? EXAMPLE_CHANNELS : realChannels)
+      .map((c, i) => ({ ...c, color: c.isOther ? OTHER_COLOR : PALETTE[i % PALETTE.length] }));
 
     const areaCount = {};
     safeLeads.forEach(l => {
@@ -117,117 +153,125 @@ export function DashboardCharts() {
     });
     const areas = Object.entries(areaCount).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
-    const team = safeUsers.map(u => {
-      const parts = String(u.name || u.email || 'Colaborador').trim().split(/\s+/);
-      return {
-        nome: parts.slice(0, 2).join(' '),
-        leads: safeLeads.filter(l => l.assignedTo === u.id || l.lawyerId === u.id).length,
-        contratos: safeContracts.filter(c => c.responsibleLawyerId === u.id).length,
-      };
-    });
+    const team = safeUsers.map(u => ({
+      nome: String(u.name || u.email || 'Colaborador').trim().split(/\s+/).slice(0, 2).join(' '),
+      leads: safeLeads.filter(l => l.assignedTo === u.id || l.lawyerId === u.id).length,
+      contratos: safeContracts.filter(c => c.responsibleLawyerId === u.id).length,
+    }));
 
     const won = safeLeads.filter(l => l.stage === 'contrato_fechado').length;
     const lost = safeLeads.filter(l => l.stage === 'perdido').length;
-    const open = safeLeads.length - won - lost;
+    const open = Math.max(0, safeLeads.length - won - lost);
     const balance = [
-      { name: 'Ganhos', value: won, color: STATUS.good },
-      { name: 'Em andamento', value: open, color: STATUS.neutral },
-      { name: 'Perdidos', value: lost, color: STATUS.critical },
+      { name: 'Ganhos', value: won, color: STATUS.good, icon: CheckCircle2, hint: 'Viraram contrato' },
+      { name: 'Em andamento', value: open, color: STATUS.neutral, icon: Clock3, hint: 'Ainda no funil' },
+      { name: 'Perdidos', value: lost, color: STATUS.critical, icon: XCircle, hint: 'Não fecharam' },
     ];
 
-    return { overTime, revenue, funnel, channels, channelsAreExample, areas, team, balance };
+    return { overTime, revenue, funnel, channels, channelsAreExample, areas, team, balance, won, lost };
   }, [safeLeads, safeContracts, safeUsers, leadSources, legalAreas]);
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-      <Panel title="Evolução de leads & fechamentos" subtitle="Leads captados e contratos fechados nos últimos 6 meses"
-        legend={[{ label: 'Leads captados', color: PALETTE[0] }, { label: 'Contratos fechados', color: PALETTE[3] }]}>
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data.overTime} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-            <defs>
-              <linearGradient id="dashLeads" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={PALETTE[0]} stopOpacity={0.35} />
-                <stop offset="100%" stopColor={PALETTE[0]} stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="dashClosed" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={PALETTE[3]} stopOpacity={0.3} />
-                <stop offset="100%" stopColor={PALETTE[3]} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} stroke={GRID} />
-            <XAxis dataKey="mes" tick={AXIS} axisLine={false} tickLine={false} />
-            <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip cursor={LINE_CURSOR} content={<ChartTooltip />} />
-            <Area type="monotone" dataKey="leads" name="Leads captados" stroke={PALETTE[0]} strokeWidth={2} fill="url(#dashLeads)" dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: '#0b1220' }} />
-            <Area type="monotone" dataKey="fechados" name="Contratos fechados" stroke={PALETTE[3]} strokeWidth={2} fill="url(#dashClosed)" dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: '#0b1220' }} />
-          </AreaChart>
-        </ResponsiveContainer>
+      <Panel index={0} title="Evolução de leads & fechamentos" subtitle="Leads captados e contratos fechados nos últimos 6 meses"
+        legend={[{ label: 'Leads captados', color: PALETTE[0] }, { label: 'Contratos fechados', color: PALETTE[1] }]}>
+        {(play) => (
+          <ResponsiveContainer width="100%" height="100%" key={play}>
+            <AreaChart data={data.overTime} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+              <defs>
+                {gradient('evoLeadsFill', PALETTE[0], { fade: true })}
+                {gradient('evoClosedFill', PALETTE[1], { fade: true })}
+                {gradient('evoLeadsLine', PALETTE[0], { horizontal: true })}
+                {gradient('evoClosedLine', PALETTE[1], { horizontal: true })}
+              </defs>
+              <CartesianGrid vertical={false} stroke={GRID} />
+              <XAxis dataKey="mes" tick={AXIS} axisLine={false} tickLine={false} />
+              <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip cursor={LINE_CURSOR} content={<ChartTooltip />} />
+              <Area type="monotone" dataKey="leads" name="Leads captados" stroke="url(#evoLeadsLine)" strokeWidth={2.5} fill="url(#evoLeadsFill)" dot={false}
+                activeDot={{ r: 5, strokeWidth: 2, stroke: '#0b1220', fill: BRIGHT[PALETTE[0]] }} {...ANIM} />
+              <Area type="monotone" dataKey="fechados" name="Contratos fechados" stroke="url(#evoClosedLine)" strokeWidth={2.5} fill="url(#evoClosedFill)" dot={false}
+                activeDot={{ r: 5, strokeWidth: 2, stroke: '#0b1220', fill: BRIGHT[PALETTE[1]] }} {...ANIM} animationBegin={150} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </Panel>
 
-      <Panel title="Receita de honorários contratados" subtitle="Valor dos contratos fechados por mês">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data.revenue} margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
-            {goldDefs('dashRevenue')}
-            <CartesianGrid vertical={false} stroke={GRID} />
-            <XAxis dataKey="mes" tick={AXIS} axisLine={false} tickLine={false} />
-            <YAxis tick={AXIS} axisLine={false} tickLine={false} tickFormatter={(v) => (v >= 1000 ? `R$${Math.round(v / 1000)}k` : `R$${v}`)} />
-            <Tooltip cursor={BAR_CURSOR} content={<ChartTooltip currency />} />
-            <Bar dataKey="valor" name="Valor contratado" fill="url(#dashRevenue)" radius={[4, 4, 0, 0]} maxBarSize={44} />
-          </BarChart>
-        </ResponsiveContainer>
+      <Panel index={1} title="Receita de honorários contratados" subtitle="Valor dos contratos fechados por mês">
+        {(play) => (
+          <ResponsiveContainer width="100%" height="100%" key={play}>
+            <BarChart data={data.revenue} margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
+              <defs>{gradient('revBar', PALETTE[0])}</defs>
+              <CartesianGrid vertical={false} stroke={GRID} />
+              <XAxis dataKey="mes" tick={AXIS} axisLine={false} tickLine={false} />
+              <YAxis tick={AXIS} axisLine={false} tickLine={false} tickFormatter={(v) => (v >= 1000 ? `R$${Math.round(v / 1000)}k` : `R$${v}`)} />
+              <Tooltip cursor={BAR_CURSOR} content={<ChartTooltip currency />} />
+              <Bar dataKey="valor" name="Valor contratado" fill="url(#revBar)" radius={[5, 5, 0, 0]} maxBarSize={44}
+                activeBar={{ fill: BRIGHT[PALETTE[0]] }} {...ANIM} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </Panel>
 
-      <Panel title="Volume por etapa do funil" subtitle="Leads em cada etapa, até o contrato fechado">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart layout="vertical" data={data.funnel} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-            {goldDefs('dashFunnel', true)}
-            <CartesianGrid horizontal={false} stroke={GRID} />
-            <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
-            <YAxis dataKey="etapa" type="category" tick={AXIS} axisLine={false} tickLine={false} width={118} />
-            <Tooltip cursor={BAR_CURSOR} content={<ChartTooltip />} />
-            <Bar dataKey="quantidade" name="Leads" fill="url(#dashFunnel)" radius={[0, 4, 4, 0]} maxBarSize={18} />
-          </BarChart>
-        </ResponsiveContainer>
+      <Panel index={2} title="Volume por etapa do funil" subtitle="Leads em cada etapa, até o contrato fechado">
+        {(play) => (
+          <ResponsiveContainer width="100%" height="100%" key={play}>
+            <BarChart layout="vertical" data={data.funnel} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <defs>{gradient('funnelBar', PALETTE[0], { horizontal: true })}</defs>
+              <CartesianGrid horizontal={false} stroke={GRID} />
+              <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
+              <YAxis dataKey="etapa" type="category" tick={AXIS} axisLine={false} tickLine={false} width={118} />
+              <Tooltip cursor={BAR_CURSOR} content={<ChartTooltip />} />
+              <Bar dataKey="quantidade" name="Leads" fill="url(#funnelBar)" radius={[0, 5, 5, 0]} maxBarSize={18}
+                activeBar={{ fill: BRIGHT[PALETTE[0]] }} {...ANIM} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </Panel>
 
-      <Panel title="Canais de origem dos leads" subtitle="De onde vêm os leads: links, anúncios e cadastros manuais"
+      <Panel index={3} title="Canais de origem dos leads" subtitle="De onde vêm os leads: links, anúncios e cadastros manuais"
         badge={data.channelsAreExample ? 'Exemplo' : null}>
-        <DonutWithList data={data.channels} centerLabel="leads" />
+        {(play) => <DonutWithList key={play} id="canais" data={data.channels} centerLabel="leads" />}
       </Panel>
 
-      <Panel title="Demanda por área jurídica" subtitle="Áreas com mais leads">
-        {data.areas.length === 0 ? <EmptyChart /> : (
-          <ResponsiveContainer width="100%" height="100%">
+      <Panel index={4} title="Demanda por área jurídica" subtitle="Áreas com mais leads">
+        {(play) => (data.areas.length === 0 ? <EmptyChart /> : (
+          <ResponsiveContainer width="100%" height="100%" key={play}>
             <BarChart data={data.areas} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-              {goldDefs('dashAreas')}
+              <defs>{gradient('areaBar', PALETTE[0])}</defs>
               <CartesianGrid vertical={false} stroke={GRID} />
               <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
               <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip cursor={BAR_CURSOR} content={<ChartTooltip />} />
-              <Bar dataKey="value" name="Leads" fill="url(#dashAreas)" radius={[4, 4, 0, 0]} maxBarSize={44} />
+              <Bar dataKey="value" name="Leads" fill="url(#areaBar)" radius={[5, 5, 0, 0]} maxBarSize={44}
+                activeBar={{ fill: BRIGHT[PALETTE[0]] }} {...ANIM} />
             </BarChart>
           </ResponsiveContainer>
-        )}
+        ))}
       </Panel>
 
-      <Panel title="Produtividade da equipe" subtitle="Leads atendidos e contratos fechados por pessoa"
-        legend={[{ label: 'Leads atendidos', color: PALETTE[0] }, { label: 'Contratos fechados', color: PALETTE[3] }]}>
-        {data.team.length === 0 ? <EmptyChart /> : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data.team} margin={{ top: 8, right: 8, left: -18, bottom: 0 }} barGap={2}>
+      <Panel index={5} title="Produtividade da equipe" subtitle="Leads atendidos e contratos fechados por pessoa"
+        legend={[{ label: 'Leads atendidos', color: PALETTE[0] }, { label: 'Contratos fechados', color: PALETTE[1] }]}>
+        {(play) => (data.team.length === 0 ? <EmptyChart /> : (
+          <ResponsiveContainer width="100%" height="100%" key={play}>
+            <BarChart data={data.team} margin={{ top: 8, right: 8, left: -18, bottom: 0 }} barGap={3}>
+              <defs>
+                {gradient('teamLeads', PALETTE[0])}
+                {gradient('teamClosed', PALETTE[1])}
+              </defs>
               <CartesianGrid vertical={false} stroke={GRID} />
               <XAxis dataKey="nome" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
               <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip cursor={BAR_CURSOR} content={<ChartTooltip />} />
-              <Bar dataKey="leads" name="Leads atendidos" fill={PALETTE[0]} radius={[4, 4, 0, 0]} maxBarSize={28} />
-              <Bar dataKey="contratos" name="Contratos fechados" fill={PALETTE[3]} radius={[4, 4, 0, 0]} maxBarSize={28} />
+              <Bar dataKey="leads" name="Leads atendidos" fill="url(#teamLeads)" radius={[5, 5, 0, 0]} maxBarSize={28} activeBar={{ fill: BRIGHT[PALETTE[0]] }} {...ANIM} />
+              <Bar dataKey="contratos" name="Contratos fechados" fill="url(#teamClosed)" radius={[5, 5, 0, 0]} maxBarSize={28} activeBar={{ fill: BRIGHT[PALETTE[1]] }} {...ANIM} animationBegin={150} />
             </BarChart>
           </ResponsiveContainer>
-        )}
+        ))}
       </Panel>
 
-      <Panel title="Balanço comercial" subtitle="Leads ganhos, em andamento e perdidos" className="lg:col-span-2" height="h-56">
-        <DonutWithList data={data.balance} centerLabel="leads" useOwnColors />
+      <Panel index={6} title="Balanço comercial" subtitle="Quanto do funil virou contrato, segue em andamento ou foi perdido" className="lg:col-span-2" height="h-auto">
+        {(play) => <CommercialBalance key={play} data={data.balance} won={data.won} lost={data.lost} />}
       </Panel>
     </div>
   );
@@ -235,9 +279,23 @@ export function DashboardCharts() {
 
 /* ============================== Peças ============================== */
 
-function Panel({ title, subtitle, legend, badge, className = '', height = 'h-64', children }) {
+// Painel com entrada animada em sequência; ao passar o mouse o gráfico se redesenha (no máx. a cada 2,5 s)
+function Panel({ index = 0, title, subtitle, legend, badge, className = '', height = 'h-64', children }) {
+  const [play, setPlay] = useState(0);
+  const lastPlay = useRef(Date.now());
+  const replay = () => {
+    const now = Date.now();
+    if (now - lastPlay.current < 2500) return;
+    lastPlay.current = now;
+    setPlay(p => p + 1);
+  };
+
   return (
-    <section className={`dash-panel ${className}`}>
+    <section
+      className={`dash-panel dash-panel--enter ${className}`}
+      style={{ animationDelay: `${index * 90}ms` }}
+      onMouseEnter={replay}
+    >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="flex items-center gap-2 font-display text-lg font-semibold leading-tight text-slate-900 dark:text-white">
@@ -254,27 +312,15 @@ function Panel({ title, subtitle, legend, badge, className = '', height = 'h-64'
           <div className="flex flex-wrap items-center gap-3">
             {legend.map(item => (
               <span key={item.label} className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="h-2 w-2 rounded-full" style={{ background: `linear-gradient(135deg, ${BRIGHT[item.color] || item.color}, ${item.color})` }} />
                 {item.label}
               </span>
             ))}
           </div>
         )}
       </div>
-      <div className={`${height} w-full`}>{children}</div>
+      <div className={`${height} w-full`}>{children(play)}</div>
     </section>
-  );
-}
-
-// Função (e não componente): o Recharts só desenha filhos que ele conhece, como <defs>
-function goldDefs(id, horizontal = false) {
-  return (
-    <defs>
-      <linearGradient id={id} x1="0" y1="0" x2={horizontal ? '1' : '0'} y2={horizontal ? '0' : '1'}>
-        <stop offset="0%" stopColor={horizontal ? GOLD_BOTTOM : GOLD_TOP} />
-        <stop offset="100%" stopColor={horizontal ? GOLD_TOP : GOLD_BOTTOM} />
-      </linearGradient>
-    </defs>
   );
 }
 
@@ -284,8 +330,9 @@ function ChartTooltip({ active, payload, label, currency = false }) {
     <div className="rounded-xl border border-gold-500/25 bg-white/95 px-3 py-2 text-xs shadow-xl backdrop-blur dark:bg-[#0b1220]/95">
       {label !== undefined && <p className="mb-1 font-semibold text-slate-900 dark:text-white">{label}</p>}
       {payload.map((entry, i) => {
-        const swatch = entry.payload?.fill && !String(entry.payload.fill).startsWith('url') ? entry.payload.fill
-          : String(entry.color || '').startsWith('url') ? GOLD_TOP : entry.color;
+        // Séries com degradê chegam como "url(#...)": a cor vem do nome da série
+        const raw = SERIES_COLOR[entry.dataKey] || entry.payload?.color || entry.color || '';
+        const swatch = String(raw).startsWith('url') ? BRIGHT[PALETTE[0]] : (BRIGHT[raw] || raw || BRIGHT[PALETTE[0]]);
         return (
           <p key={i} className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: swatch }} />
@@ -299,42 +346,64 @@ function ChartTooltip({ active, payload, label, currency = false }) {
   );
 }
 
-// Rosca à esquerda, lista à direita do maior para o menor (nome, quantidade e %)
-function DonutWithList({ data, centerLabel, useOwnColors = false }) {
-  const total = data.reduce((acc, d) => acc + d.value, 0);
-  const rows = data.map((d, i) => ({
-    ...d,
-    color: useOwnColors ? d.color : d.isOther ? OTHER_COLOR : PALETTE[i % PALETTE.length],
-  }));
+// Fatia sob o mouse cresce levemente e ganha um anel fino
+function renderActiveSlice(props) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <g>
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6} startAngle={startAngle} endAngle={endAngle} fill={fill} />
+      <Sector cx={cx} cy={cy} innerRadius={outerRadius + 9} outerRadius={outerRadius + 11} startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.5} />
+    </g>
+  );
+}
 
+// Rosca à esquerda, lista à direita do maior para o menor (nome, barra, quantidade e %)
+function DonutWithList({ id, data, centerLabel }) {
+  const [active, setActive] = useState(-1);
+  const total = data.reduce((acc, d) => acc + d.value, 0);
   if (total === 0) return <EmptyChart />;
+  const ordered = [...data].sort((a, b) => (a.isOther ? 1 : b.isOther ? -1 : b.value - a.value));
 
   return (
-    <div className="flex h-full flex-col items-center gap-5 sm:flex-row">
-      <div className="relative h-44 w-44 shrink-0">
+    <div className="flex h-full flex-col items-center gap-6 sm:flex-row">
+      <div className="relative h-48 w-48 shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={rows} dataKey="value" nameKey="name" innerRadius="68%" outerRadius="100%" paddingAngle={2} stroke="none" startAngle={90} endAngle={-270}>
-              {rows.map((r, i) => <Cell key={i} fill={r.color} />)}
+            <defs>{data.map((d, i) => gradient(`${id}-slice-${i}`, d.color))}</defs>
+            <Pie
+              data={data} dataKey="value" nameKey="name"
+              innerRadius="64%" outerRadius="88%" paddingAngle={2.5} cornerRadius={3} stroke="none"
+              startAngle={90} endAngle={-270}
+              activeIndex={active} activeShape={renderActiveSlice}
+              onMouseEnter={(_, i) => setActive(i)} onMouseLeave={() => setActive(-1)}
+              isAnimationActive animationDuration={1200} animationEasing="ease-out"
+            >
+              {data.map((d, i) => <Cell key={i} fill={`url(#${id}-slice-${i})`} />)}
             </Pie>
-            <Tooltip content={<ChartTooltip />} />
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold leading-none text-slate-900 dark:text-white tabular-nums">{total}</span>
-          <span className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-400">{centerLabel}</span>
+          <span className="text-2xl font-bold leading-none text-slate-900 dark:text-white tabular-nums">
+            {active >= 0 ? data[active].value : total}
+          </span>
+          <span className="mt-1 max-w-[6.5rem] truncate text-center text-[10px] uppercase tracking-[0.16em] text-slate-400">
+            {active >= 0 ? data[active].name : centerLabel}
+          </span>
         </div>
       </div>
 
-      <ul className="w-full min-w-0 flex-1 max-w-md space-y-2">
-        {[...rows].sort((a, b) => (a.isOther ? 1 : b.isOther ? -1 : b.value - a.value)).map(r => {
+      <ul className="w-full min-w-0 max-w-md flex-1 space-y-2.5">
+        {ordered.map((r, i) => {
           const pct = Math.round((r.value / total) * 100);
+          const idx = data.indexOf(r);
           return (
-            <li key={r.name} className="flex items-center gap-3 text-xs">
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: r.color }} />
+            <li key={r.name}
+              onMouseEnter={() => setActive(idx)} onMouseLeave={() => setActive(-1)}
+              className={`flex items-center gap-3 rounded-lg px-1.5 py-1 text-xs transition-colors ${active === idx ? 'bg-gold-500/[0.06]' : ''}`}>
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: `linear-gradient(135deg, ${BRIGHT[r.color] || r.color}, ${r.color})` }} />
               <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">{r.name}</span>
-              <div className="hidden h-1 w-24 overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06] md:block">
-                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: r.color }} />
+              <div className="hidden h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06] md:block xl:w-20">
+                <div className="dash-bar-grow h-full rounded-full" style={{ width: `${pct}%`, animationDelay: `${i * 80}ms`, background: `linear-gradient(90deg, ${r.color}, ${BRIGHT[r.color] || r.color})` }} />
               </div>
               <span className="w-8 text-right font-semibold tabular-nums text-slate-900 dark:text-white">{r.value}</span>
               <span className="w-10 text-right tabular-nums text-slate-400">{pct}%</span>
@@ -342,6 +411,67 @@ function DonutWithList({ data, centerLabel, useOwnColors = false }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+// Balanço: rosca com a taxa de conversão no centro + três cartões de resultado
+function CommercialBalance({ data, won, lost }) {
+  const total = data.reduce((acc, d) => acc + d.value, 0);
+  const decided = won + lost;
+  const winRate = decided > 0 ? Math.round((won / decided) * 100) : 0;
+  const [active, setActive] = useState(-1);
+
+  if (total === 0) return <div className="h-48"><EmptyChart /></div>;
+
+  return (
+    <div className="flex flex-col items-center gap-6 md:flex-row">
+      <div className="relative h-48 w-48 shrink-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <defs>{data.map((d, i) => gradient(`balance-slice-${i}`, d.color))}</defs>
+            <Pie
+              data={data} dataKey="value" nameKey="name"
+              innerRadius="66%" outerRadius="88%" paddingAngle={2.5} cornerRadius={3} stroke="none"
+              startAngle={90} endAngle={-270}
+              activeIndex={active} activeShape={renderActiveSlice}
+              onMouseEnter={(_, i) => setActive(i)} onMouseLeave={() => setActive(-1)}
+              isAnimationActive animationDuration={1200} animationEasing="ease-out"
+            >
+              {data.map((d, i) => <Cell key={i} fill={`url(#balance-slice-${i})`} />)}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-bold leading-none text-slate-900 dark:text-white tabular-nums">{winRate}%</span>
+          <span className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">conversão</span>
+        </div>
+      </div>
+
+      <div className="grid w-full flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
+        {data.map((d, i) => {
+          const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
+          const Icon = d.icon;
+          return (
+            <div key={d.name}
+              onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(-1)}
+              className={`rounded-xl border p-4 transition-colors ${active === i ? 'border-gold-500/40 bg-gold-500/[0.05]' : 'border-slate-200 dark:border-white/[0.07]'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{d.name}</span>
+                <Icon className="h-4 w-4" style={{ color: BRIGHT[d.color] }} />
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{d.value}</span>
+                <span className="text-xs tabular-nums text-slate-400">{pct}%</span>
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06]">
+                <div className="dash-bar-grow h-full rounded-full" style={{ width: `${pct}%`, animationDelay: `${i * 120}ms`, background: `linear-gradient(90deg, ${d.color}, ${BRIGHT[d.color]})` }} />
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">{d.hint}</p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

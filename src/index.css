@@ -236,6 +236,25 @@
   box-shadow: inset 0 0 0 1px rgb(197 160 89 / 0.35);
 }
 
+/* Abas de resultado: verde para concluído/ganho, vermelho para recusado/perdido */
+.funil-tab.is-won {
+  @apply text-emerald-600 dark:text-emerald-400;
+}
+
+.funil-tab.is-won.is-active {
+  @apply bg-emerald-600 text-white dark:bg-emerald-500/15 dark:text-emerald-300;
+  box-shadow: inset 0 0 0 1px rgb(16 185 129 / 0.45);
+}
+
+.funil-tab.is-lost {
+  @apply text-rose-600 dark:text-rose-400;
+}
+
+.funil-tab.is-lost.is-active {
+  @apply bg-rose-600 text-white dark:bg-rose-500/15 dark:text-rose-300;
+  box-shadow: inset 0 0 0 1px rgb(244 63 94 / 0.45);
+}
+
 .funil-tab__count {
   @apply rounded-full bg-slate-100 dark:bg-white/[0.08] px-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-300;
 }
@@ -645,6 +664,48 @@
 .has-orbit:hover > .card-orbit rect,
 .has-orbit:focus-visible > .card-orbit rect {
   animation-play-state: running;
+}
+
+/* Dashboard: painéis entram em sequência e barras de progresso crescem */
+.dash-panel--enter {
+  animation: dash-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.dash-bar-grow {
+  transform-origin: left center;
+  animation: dash-bar 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes dash-enter {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes dash-bar {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-panel--enter,
+  .dash-bar-grow { animation: none; }
+}
+
+/* Janelas (modais): fio dourado brilhante no topo da moldura */
+.premium-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  z-index: 1;
+  background: linear-gradient(90deg, transparent, rgb(232 200 114 / 0.9), transparent);
+  pointer-events: none;
+}
+
+.dark .premium-modal {
+  box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(197 160 89 / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 /* Cartões e painéis do Dashboard: vidro escuro com fio dourado no topo */

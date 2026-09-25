@@ -108,7 +108,15 @@ export function TaskList({ onOpenNewTask, onEditTask }) {
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [stageToDelete, setStageToDelete] = useState(null);
 
-  const changeView = (v) => { setView(v); savePref(VIEW_KEY, v); };
+  const [lastOpenView, setLastOpenView] = useState(() => {
+    const v = loadPref(VIEW_KEY, 'grupos');
+    return ['lista', 'grupos', 'kanban'].includes(v) ? v : 'grupos';
+  });
+  const changeView = (v) => {
+    setView(v);
+    savePref(VIEW_KEY, v);
+    if (['lista', 'grupos', 'kanban'].includes(v)) setLastOpenView(v);
+  };
   const changeGroupBy = (g) => { setGroupBy(g); savePref(GROUP_KEY, g); };
 
   const clientName = (id) => (clients.find(c => String(c.id) === String(id))?.name) || '';
@@ -228,6 +236,12 @@ export function TaskList({ onOpenNewTask, onEditTask }) {
               className={`funil-tab is-won ${view === 'concluidas' ? 'is-active' : ''}`}>
               <CheckCircle2 className="h-3.5 w-3.5" /> <span>Concluídas</span>
               <span className="funil-tab__count">{doneTasks.length}</span>
+            </button>
+            {/* Pendentes: tudo que ainda está no fluxo; clicar volta para as tarefas em aberto */}
+            <button type="button" role="tab" aria-selected={!isClosedView} onClick={() => changeView(lastOpenView)}
+              title="Tarefas em aberto" className={`funil-tab ${!isClosedView ? 'is-active' : ''}`}>
+              <Clock className="h-3.5 w-3.5" /> <span>Pendentes</span>
+              <span className="funil-tab__count">{activeTasks.length}</span>
             </button>
             <button type="button" role="tab" aria-selected={view === 'recusadas'} onClick={() => changeView('recusadas')}
               className={`funil-tab is-lost ${view === 'recusadas' ? 'is-active' : ''}`}>

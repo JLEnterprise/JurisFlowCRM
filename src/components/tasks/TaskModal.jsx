@@ -181,36 +181,35 @@ export function TaskModal({ isOpen, onClose, taskToEdit = null, prefillData = nu
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* 1. O QUE É */}
         <FormSection number="1" title="O que é a tarefa">
-          <div>
-            <FieldLabel>Título *</FieldLabel>
-            <input
-              type="text"
-              required
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Ex.: Protocolar contestação com preliminar de prescrição"
-              className={`${inputClass} text-base font-medium`}
-            />
-            {/* Modelos rápidos: preenchem título e tipo em um clique */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-700/80 dark:text-gold-300/70">Modelos rápidos</span>
-              {presetTitles.map((preset, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, title: preset.label, taskType: preset.type, customType: '' }));
-                    setIsCustomTypeMode(false);
-                  }}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    formData.title === preset.label
-                      ? 'border-gold-500/60 bg-gold-500/10 text-slate-900 dark:text-gold-100'
-                      : 'border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:border-gold-500/40 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_15rem]">
+            <div>
+              <FieldLabel>Título *</FieldLabel>
+              <input
+                type="text"
+                required
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Ex.: Protocolar contestação com preliminar de prescrição"
+                className={`${inputClass} font-medium`}
+              />
+            </div>
+            {/* Modelo rápido: escolher preenche o título e o tipo de uma vez */}
+            <div>
+              <FieldLabel>Modelo rápido</FieldLabel>
+              <Select
+                value={presetTitles.some(p => p.label === formData.title) ? formData.title : ''}
+                onChange={(e) => {
+                  const preset = presetTitles.find(p => p.label === e.target.value);
+                  if (!preset) return;
+                  setFormData(prev => ({ ...prev, title: preset.label, taskType: preset.type, customType: '' }));
+                  setIsCustomTypeMode(false);
+                }}
+                aria-label="Modelo rápido"
+                className="w-full"
+              >
+                <option value="">Escolher modelo...</option>
+                {presetTitles.map(p => <option key={p.label} value={p.label}>{p.label}</option>)}
+              </Select>
             </div>
           </div>
 
