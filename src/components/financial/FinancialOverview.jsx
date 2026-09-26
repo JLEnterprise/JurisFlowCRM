@@ -27,6 +27,7 @@ import {
   Sparkles,
   Repeat,
 } from 'lucide-react';
+import { BodyPortal } from '../common/BodyPortal';
 import { useCRM } from '../../context/CRMContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { StatCard } from '../common/StatCard';
@@ -616,7 +617,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
       {/* MODAL ESPECIAL: GESTÃO DE INADIMPLÊNCIA & MOTIVOS DE ATRASO              */}
       {/* ========================================================================= */}
       {overdueModalOpen && (
-        <div
+        <BodyPortal><div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOverdueModalOpen(false);
@@ -860,7 +861,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
               )}
             </div>
           </div>
-        </div>
+        </div></BodyPortal>
       )}
 
       {/* Modal de Exclusão de Parcela */}
@@ -888,7 +889,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
 
       {/* Modal Padrão de Edição de Parcela */}
       {editModalOpen && (
-        <div
+        <BodyPortal><div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -984,7 +985,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
               </div>
             </form>
           </div>
-        </div>
+        </div></BodyPortal>
       )}
     </div>
   );
