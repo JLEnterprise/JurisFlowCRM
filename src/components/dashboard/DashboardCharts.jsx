@@ -394,14 +394,23 @@ function PremiumFunnel({ leads, clients, proposals, onNavigate }) {
   const lost = total - active.length;
   const activeClients = clients.filter(c => c && c.status === 'active').length;
 
+  // Perdido com etapa registrada conta nas etapas a que chegou antes de cair
+  const lostReachedOrder = (l) => orderOf[l.lostFromStage] || 1;
   const rows = FUNNEL_GROUPS.map((g, i) => {
-    const reached = i === 0 ? total : active.filter(l => (orderOf[l.stage] || 1) >= g.minOrder).length;
+    const reached = i === 0 ? total
+      : active.filter(l => (orderOf[l.stage] || 1) >= g.minOrder).length
+        + leads.filter(l => l.stage === 'perdido' && lostReachedOrder(l) >= g.minOrder).length;
     const nextMin = FUNNEL_GROUPS[i + 1]?.minOrder ?? 99;
     const here = active.filter(l => {
       const o = orderOf[l.stage] || 1;
       return o >= g.minOrder && o < nextMin;
     }).length;
-    return { ...g, reached, here };
+    const lostHere = leads.filter(l => {
+      if (l.stage !== 'perdido' || !l.lostFromStage) return false;
+      const o = lostReachedOrder(l);
+      return o >= g.minOrder && o < nextMin;
+    }).length;
+    return { ...g, reached, here, lostHere };
   });
   rows.forEach((r, i) => {
     r.step = i === 0 ? null : rows[i - 1].reached ? Math.round((r.reached / rows[i - 1].reached) * 100) : 0;
@@ -501,6 +510,7 @@ function PremiumFunnel({ leads, clients, proposals, onNavigate }) {
                   <span className="block font-semibold text-slate-900 dark:text-white">{r.label}</span>
                   <span className="mt-1 flex justify-between text-slate-500 dark:text-slate-400"><span>Chegaram aqui</span><b className="font-numeric text-slate-900 dark:text-white">{r.reached}</b></span>
                   <span className="flex justify-between text-slate-500 dark:text-slate-400"><span>Parados nesta etapa</span><b className="font-numeric text-slate-900 dark:text-white">{r.here}</b></span>
+                  <span className="flex justify-between text-slate-500 dark:text-slate-400"><span>Perdidos nesta etapa</span><b className="font-numeric text-rose-600 dark:text-rose-400">{r.lostHere}</b></span>
                   <span className="flex justify-between text-slate-500 dark:text-slate-400"><span>Do total recebido</span><b className="font-numeric text-slate-900 dark:text-white">{r.ofTotal}%</b></span>
                 </span>
               )}

@@ -756,7 +756,7 @@ export function CRMProvider({ children }) {
     setLeads(prev => {
       const next = prev.map(l => {
         if (l.id === id) {
-          updatedLead = { ...l, ...leadData, escritorio_id: currentEscritorioId };
+          updatedLead = { ...l, ...leadData, escritorio_id: l.escritorio_id || currentEscritorioId };
           return updatedLead;
         }
         return l;
@@ -790,7 +790,11 @@ export function CRMProvider({ children }) {
             // Data em que o lead foi ganho/perdido: base dos relatórios por período
             closedAt: isClosedStage ? (l.stage === newStage && l.closedAt ? l.closedAt : today) : null,
             lossReason: newStage === 'perdido' ? (lossReason ?? l.lossReason ?? '') : '',
-            escritorio_id: currentEscritorioId
+            // Etapa em que o lead estava quando foi perdido (o funil mostra onde ele "caiu")
+            lostFromStage: newStage === 'perdido'
+              ? (l.stage !== 'perdido' ? l.stage : (l.lostFromStage || null))
+              : null,
+            escritorio_id: l.escritorio_id || currentEscritorioId
           };
           return updatedLead;
         }
@@ -844,7 +848,7 @@ export function CRMProvider({ children }) {
     setClients(prev => {
       const next = prev.map(c => {
         if (c.id === id) {
-          updatedClient = { ...c, ...clientData, escritorio_id: currentEscritorioId };
+          updatedClient = { ...c, ...clientData, escritorio_id: c.escritorio_id || currentEscritorioId };
           return updatedClient;
         }
         return c;
@@ -874,7 +878,7 @@ export function CRMProvider({ children }) {
   // Transforma o cronograma do plano de pagamento (parcelado ou mensal recorrente) em parcelas do financeiro
   const scheduleToInstallments = (contract, rows, idTag) => rows.map((r, i) => ({
     id: `inst_${idTag}_${r.cycle ? `c${r.cycle}_` : ''}${r.installmentNumber || i + 1}`,
-    escritorio_id: currentEscritorioId,
+    escritorio_id: contract.escritorio_id || currentEscritorioId,
     contractId: contract.id,
     clientId: contract.clientId || contract.client_id || null,
     clientName: contract.clientName || contract.client_name || 'Cliente',
@@ -986,7 +990,7 @@ export function CRMProvider({ children }) {
     setContracts(prev => {
       const next = prev.map(c => {
         if (String(c.id) === strId) {
-          updatedContract = { ...c, ...contractData, escritorio_id: currentEscritorioId };
+          updatedContract = { ...c, ...contractData, escritorio_id: c.escritorio_id || currentEscritorioId };
           return updatedContract;
         }
         return c;
@@ -1017,7 +1021,7 @@ export function CRMProvider({ children }) {
               fileSize: typeof att.size === 'number' ? formatFileSize(att.size) : (att.size || '1.0 MB'),
               uploadedBy: 'Dra. Tatiane Camargo',
               uploadedAt: att.uploadedAt || new Date().toISOString(),
-              escritorio_id: currentEscritorioId,
+              escritorio_id: updatedContract.escritorio_id || currentEscritorioId,
             });
           }
         });
@@ -1117,7 +1121,7 @@ export function CRMProvider({ children }) {
               // Se só existia a parcela inicial (que estava como paga) e o novo contrato é maior, gera nova parcela com o saldo
               const newBalInst = {
                 id: `inst_${now}_bal`,
-                escritorio_id: currentEscritorioId,
+                escritorio_id: updatedContract.escritorio_id || currentEscritorioId,
                 contractId: strId,
                 clientId: updatedContract.clientId || updatedContract.client_id || null,
                 clientName: updatedContract.clientName || updatedContract.client_name || 'Cliente',
@@ -1454,7 +1458,7 @@ export function CRMProvider({ children }) {
     setProposals(prev => {
       const next = prev.map(p => {
         if (String(p.id) === strId) {
-          updatedProp = { ...p, ...propData, escritorio_id: currentEscritorioId };
+          updatedProp = { ...p, ...propData, escritorio_id: p.escritorio_id || currentEscritorioId };
           return updatedProp;
         }
         return p;
@@ -1563,7 +1567,7 @@ export function CRMProvider({ children }) {
     setProcesses(prev => {
       const next = prev.map(p => {
         if (p.id === id) {
-          updatedProc = { ...p, ...procData, lastUpdateDate: new Date().toISOString().split('T')[0], escritorio_id: currentEscritorioId };
+          updatedProc = { ...p, ...procData, lastUpdateDate: new Date().toISOString().split('T')[0], escritorio_id: p.escritorio_id || currentEscritorioId };
           return updatedProc;
         }
         return p;
@@ -1613,7 +1617,7 @@ export function CRMProvider({ children }) {
     setTasks(prev => {
       const next = prev.map(t => {
         if (t.id === id) {
-          updatedTask = { ...t, ...taskData, escritorio_id: currentEscritorioId };
+          updatedTask = { ...t, ...taskData, escritorio_id: t.escritorio_id || currentEscritorioId };
           // Guarda quando a tarefa foi concluída (usado no resumo do dia do menu)
           if (taskData.status === 'completed' && t.status !== 'completed') updatedTask.completedAt = new Date().toISOString();
           if (taskData.status && taskData.status !== 'completed') updatedTask.completedAt = null;
@@ -1642,7 +1646,7 @@ export function CRMProvider({ children }) {
             ...t,
             status: nextStatus,
             completedAt: nextStatus === 'completed' ? new Date().toISOString() : null,
-            escritorio_id: currentEscritorioId,
+            escritorio_id: t.escritorio_id || currentEscritorioId,
           };
           return toggledTask;
         }
@@ -1737,7 +1741,7 @@ export function CRMProvider({ children }) {
     setAppointments(prev => {
       const next = prev.map(a => {
         if (a.id === id) {
-          updatedApt = { ...a, ...updatedFields, escritorio_id: currentEscritorioId };
+          updatedApt = { ...a, ...updatedFields, escritorio_id: a.escritorio_id || currentEscritorioId };
           return updatedApt;
         }
         return a;

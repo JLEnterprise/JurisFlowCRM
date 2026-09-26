@@ -162,7 +162,13 @@ export function AuthProvider({ children }) {
 
         const cloudUsers = await storageService.fetchFromSupabase('users', [], currentEscId);
         if (mounted && teamOfficeId && teamOfficeId !== ownEscId) {
-          setUsers((Array.isArray(cloudUsers) ? cloudUsers : []).filter(u => u.escritorio_id === teamOfficeId));
+          const branchUsers = (Array.isArray(cloudUsers) ? cloudUsers : []).filter(u => u.escritorio_id === teamOfficeId);
+          // O dono também pode ser responsável por tarefas/agenda da filial (marcado como "da matriz",
+          // para não aparecer como membro da equipe da filial em Colaboradores)
+          const ownerIncluded = currentUser && !branchUsers.some(u => u.id === currentUser.id)
+            ? [...branchUsers, { ...currentUser, fromMatriz: true }]
+            : branchUsers;
+          setUsers(ownerIncluded);
           return;
         }
         if (mounted && Array.isArray(cloudUsers) && cloudUsers.length > 0) {
