@@ -81,6 +81,6 @@ Tudo o que existia antes da migração (zip de backup, pasta `Backup_JurisFlow/`
   Volta quando houver integração de assinatura digital (Configurações → Integrações do escritório).
 
 ## Publicação (há clientes usando o app desde 2026-09-25)
-- Nunca push na `main` sem ordem expressa do usuário. Trabalhar no branch `teste/...`:
-  o push do branch gera o link de teste da Vercel (protegido por login da Vercel).
+- O usuário decidiu trabalhar direto no oficial (`main`): build sempre passando antes do push,
+  tag de backup antes de mudança grande.
 - Localhost e link de teste usam o MESMO banco: testar no escritório "Jotaeli Testes".
