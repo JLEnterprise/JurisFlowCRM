@@ -21,6 +21,7 @@ import { useCRM } from '../../context/CRMContext';
 import { NotificationCenter } from './NotificationCenter';
 import { PeriodFilter } from '../common/PeriodFilter';
 import { OfficeSwitcher } from './OfficeSwitcher';
+import { BrightnessControl } from './BrightnessControl';
 
 // Nome curto e completo de cada página, mostrado no topo
 const PAGE_NAMES = {
@@ -183,6 +184,8 @@ export function Header({
           >
             {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
           </button>
+
+          <BrightnessControl />
         </div>
 
         <span className="hidden sm:block h-6 w-px bg-slate-200 dark:bg-white/[0.08] mx-1" aria-hidden="true" />
