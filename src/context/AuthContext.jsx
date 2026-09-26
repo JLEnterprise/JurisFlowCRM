@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { storageService } from '../services/storageService';
 import { INITIAL_USERS } from '../data/initialData';
-import { signIn, signUp, signOut, resetPasswordForEmail, getSession, onAuthStateChange, supabase } from '../lib/supabase';
+import { signIn, signUp, signOut, resetPasswordForEmail, getSession, onAuthStateChange, supabase, openedFromRecoveryLink } from '../lib/supabase';
+import { permissionsForRoles } from '../utils/accessLevels';
 
 const AuthContext = createContext();
 
@@ -32,7 +33,13 @@ export function AuthProvider({ children }) {
   const [authError, setAuthError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   // true quando o usuário chega pelo link "Esqueceu a senha" do e-mail
-  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  // Tabela de níveis de acesso do escritório (vem de office_settings, carregada pelo CRMContext)
+  const [roleMatrix, setRoleMatrix] = useState(null);
+  // Filial aberta pelo dono (null = o próprio escritório): a lista da equipe acompanha
+  const [teamOfficeId, setTeamOfficeId] = useState(null);
+
+  // Aberto pelo link de redefinição de senha: já começa pedindo a nova senha
+  const [passwordRecovery, setPasswordRecovery] = useState(openedFromRecoveryLink);
 
   // Remove qualquer sessão local (localStorage) — o acesso depende SEMPRE do Supabase Auth
   function clearLocalSession() {
@@ -148,10 +155,16 @@ export function AuthProvider({ children }) {
     let mounted = true;
     async function loadCloudUsers() {
       try {
-        const currentEscId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId();
+        // Filial aberta pelo dono: mostra a equipe daquela filial
+        const ownEscId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId();
+        const currentEscId = teamOfficeId || ownEscId;
         if (!currentEscId) return;
 
         const cloudUsers = await storageService.fetchFromSupabase('users', [], currentEscId);
+        if (mounted && teamOfficeId && teamOfficeId !== ownEscId) {
+          setUsers((Array.isArray(cloudUsers) ? cloudUsers : []).filter(u => u.escritorio_id === teamOfficeId));
+          return;
+        }
         if (mounted && Array.isArray(cloudUsers) && cloudUsers.length > 0) {
           const tenantUsers = cloudUsers.filter(u => u.escritorio_id === currentEscId);
           setUsers(tenantUsers);
@@ -173,7 +186,7 @@ export function AuthProvider({ children }) {
     }
     loadCloudUsers();
     return () => { mounted = false; };
-  }, [currentUser?.escritorio_id]);
+  }, [currentUser?.escritorio_id, teamOfficeId]);
 
   // Sincronizar currentUser dinamicamente sempre que a lista global de users mudar
   useEffect(() => {
@@ -560,6 +573,8 @@ export function AuthProvider({ children }) {
     const newUser = {
       ...stripSecrets(userData),
       id: userData.id || `usr_${Date.now()}`,
+      // Colaborador entra no escritório aberto (matriz ou a filial que o dono escolheu)
+      escritorio_id: userData.escritorio_id || teamOfficeId || currentUser?.escritorio_id,
       role: primaryRole,
       roles: assignedRoles,
       title: userData.title || assignedTitles.join(' • '),
@@ -668,16 +683,23 @@ export function AuthProvider({ children }) {
     return true;
   };
 
+  // Envia o e-mail de redefinição. Não revela se o e-mail existe; só avisa quando o envio
+  // foi barrado por limite (o e-mail padrão do Supabase tem cota baixa por hora).
   const resetPassword = async (email) => {
     setIsLoading(true);
+    let result = { ok: true, rateLimited: false };
     try {
       await resetPasswordForEmail(email);
     } catch (err) {
+      const msg = (err?.message || '').toLowerCase();
+      if (err?.status === 429 || msg.includes('rate limit') || msg.includes('security purposes') || msg.includes('seconds')) {
+        result = { ok: false, rateLimited: true };
+      }
       console.warn('Reset password email warning:', err.message);
     }
     await new Promise(res => setTimeout(res, 300));
     setIsLoading(false);
-    return true;
+    return result;
   };
 
   const updateProfile = async (updatedData) => {
@@ -746,6 +768,10 @@ export function AuthProvider({ children }) {
   const isSales = userRoles.includes('sales') || currentUser?.role === 'sales' || isSalesManager;
   const isSecretary = userRoles.includes('secretary') || currentUser?.role === 'secretary';
 
+  // Módulos liberados por cargo: tabela "Níveis de acesso" do escritório (padrão = regras originais).
+  // Dono/sócio-administrador e Dev sempre com acesso total.
+  const modulePermissions = permissionsForRoles(userRoles, roleMatrix, { fullAccess: isDev || isAdmin });
+
   const permissions = {
     isDev,
     isAdmin,
@@ -756,24 +782,10 @@ export function AuthProvider({ children }) {
     isSales,
     isSecretary,
 
+    ...modulePermissions,
+    // Histórico de ações (auditoria): só o dono da conta — igual à regra do banco
     canAccessSecurity: isDev || isAdmin,
-    canAccessSettings: isDev || isAdmin,
     canAccessAdvancedSettings: isDev || isAdmin,
-    canAccessFinancial: isDev || isAdmin || isFinancial,
-    canAccessReports: isDev || isAdmin || isFinancial || isSeniorLawyer || isSalesManager,
-    canAccessTeam: isDev || isAdmin || isSeniorLawyer,
-    canAccessContracts: isDev || isAdmin || isLawyer || isSalesManager,
-    canAccessProcesses: isDev || isAdmin || isLawyer,
-    canAccessClients: true,
-    canAccessFunnel: isDev || isAdmin || isSales || isLawyer,
-    canAccessProposals: isDev || isAdmin || isSales || isLawyer,
-    canAccessAgenda: true,
-    // Agenda de toda a equipe: secretaria e administração; os demais (ex.: advogados) veem só a própria
-    canViewAllAgendas: isDev || isAdmin || isSecretary,
-    canAccessTasks: true,
-    canAccessAttendance: true,
-    canAccessDocuments: isDev || isAdmin || isLawyer || isFinancial || isSecretary,
-
     canDeleteRecords: isDev || isAdmin,
     canResetDatabase: isDev || isAdmin,
   };
@@ -797,6 +809,10 @@ export function AuthProvider({ children }) {
         resetPassword,
         updatePassword,
         passwordRecovery,
+        roleMatrix,
+        setRoleMatrix,
+        teamOfficeId,
+        setTeamOfficeId,
         permissions,
       }}
     >

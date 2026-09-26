@@ -77,5 +77,10 @@ Tudo o que existia antes da migração (zip de backup, pasta `Backup_JurisFlow/`
 `git checkout antigravity-final -- <caminho>`.
 
 ## Pendências conhecidas
-- Links de assinatura ainda apontam para o domínio antigo do Netlify (`jurisflowcrmofc.netlify.app`)
-  em `src/services/signatureService.js`, `src/services/whatsappService.js` e `src/components/whatsapp/WhatsAppModal.jsx`.
+- Link de assinatura para o cliente assinar pelo celular: removido (apontava para o Netlify antigo).
+  Volta quando houver integração de assinatura digital (Configurações → Integrações do escritório).
+
+## Publicação (há clientes usando o app desde 2026-09-25)
+- O usuário decidiu trabalhar direto no oficial (`main`): build sempre passando antes do push,
+  tag de backup antes de mudança grande.
+- Localhost e link de teste usam o MESMO banco: testar no escritório "Jotaeli Testes".

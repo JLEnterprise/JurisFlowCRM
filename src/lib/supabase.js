@@ -3,6 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cbaanfpitqayqraizacv.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNiYWFuZnBpdHFheXFyYWl6YWN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MDI4MTMsImV4cCI6MjEwMzk3ODgxM30.8QLre8HRx0FxDMDEKe5c1DYFYCilzskIeepEQZnJ9A8';
 
+// A página foi aberta pelo link "redefinir senha" do e-mail? Precisa ser lido ANTES de criar o
+// cliente: o Supabase processa e apaga o "#...type=recovery" da URL assim que é criado, e o aviso
+// PASSWORD_RECOVERY pode sair antes de o app começar a escutar.
+export const openedFromRecoveryLink = typeof window !== 'undefined'
+  && /type=recovery/.test(`${window.location.hash}${window.location.search}`);
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,

@@ -17,6 +17,7 @@ import {
   Sparkles,
   Bot,
   Lock,
+  KeyRound,
   LogOut,
   CheckCircle2,
   CircleDashed,
@@ -30,6 +31,7 @@ import { Select } from '../common/Select';
 import { FontStylePicker } from '../layout/FontSwitcher';
 import { TeamView } from '../team/TeamView';
 import { ActivityLogsView } from '../security/ActivityLogsView';
+import { AccessLevelsPanel } from './AccessLevelsPanel';
 
 // Integrações que cada escritório configura com a própria estrutura (número, e-mail, contas).
 // Só dados não secretos ficam aqui; tokens e senhas vão para o cofre seguro do servidor (próxima etapa).
@@ -93,6 +95,7 @@ export function SettingsHub({ onOpenProfile }) {
     { id: 'perfil', label: 'Meu perfil', icon: User },
     { id: 'aparencia', label: 'Aparência', icon: Type },
     ...(permissions?.canAccessTeam ? [{ id: 'colaboradores', label: 'Colaboradores', icon: Users }] : []),
+    ...(permissions?.canAccessSettings ? [{ id: 'acessos', label: 'Níveis de acesso', icon: KeyRound }] : []),
     ...(permissions?.canAccessSettings ? [{ id: 'integracoes', label: 'Integrações do escritório', icon: Plug }] : []),
   ];
   const platformTabs = [
@@ -156,6 +159,7 @@ export function SettingsHub({ onOpenProfile }) {
             </Section>
           )}
           {tab === 'colaboradores' && <TeamView />}
+          {tab === 'acessos' && <AccessLevelsPanel />}
           {tab === 'integracoes' && <OfficeIntegrations />}
           {tab === 'infra' && isPlatformAdmin && <PlatformInfra />}
           {tab === 'auditoria' && isPlatformAdmin && <ActivityLogsView />}
@@ -223,7 +227,75 @@ function ProfileSection({ user, onEdit }) {
           ))}
         </dl>
       </div>
+      <ChangePasswordBox />
     </Section>
+  );
+}
+
+// Trocar a própria senha, já logado (sem precisar do e-mail de redefinição)
+function ChangePasswordBox() {
+  const { updatePassword } = useAuth();
+  const { showToast } = useCRM();
+  const [open, setOpen] = useState(false);
+  const [pwd, setPwd] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (pwd.length < 8 || !/[a-zA-Z]/.test(pwd) || !/\d/.test(pwd)) {
+      setError('Use pelo menos 8 caracteres, com letras e números.');
+      return;
+    }
+    if (pwd !== confirm) {
+      setError('As senhas não conferem.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updatePassword(pwd);
+      showToast && showToast('Senha alterada com sucesso!', 'success');
+      setPwd(''); setConfirm(''); setOpen(false);
+    } catch (err) {
+      const msg = (err?.message || '').toLowerCase();
+      setError(msg.includes('pwned') || msg.includes('leaked') || msg.includes('weak')
+        ? 'Essa senha é fraca ou já apareceu em vazamentos na internet. Escolha outra.'
+        : msg.includes('different')
+          ? 'A nova senha precisa ser diferente da atual.'
+          : 'Não foi possível alterar a senha agora. Saia e entre de novo e tente outra vez.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-6 border-t border-slate-200/80 pt-5 dark:border-white/[0.06]">
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 transition-colors hover:border-gold-500/40 dark:border-white/[0.08] dark:text-slate-200">
+          <KeyRound className="h-3.5 w-3.5 text-gold-600 dark:text-gold-400" /> Alterar minha senha
+        </button>
+      ) : (
+        <form onSubmit={submit} className="grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Nova senha</label>
+            <input type="password" autoComplete="new-password" value={pwd} onChange={(e) => setPwd(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Confirmar nova senha</label>
+            <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className={inputClass} />
+          </div>
+          {error && <p className="text-xs font-medium text-rose-600 dark:text-rose-400 sm:col-span-2">{error}</p>}
+          <div className="flex items-center gap-2 sm:col-span-2">
+            <button type="submit" disabled={saving} className="rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:brightness-110 disabled:opacity-50">
+              {saving ? 'Salvando…' : 'Salvar nova senha'}
+            </button>
+            <button type="button" onClick={() => { setOpen(false); setError(''); }} className="premium-link">Cancelar</button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
 
