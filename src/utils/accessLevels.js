@@ -36,7 +36,7 @@ export const ACCESS_MODULES = [
   { group: 'Escritório', items: [
     { key: 'canAccessTeam', label: 'Colaboradores', hint: 'Cadastrar e editar a equipe' },
     { key: 'canAccessSettings', label: 'Configurações do escritório', hint: 'Inclui estes níveis de acesso' },
-    { key: 'canAccessSecurity', label: 'Auditoria', hint: 'Histórico de ações e LGPD' },
+    // Auditoria (histórico de ações) NÃO entra aqui: é só do dono da conta (admin/dev), fixo.
   ] },
 ];
 
@@ -59,7 +59,6 @@ const DEFAULT_WHO = {
   canAccessReports: ['financial', 'senior_lawyer', 'sales_manager'],
   canAccessTeam: ['senior_lawyer'],
   canAccessSettings: [],
-  canAccessSecurity: [],
 };
 
 export const DEFAULT_ROLE_MATRIX = Object.fromEntries(

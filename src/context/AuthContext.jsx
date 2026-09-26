@@ -773,6 +773,8 @@ export function AuthProvider({ children }) {
     isSecretary,
 
     ...modulePermissions,
+    // Histórico de ações (auditoria): só o dono da conta — igual à regra do banco
+    canAccessSecurity: isDev || isAdmin,
     canAccessAdvancedSettings: isDev || isAdmin,
     canDeleteRecords: isDev || isAdmin,
     canResetDatabase: isDev || isAdmin,

@@ -75,7 +75,8 @@ export function AccessLevelsPanel() {
         <Crown className="mt-0.5 h-4 w-4 shrink-0 text-gold-600 dark:text-gold-400" />
         <span>
           <b className="text-slate-900 dark:text-white">Dono / Sócio-administrador</b> tem acesso total, sempre — não dá para limitar,
-          para ninguém ficar trancado fora do próprio escritório.
+          para ninguém ficar trancado fora do próprio escritório. O <b className="text-slate-900 dark:text-white">histórico de ações (auditoria)</b> é
+          exclusivo do dono.
         </span>
       </div>
 
