@@ -723,6 +723,7 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
       logo_url: item.logoUrl || item.logo_url || null,
       plano: item.plano || 'enterprise',
       status: item.status || 'active',
+      parent_id: item.parent_id || item.parentId || null,
       raw_data: item,
     };
   }
@@ -1022,8 +1023,11 @@ export const storageService = {
     }
   },
 
-  async fetchFromSupabase(table, fallback = [], escritorioId = null) {
+  // options.allAccessible: visão consolidada ("Todos os escritórios") — traz tudo o que o banco
+  // libera para a pessoa (matriz + filiais do dono), sem filtrar por um escritório só.
+  async fetchFromSupabase(table, fallback = [], escritorioId = null, options = {}) {
     if (!supabase) return fallback;
+    const allAccessible = !!options.allAccessible;
     try {
       const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
       if (!activeEscritorio) return Array.isArray(fallback) ? [] : fallback;
@@ -1032,16 +1036,12 @@ export const storageService = {
       const effectiveFallback = isSystemMeta ? fallback : (Array.isArray(fallback) ? [] : fallback);
 
       let query = supabase.from(table).select('*');
-      
-      // ISOLAMENTO MULTI-TENANT ESTRITO NO SUPABASE:
-      if (['users', 'clients', 'processes', 'leads', 'contracts', 'proposals', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications', 'office_settings'].includes(table)) {
+
+      // ISOLAMENTO MULTI-TENANT ESTRITO NO SUPABASE (o banco também garante via RLS):
+      if (!allAccessible && ['users', 'clients', 'processes', 'leads', 'contracts', 'proposals', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications', 'office_settings'].includes(table)) {
         query = query.eq('escritorio_id', activeEscritorio);
       }
-
-      // Se for a tabela de escritórios, retorna estritamente o próprio escritório do tenant
-      if (table === 'escritorios') {
-        query = query.eq('id', activeEscritorio);
-      }
+      // Escritórios: o banco devolve só os acessíveis (o próprio + filiais, se for o dono)
 
       // Ordenação estável por created_at desc se disponível
       if (['proposals', 'contracts', 'clients', 'leads', 'processes', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications'].includes(table)) {
@@ -1059,19 +1059,20 @@ export const storageService = {
           const id = String(row.id);
           const num = String(row.proposal_number || (row.raw_data && (row.raw_data.proposalNumber || row.raw_data.proposal_number)) || '');
           
-          // Blindagem de validação de isolamento:
-          if (table === 'escritorios') {
-            if (row.id !== activeEscritorio && row.parent_id !== activeEscritorio) return false;
-          } else {
+          // Blindagem de validação de isolamento (escritórios e visão consolidada já vêm filtrados pelo banco)
+          if (table !== 'escritorios' && !allAccessible) {
             const rowEsc = row.escritorio_id || (row.raw_data && row.raw_data.escritorio_id);
             if (rowEsc && rowEsc !== activeEscritorio) return false;
           }
 
           return !deletedIds.includes(id) && (!num || !deletedIds.includes(num));
         })
-        .map(row => normalizeRow(table, row, activeEscritorio));
+        .map(row => (allAccessible
+          ? { ...normalizeRow(table, row, row.escritorio_id || activeEscritorio), escritorio_id: row.escritorio_id }
+          : normalizeRow(table, row, activeEscritorio)));
 
-      this.saveData(table, mapped, activeEscritorio);
+      // A visão consolidada não vai para o cache de um escritório específico
+      if (!allAccessible) this.saveData(table, mapped, activeEscritorio);
       return mapped;
     } catch (e) {
       console.warn('[Supabase Fetch] Usando cache local para ' + table + ':', e.message);

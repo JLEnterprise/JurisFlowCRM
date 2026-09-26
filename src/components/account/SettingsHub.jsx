@@ -32,6 +32,7 @@ import { FontStylePicker } from '../layout/FontSwitcher';
 import { TeamView } from '../team/TeamView';
 import { ActivityLogsView } from '../security/ActivityLogsView';
 import { AccessLevelsPanel } from './AccessLevelsPanel';
+import { BranchesPanel } from './BranchesPanel';
 
 // Integrações que cada escritório configura com a própria estrutura (número, e-mail, contas).
 // Só dados não secretos ficam aqui; tokens e senhas vão para o cofre seguro do servidor (próxima etapa).
@@ -96,6 +97,7 @@ export function SettingsHub({ onOpenProfile }) {
     { id: 'aparencia', label: 'Aparência', icon: Type },
     ...(permissions?.canAccessTeam ? [{ id: 'colaboradores', label: 'Colaboradores', icon: Users }] : []),
     ...(permissions?.canAccessSettings ? [{ id: 'acessos', label: 'Níveis de acesso', icon: KeyRound }] : []),
+    ...(permissions?.isAdmin ? [{ id: 'filiais', label: 'Filiais', icon: Building2 }] : []),
     ...(permissions?.canAccessSettings ? [{ id: 'integracoes', label: 'Integrações do escritório', icon: Plug }] : []),
   ];
   const platformTabs = [
@@ -160,6 +162,7 @@ export function SettingsHub({ onOpenProfile }) {
           )}
           {tab === 'colaboradores' && <TeamView />}
           {tab === 'acessos' && <AccessLevelsPanel />}
+          {tab === 'filiais' && <BranchesPanel />}
           {tab === 'integracoes' && <OfficeIntegrations />}
           {tab === 'infra' && isPlatformAdmin && <PlatformInfra />}
           {tab === 'auditoria' && isPlatformAdmin && <ActivityLogsView />}

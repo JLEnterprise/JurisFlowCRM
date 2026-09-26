@@ -20,6 +20,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useCRM } from '../../context/CRMContext';
 import { NotificationCenter } from './NotificationCenter';
 import { PeriodFilter } from '../common/PeriodFilter';
+import { OfficeSwitcher } from './OfficeSwitcher';
 
 // Nome curto e completo de cada página, mostrado no topo
 const PAGE_NAMES = {
@@ -153,6 +154,9 @@ export function Header({
           <Search className="h-[18px] w-[18px]" />
         </button>
 
+        {/* Escritório ativo (dono com filiais): troca o sistema inteiro */}
+        <OfficeSwitcher className="hidden md:block" />
+
         {/* Filtro de período (vale para o funil e as listas) */}
         <PeriodFilter className="hidden lg:block" />
 
@@ -228,37 +232,7 @@ export function Header({
 
               {/* Informações da Conta */}
               <div className="mb-2 px-1 space-y-1.5">
-                {/* Se houver múltiplas filiais do próprio escritório, permite alternar */}
-                {(() => {
-                  const myBranches = (escritorios || []).filter(esc => esc && (esc.id === currentEscritorioId || (esc.parent_id && esc.parent_id === currentEscritorioId)));
-                  if (myBranches.length <= 1) return null;
-                  return (
-                    <div className="p-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                        Filial Ativa:
-                      </span>
-                      <div className="space-y-1 max-h-28 overflow-y-auto">
-                        {myBranches.map(esc => (
-                          <button
-                            key={esc.id}
-                            onClick={() => {
-                              switchEscritorio(esc.id);
-                              setShowUserMenu(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors text-left ${
-                              esc.id === currentEscritorioId
-                                ? 'bg-brand-600 text-white font-bold'
-                                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
-                            }`}
-                          >
-                            <span className="truncate">{esc.nome}</span>
-                            {esc.id === currentEscritorioId && <UserCheck className="h-3.5 w-3.5 shrink-0" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
+                {/* A troca de escritório/filial fica no seletor do topo (OfficeSwitcher) */}
 
                 {/* Botão Meu Perfil Pessoal & Foto */}
                 <button

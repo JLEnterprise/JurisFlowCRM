@@ -35,6 +35,8 @@ export function AuthProvider({ children }) {
   // true quando o usuário chega pelo link "Esqueceu a senha" do e-mail
   // Tabela de níveis de acesso do escritório (vem de office_settings, carregada pelo CRMContext)
   const [roleMatrix, setRoleMatrix] = useState(null);
+  // Filial aberta pelo dono (null = o próprio escritório): a lista da equipe acompanha
+  const [teamOfficeId, setTeamOfficeId] = useState(null);
 
   // Aberto pelo link de redefinição de senha: já começa pedindo a nova senha
   const [passwordRecovery, setPasswordRecovery] = useState(openedFromRecoveryLink);
@@ -153,10 +155,16 @@ export function AuthProvider({ children }) {
     let mounted = true;
     async function loadCloudUsers() {
       try {
-        const currentEscId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId();
+        // Filial aberta pelo dono: mostra a equipe daquela filial
+        const ownEscId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId();
+        const currentEscId = teamOfficeId || ownEscId;
         if (!currentEscId) return;
 
         const cloudUsers = await storageService.fetchFromSupabase('users', [], currentEscId);
+        if (mounted && teamOfficeId && teamOfficeId !== ownEscId) {
+          setUsers((Array.isArray(cloudUsers) ? cloudUsers : []).filter(u => u.escritorio_id === teamOfficeId));
+          return;
+        }
         if (mounted && Array.isArray(cloudUsers) && cloudUsers.length > 0) {
           const tenantUsers = cloudUsers.filter(u => u.escritorio_id === currentEscId);
           setUsers(tenantUsers);
@@ -178,7 +186,7 @@ export function AuthProvider({ children }) {
     }
     loadCloudUsers();
     return () => { mounted = false; };
-  }, [currentUser?.escritorio_id]);
+  }, [currentUser?.escritorio_id, teamOfficeId]);
 
   // Sincronizar currentUser dinamicamente sempre que a lista global de users mudar
   useEffect(() => {
@@ -565,6 +573,8 @@ export function AuthProvider({ children }) {
     const newUser = {
       ...stripSecrets(userData),
       id: userData.id || `usr_${Date.now()}`,
+      // Colaborador entra no escritório aberto (matriz ou a filial que o dono escolheu)
+      escritorio_id: userData.escritorio_id || teamOfficeId || currentUser?.escritorio_id,
       role: primaryRole,
       roles: assignedRoles,
       title: userData.title || assignedTitles.join(' • '),
@@ -801,6 +811,8 @@ export function AuthProvider({ children }) {
         passwordRecovery,
         roleMatrix,
         setRoleMatrix,
+        teamOfficeId,
+        setTeamOfficeId,
         permissions,
       }}
     >

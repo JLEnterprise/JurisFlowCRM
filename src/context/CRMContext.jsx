@@ -24,8 +24,11 @@ import { buildSchedule, normalizePlan, isRecurring, dayStr, RENEW_AHEAD_DAYS } f
 
 const CRMContext = createContext();
 
+// Valor especial do seletor de escritório: visão consolidada do dono
+export const ALL_OFFICES = '__todos__';
+
 export function CRMProvider({ children }) {
-  const { currentUser, setRoleMatrix } = useAuth();
+  const { currentUser, setRoleMatrix, setTeamOfficeId } = useAuth();
 
   // Multi-Tenant State estritamente acoplado ao usuário autenticado
   const activeTenantId = currentUser?.escritorio_id || storageService.getCurrentEscritorioId() || null;
@@ -80,9 +83,48 @@ export function CRMProvider({ children }) {
     status: 'active'
   };
 
+  // Visão do dono: um escritório específico (null) ou "Todos os escritórios" (ALL_OFFICES)
+  const [officeScope, setOfficeScope] = useState(null);
+  const ownEscritorioId = currentUser?.escritorio_id || null;
+
+  // "Todos os escritórios": junta matriz + filiais (o banco só libera isso para o dono).
+  // Novos cadastros nessa visão vão para a matriz.
+  const loadConsolidated = useCallback(async () => {
+    const own = currentUser?.escritorio_id;
+    if (!own) return;
+    storageService.setCurrentEscritorioId(own);
+    setCurrentEscritorioIdState(own);
+    setOfficeScope(ALL_OFFICES);
+    if (setTeamOfficeId) setTeamOfficeId(null);
+    const opts = { allAccessible: true };
+    try {
+      const [l, c, ct, p, pr, t, a, at, i, d] = await Promise.all([
+        storageService.fetchFromSupabase('leads', [], own, opts),
+        storageService.fetchFromSupabase('clients', [], own, opts),
+        storageService.fetchFromSupabase('contracts', [], own, opts),
+        storageService.fetchFromSupabase('proposals', [], own, opts),
+        storageService.fetchFromSupabase('processes', [], own, opts),
+        storageService.fetchFromSupabase('tasks', [], own, opts),
+        storageService.fetchFromSupabase('appointments', [], own, opts),
+        storageService.fetchFromSupabase('attendances', [], own, opts),
+        storageService.fetchFromSupabase('installments', [], own, opts),
+        storageService.fetchFromSupabase('documents', [], own, opts),
+      ]);
+      setLeads(l || []); setClients(c || []); setContracts(ct || []); setProposals(p || []);
+      setProcesses(pr || []); setTasks(t || []); setAppointments(a || []); setAttendances(at || []);
+      setInstallments(i || []); setDocuments(d || []);
+    } catch (err) {
+      console.warn('Erro ao carregar a visão consolidada:', err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.escritorio_id]);
+
   // Alternar escritorio ativo com carregamento instantaneo e sincronizacao
   const switchEscritorio = useCallback(async (escritorioId) => {
     if (!escritorioId) return;
+    if (escritorioId === ALL_OFFICES) return loadConsolidated();
+    setOfficeScope(null);
+    if (setTeamOfficeId) setTeamOfficeId(escritorioId === currentUser?.escritorio_id ? null : escritorioId);
     storageService.setCurrentEscritorioId(escritorioId);
     setCurrentEscritorioIdState(escritorioId);
     storageService.purgeContaminatedCache(escritorioId);
@@ -170,7 +212,8 @@ export function CRMProvider({ children }) {
     } catch (err) {
       console.warn('Erro ao carregar dados remotos do escritorio:', err);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadConsolidated, currentUser?.escritorio_id]);
 
 
   // Hidratacao e sincronizacao inicial a partir do Supabase com isolamento estrito
@@ -234,9 +277,11 @@ export function CRMProvider({ children }) {
       setOfficeSettings({ ...INITIAL_OFFICE_SETTINGS, officeName: currentUser?.firmName || 'Meu Escritório' });
     }
 
-    // Definir o tenant ativo antes do carregamento assíncrono
+    // Definir o tenant ativo antes do carregamento assíncrono (login sempre abre o próprio escritório)
     storageService.setCurrentEscritorioId(targetEscritorioId);
     setCurrentEscritorioIdState(targetEscritorioId);
+    setOfficeScope(null);
+    if (setTeamOfficeId) setTeamOfficeId(null);
     storageService.purgeContaminatedCache(targetEscritorioId);
 
     async function loadCloudData() {
@@ -320,8 +365,13 @@ export function CRMProvider({ children }) {
         if (syncedOfficeSettings && syncedOfficeSettings.length > 0) {
           setOfficeSettings(syncedOfficeSettings[0]);
         }
+        // Áreas personalizadas do escritório (a lista padrão entra sempre, via mergeLegalAreas)
+        const cloudLegalAreas = await storageService.fetchFromSupabase('legal_areas', [], targetEscritorioId);
+        if (Array.isArray(cloudLegalAreas) && cloudLegalAreas.length > 0) setLegalAreas(cloudLegalAreas);
 
         setSupabaseConnected(true);
+        // Dados da nuvem carregados: dispara a renovação dos contratos mensais
+        setCloudLoadedAt(Date.now());
 
         // --- AUTO-LINK UNIVERSAL: reconcilia contratos/parcelas sem clientId para TODOS os tenants ---
         // Aplicado de forma segura a qualquer escritório (não apenas legados), pois
@@ -602,10 +652,12 @@ export function CRMProvider({ children }) {
   }, [currentUser, currentEscritorioId]);
 
   // --- MULTI-TENANT ACTIONS ---
-  const addEscritorio = (escData) => {
+  // Filial nova: fica ligada à matriz (escritório do dono) e já nasce com as configurações próprias
+  const addEscritorio = async (escData) => {
+    const matrizId = currentUser?.escritorio_id;
     const newEsc = {
       id: `esc_${Date.now()}`,
-      nome: escData.nome || escData.name || 'Novo Escritorio',
+      nome: escData.nome || escData.name || 'Nova filial',
       cnpj: escData.cnpj || '',
       email: escData.email || '',
       telefone: escData.telefone || escData.phone || '',
@@ -614,42 +666,67 @@ export function CRMProvider({ children }) {
       estado: escData.estado || escData.state || '',
       plano: escData.plano || 'professional',
       status: 'active',
+      parent_id: matrizId,
     };
     setEscritorios(prev => {
-      const next = [...prev, newEsc];
+      const next = [...prev.filter(e => e.id !== newEsc.id), newEsc];
       storageService.saveData('escritorios', next);
       return next;
     });
-    logActivity('Novo Escritorio Criado', newEsc.nome, `Plano: ${newEsc.plano}`);
-    showToast(`Escritorio ${newEsc.nome} criado com sucesso!`);
+    try {
+      const { error } = await supabase.from('escritorios').insert({
+        id: newEsc.id, nome: newEsc.nome, cnpj: newEsc.cnpj || null, email: newEsc.email || null,
+        telefone: newEsc.telefone || null, endereco: newEsc.endereco || null, cidade: newEsc.cidade || null,
+        estado: newEsc.estado || null, plano: newEsc.plano, status: 'active', parent_id: matrizId, raw_data: newEsc,
+      });
+      if (error) throw error;
+      await supabase.from('office_settings').insert({
+        id: `settings_${newEsc.id}`, escritorio_id: newEsc.id, office_name: newEsc.nome,
+        raw_data: { officeName: newEsc.nome, tradeName: newEsc.nome, escritorio_id: newEsc.id,
+          rolePermissions: officeSettings?.rolePermissions || undefined },
+      });
+    } catch (err) {
+      console.warn('Erro ao criar filial no banco:', err.message);
+      setEscritorios(prev => prev.filter(e => e.id !== newEsc.id));
+      showToast('Não foi possível criar a filial. Só o dono (sócio-administrador) pode criar filiais.', 'danger');
+      return null;
+    }
+    logActivity('Nova Filial', newEsc.nome, newEsc.cidade ? `${newEsc.cidade}/${newEsc.estado}` : 'Filial criada');
+    showToast(`Filial ${newEsc.nome} criada!`);
     return newEsc;
   };
 
   const updateEscritorio = (id, escData) => {
+    let updated = null;
     setEscritorios(prev => {
-      const next = prev.map(e => e.id === id ? { ...e, ...escData } : e);
+      const next = prev.map(e => {
+        if (e.id !== id) return e;
+        updated = { ...e, ...escData };
+        return updated;
+      });
       storageService.saveData('escritorios', next);
       return next;
     });
+    const cols = {};
+    ['nome', 'cnpj', 'email', 'telefone', 'endereco', 'cidade', 'estado', 'status'].forEach(k => {
+      if (escData[k] !== undefined) cols[k] = escData[k];
+    });
+    supabase.from('escritorios')
+      .update({ ...cols, raw_data: { ...(escritorios.find(e => e.id === id) || {}), ...escData } })
+      .eq('id', id)
+      .then(({ error }) => { if (error) console.warn('Erro ao atualizar escritório:', error.message); });
     logActivity('Escritorio Atualizado', escData.nome || id, 'Dados cadastrais atualizados');
-    showToast('Dados do escritorio atualizados!');
+    showToast('Dados do escritório atualizados!');
   };
 
+  // Filial não é apagada (os dados dela continuam guardados): é desativada e some dos seletores
   const deleteEscritorio = (id) => {
-    if (id === 'escritorio_principal') {
-      showToast('O escritorio matriz de origem nao pode ser excluido.', 'warning');
+    if (!id || id === currentUser?.escritorio_id) {
+      showToast('O escritório matriz não pode ser desativado.', 'warning');
       return;
     }
-    setEscritorios(prev => {
-      const next = prev.filter(e => e.id !== id);
-      storageService.saveData('escritorios', next);
-      return next;
-    });
-    storageService.deleteFromSupabase('escritorios', id);
-    if (currentEscritorioId === id) {
-      switchEscritorio('escritorio_principal');
-    }
-    showToast('Filial excluida com sucesso!');
+    updateEscritorio(id, { status: 'inactive' });
+    if (currentEscritorioId === id) switchEscritorio(currentUser?.escritorio_id);
   };
 
   // --- LEADS ACTIONS ---
@@ -2135,6 +2212,12 @@ export function CRMProvider({ children }) {
         escritorios,
         currentEscritorioId,
         currentEscritorio,
+        // Filiais: escritórios acessíveis (matriz + filiais ativas) e a visão consolidada
+        officeScope,
+        isConsolidated: officeScope === ALL_OFFICES,
+        ownEscritorioId,
+        accessibleOffices: (escritorios || []).filter(e => e && e.status !== 'inactive'
+          && (e.id === ownEscritorioId || e.parent_id === ownEscritorioId)),
         switchEscritorio,
         addEscritorio,
         updateEscritorio,
