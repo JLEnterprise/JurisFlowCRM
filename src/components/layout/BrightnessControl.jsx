@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { SunDim } from 'lucide-react';
+import { Contrast as SunDim } from 'lucide-react'; // ícone diferente do sol/lua do tema
 
 // Brilho do app (ao lado do botão de tema). Vai de -40 (mais escuro) a +20 (mais claro).
 // Aplicado por uma camada transparente por cima da tela (não mexe no layout nem nos cliques).

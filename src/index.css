@@ -494,7 +494,8 @@ html:not(.dark) .app-glass {
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  /* "none" (e não translateY(0)): um transform que fica aplicado prende janelas "fixed" dentro da tela */
+  to { opacity: 1; transform: none; }
 }
 
 .animate-fade-in {

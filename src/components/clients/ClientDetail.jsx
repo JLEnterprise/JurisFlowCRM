@@ -28,6 +28,7 @@ import {
   Paperclip,
   FileCheck,
 } from 'lucide-react';
+import { BodyPortal } from '../common/BodyPortal';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -1150,7 +1151,7 @@ export function ClientDetail({
 
       {/* Editar Parcela / Recibo Modal */}
       {editInstallmentModalOpen && (
-        <div
+        <BodyPortal><div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={(e) => {
             // Fechar ao clicar no backdrop (fora da caixa branca)
@@ -1247,7 +1248,7 @@ export function ClientDetail({
               </div>
             </form>
           </div>
-        </div>
+        </div></BodyPortal>
       )}
 
       {/* Excluir Atendimento ConfirmModal */}
