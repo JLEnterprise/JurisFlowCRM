@@ -43,15 +43,11 @@ export const signatureService = {
         standard: 'MP 2.200-2/2001 & Lei 14.063/2020 (Assinatura Eletrônica Avançada)',
         sha256Hash: hash,
         certificateAuthority: 'JurisFlow Trust Signer Engine',
-        verificationUrl: `https://jurisflowcrmofc.netlify.app/verify/${hash.substring(0, 16)}`,
+        // Código de verificação do documento (não há página pública de verificação ainda)
+        verificationCode: hash.substring(0, 16),
       }
     };
   },
-
-  /**
-   * Gera o link de assinatura compartilhável
-   */
-  generateSignLink(contractId) {
-    return `https://jurisflowcrmofc.netlify.app/?sign=${contractId || 'demo'}`;
-  }
+  // Link de assinatura para o cliente: removido (apontava para o domínio antigo do Netlify).
+  // Volta quando a assinatura digital for conectada em Configurações → Integrações.
 };

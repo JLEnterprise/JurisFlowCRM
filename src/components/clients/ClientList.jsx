@@ -53,12 +53,20 @@ export function ClientList({ onOpenNewClient, onEditClient, onSelectClient, onOp
     );
     const day = (v) => String(v || '').split('T')[0];
     const signed = own.map(c => day(c.signedDate || c.signed_date || c.createdDate || c.created_date)).filter(Boolean).sort().pop() || '';
-    const ends = [
-      ...own.map(c => day(c.endDate || c.end_date || c.expirationDate)),
-      ...inst.map(i => day(i.dueDate || i.due_date)),
-    ].filter(Boolean).sort();
+    // Término informado no contrato vale primeiro; sem ele, a última parcela
+    const explicitEnds = own.map(c => day(c.endDate || c.end_date || c.expirationDate)).filter(Boolean).sort();
+    const lastInstallment = inst.map(i => day(i.dueDate || i.due_date)).filter(Boolean).sort().pop() || '';
+    // Mensal sem prazo, sem término informado: não tem vencimento
+    const openEnded = own.some(c => (c.paymentType === 'recorrente') && !Number(c.recurringMonths) && !day(c.endDate));
     const value = own.reduce((a, c) => a + (Number(c.value) || 0), 0) || Number(client.totalContracted) || 0;
-    return { count: own.length, value, signed, end: ends.pop() || '' };
+    return {
+      count: own.length,
+      value,
+      signed,
+      end: explicitEnds.pop() || (openEnded ? '' : lastInstallment),
+      recurring: own.some(c => c.paymentType === 'recorrente'),
+      openEnded,
+    };
   };
 
   const [search, setSearch] = useState('');
@@ -427,6 +435,8 @@ export function ClientList({ onOpenNewClient, onEditClient, onSelectClient, onOp
                             </div>
                             <div className="text-[11px] text-slate-400">{ended ? 'encerrado' : relativeDay(info.end)}</div>
                           </>
+                        ) : info.openEnded ? (
+                          <span className="text-xs font-semibold text-gold-700 dark:text-gold-300">Mensal · sem prazo</span>
                         ) : <span className="text-xs text-slate-400">—</span>}
                       </td>
                       <td className="px-4 py-3">
@@ -464,7 +474,7 @@ export function ClientList({ onOpenNewClient, onEditClient, onSelectClient, onOp
             </table>
           </div>
           <div className="border-t border-slate-200/80 px-5 py-3 text-xs text-slate-500 dark:border-white/[0.06]">
-            Mostrando <strong>{filteredClients.length}</strong> de <strong>{clients.length}</strong> clientes · Vencimento = fim do contrato ou última parcela
+            Mostrando <strong>{filteredClients.length}</strong> de <strong>{clients.length}</strong> clientes · Vencimento = término do contrato (ou a última parcela, se não houver término)
           </div>
         </div>
       )}

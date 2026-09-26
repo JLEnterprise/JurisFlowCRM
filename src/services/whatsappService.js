@@ -68,7 +68,7 @@ export const whatsappService = {
       title: 'Envio de Contrato para Assinatura',
       category: 'Contratos',
       icon: 'FileCheck',
-      generate: (data) => `✍️ *CONTRATO DISPONÍVEL PARA ASSINATURA* ✍️\n\nOlá, *${data.clientName || 'Cliente'}*!\n\nSeu Contrato de Prestação de Serviços Advocatícios já está pronto para assinatura digital com validade jurídica.\n\n📲 *Você pode assinar pelo celular no link abaixo:*\n${data.signatureLink || 'https://jurisflowcrmofc.netlify.app'}\n\nAssim que assinado, daremos andamento imediato aos procedimentos.\n\n*${data.officeName || 'Equipe Jurídica'}*`
+      generate: (data) => `✍️ *CONTRATO DISPONÍVEL PARA ASSINATURA* ✍️\n\nOlá, *${data.clientName || 'Cliente'}*!\n\nSeu Contrato de Prestação de Serviços Advocatícios já está pronto para assinatura digital com validade jurídica.\n\n${data.signatureLink ? `📲 *Você pode assinar pelo celular no link abaixo:*\n${data.signatureLink}\n\n` : ''}Assim que assinado, daremos andamento imediato aos procedimentos.\n\n*${data.officeName || 'Equipe Jurídica'}*`
     },
     {
       id: 'andamento_processual',

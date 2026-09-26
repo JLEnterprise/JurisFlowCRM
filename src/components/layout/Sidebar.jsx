@@ -135,12 +135,12 @@ export function Sidebar({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
     {
       id: 'grp_comercial', label: 'Comercial', icon: Briefcase, children: [
-        { id: 'kanban', label: 'Funil Comercial', icon: Users, badge: newLeadsCount, badgeTone: 'brand', show: true },
-        { id: 'proposals', label: 'Propostas', icon: FileText, show: true },
-        { id: 'attendance', label: 'Atendimentos', icon: PhoneCall, show: true },
+        { id: 'kanban', label: 'Funil Comercial', icon: Users, badge: newLeadsCount, badgeTone: 'brand', show: permissions?.canAccessFunnel },
+        { id: 'proposals', label: 'Propostas', icon: FileText, show: permissions?.canAccessProposals },
+        { id: 'attendance', label: 'Atendimentos', icon: PhoneCall, show: permissions?.canAccessAttendance },
       ],
     },
-    { id: 'clients', label: 'Clientes', icon: UserCheck, show: true },
+    { id: 'clients', label: 'Clientes', icon: UserCheck, show: permissions?.canAccessClients },
     {
       id: 'grp_juridico', label: 'Jurídico', icon: Scale, children: [
         { id: 'processes', label: 'Processos', icon: Gavel, show: permissions?.canAccessProcesses },
@@ -150,8 +150,8 @@ export function Sidebar({
     },
     {
       id: 'grp_agenda', label: 'Agenda & Prazos', icon: Calendar, children: [
-        { id: 'agenda', label: 'Agenda & Audiências', icon: Calendar, show: true },
-        { id: 'tasks', label: 'Prazos & Tarefas', icon: CheckSquare, badge: pendingTasksCount, badgeTone: 'rose', show: true },
+        { id: 'agenda', label: 'Agenda & Audiências', icon: Calendar, show: permissions?.canAccessAgenda },
+        { id: 'tasks', label: 'Prazos & Tarefas', icon: CheckSquare, badge: pendingTasksCount, badgeTone: 'rose', show: permissions?.canAccessTasks },
       ],
     },
     {
