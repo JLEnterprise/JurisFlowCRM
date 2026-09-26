@@ -118,7 +118,10 @@ function gradient(id, color, { horizontal = false, fade = false } = {}) {
 }
 
 export function DashboardCharts({ onNavigate }) {
-  const { leads, contracts, clients = [], proposals = [], leadSources, legalAreas } = useCRM();
+  const {
+    leads, contracts, clients = [], proposals = [], installments = [], leadSources, legalAreas,
+    isConsolidated, accessibleOffices = [], ownEscritorioId,
+  } = useCRM();
   const { users } = useAuth();
   const { isDark } = useTheme();
   applyChartTheme(isDark);
@@ -187,6 +190,12 @@ export function DashboardCharts({ onNavigate }) {
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      {isConsolidated && accessibleOffices.length > 1 && (
+        <Panel index={0} title="Resultado por escritório" subtitle="Matriz e filiais lado a lado (visão consolidada)" className="lg:col-span-2" height="h-auto">
+          {() => <OfficeBreakdown offices={accessibleOffices} ownId={ownEscritorioId} leads={safeLeads} clients={clients} contracts={safeContracts} installments={installments} />}
+        </Panel>
+      )}
+
       <Panel index={0} title="Funil comercial" subtitle="Do lead recebido ao contrato fechado: quantos chegaram a cada etapa e quanto converteu"
         className="lg:col-span-2" height="h-auto">
         {(play) => (
@@ -290,6 +299,78 @@ export function DashboardCharts({ onNavigate }) {
 
 /* ============================== Peças ============================== */
 
+// Visão consolidada: números de cada escritório (matriz primeiro), para o dono comparar
+function OfficeBreakdown({ offices, ownId, leads, clients, contracts, installments }) {
+  const rows = [...offices]
+    .sort((a, b) => (a.id === ownId ? -1 : b.id === ownId ? 1 : String(a.nome).localeCompare(String(b.nome))))
+    .map(o => {
+      const mine = (arr) => (arr || []).filter(x => x && x.escritorio_id === o.id);
+      const ct = mine(contracts).filter(c => c.status !== 'cancelado' && c.status !== 'rescindido');
+      const inst = mine(installments);
+      const sum = (arr) => arr.reduce((a, i) => a + (Number(i.amount ?? i.value) || 0), 0);
+      return {
+        ...o,
+        leads: mine(leads).length,
+        won: mine(leads).filter(l => l.stage === 'contrato_fechado').length,
+        clients: mine(clients).filter(c => c.status === 'active').length,
+        contracted: ct.reduce((a, c) => a + (Number(c.value) || 0), 0),
+        received: sum(inst.filter(i => i.status === 'paid')),
+        pending: sum(inst.filter(i => i.status !== 'paid')),
+      };
+    });
+  const total = rows.reduce((t, r) => ({
+    leads: t.leads + r.leads, won: t.won + r.won, clients: t.clients + r.clients,
+    contracted: t.contracted + r.contracted, received: t.received + r.received, pending: t.pending + r.pending,
+  }), { leads: 0, won: 0, clients: 0, contracted: 0, received: 0, pending: 0 });
+
+  const Cell = ({ children, strong }) => (
+    <td className={`px-4 py-2.5 text-right font-numeric ${strong ? 'font-semibold text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-200'}`}>{children}</td>
+  );
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[720px] text-left text-sm">
+        <thead>
+          <tr className="border-b border-slate-200/80 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+            <th className="px-4 py-2.5 font-label">Escritório</th>
+            <th className="px-4 py-2.5 text-right font-label">Leads</th>
+            <th className="px-4 py-2.5 text-right font-label">Ganhos</th>
+            <th className="px-4 py-2.5 text-right font-label">Clientes ativos</th>
+            <th className="px-4 py-2.5 text-right font-label">Contratado</th>
+            <th className="px-4 py-2.5 text-right font-label">Recebido</th>
+            <th className="px-4 py-2.5 text-right font-label">A receber</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+          {rows.map(r => (
+            <tr key={r.id}>
+              <td className="px-4 py-2.5">
+                <span className="font-semibold text-slate-900 dark:text-white">{r.nome}</span>
+                <span className="ml-2 text-[10px] text-slate-400">{r.id === ownId ? 'Matriz' : 'Filial'}</span>
+              </td>
+              <Cell>{r.leads}</Cell>
+              <Cell>{r.won}</Cell>
+              <Cell>{r.clients}</Cell>
+              <Cell strong>{formatCurrency(r.contracted)}</Cell>
+              <Cell>{formatCurrency(r.received)}</Cell>
+              <Cell>{formatCurrency(r.pending)}</Cell>
+            </tr>
+          ))}
+          <tr className="border-t-2 border-gold-500/30">
+            <td className="px-4 py-2.5 font-label text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-700 dark:text-gold-300">Total</td>
+            <Cell strong>{total.leads}</Cell>
+            <Cell strong>{total.won}</Cell>
+            <Cell strong>{total.clients}</Cell>
+            <Cell strong>{formatCurrency(total.contracted)}</Cell>
+            <Cell strong>{formatCurrency(total.received)}</Cell>
+            <Cell strong>{formatCurrency(total.pending)}</Cell>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // Funil comercial no estilo painel de BI: um funil contínuo desenhado em SVG (cores do tema:
 // dourado no escuro, azul no claro), com a conversão entre etapas e um painel lateral de leitura rápida.
 // Junta o que antes eram 8 quadradinhos (leads, atendimento, qualificados, propostas, negociação,
@@ -313,14 +394,23 @@ function PremiumFunnel({ leads, clients, proposals, onNavigate }) {
   const lost = total - active.length;
   const activeClients = clients.filter(c => c && c.status === 'active').length;
 
+  // Perdido com etapa registrada conta nas etapas a que chegou antes de cair
+  const lostReachedOrder = (l) => orderOf[l.lostFromStage] || 1;
   const rows = FUNNEL_GROUPS.map((g, i) => {
-    const reached = i === 0 ? total : active.filter(l => (orderOf[l.stage] || 1) >= g.minOrder).length;
+    const reached = i === 0 ? total
+      : active.filter(l => (orderOf[l.stage] || 1) >= g.minOrder).length
+        + leads.filter(l => l.stage === 'perdido' && lostReachedOrder(l) >= g.minOrder).length;
     const nextMin = FUNNEL_GROUPS[i + 1]?.minOrder ?? 99;
     const here = active.filter(l => {
       const o = orderOf[l.stage] || 1;
       return o >= g.minOrder && o < nextMin;
     }).length;
-    return { ...g, reached, here };
+    const lostHere = leads.filter(l => {
+      if (l.stage !== 'perdido' || !l.lostFromStage) return false;
+      const o = lostReachedOrder(l);
+      return o >= g.minOrder && o < nextMin;
+    }).length;
+    return { ...g, reached, here, lostHere };
   });
   rows.forEach((r, i) => {
     r.step = i === 0 ? null : rows[i - 1].reached ? Math.round((r.reached / rows[i - 1].reached) * 100) : 0;
@@ -420,6 +510,7 @@ function PremiumFunnel({ leads, clients, proposals, onNavigate }) {
                   <span className="block font-semibold text-slate-900 dark:text-white">{r.label}</span>
                   <span className="mt-1 flex justify-between text-slate-500 dark:text-slate-400"><span>Chegaram aqui</span><b className="font-numeric text-slate-900 dark:text-white">{r.reached}</b></span>
                   <span className="flex justify-between text-slate-500 dark:text-slate-400"><span>Parados nesta etapa</span><b className="font-numeric text-slate-900 dark:text-white">{r.here}</b></span>
+                  <span className="flex justify-between text-slate-500 dark:text-slate-400"><span>Perdidos nesta etapa</span><b className="font-numeric text-rose-600 dark:text-rose-400">{r.lostHere}</b></span>
                   <span className="flex justify-between text-slate-500 dark:text-slate-400"><span>Do total recebido</span><b className="font-numeric text-slate-900 dark:text-white">{r.ofTotal}%</b></span>
                 </span>
               )}

@@ -1,5 +1,6 @@
-// Seletor de tipografia (temporário, para escolher a identidade definitiva).
+// Estilos de tipografia (Configurações → Aparência).
 // Cada estilo define 4 papéis: títulos, rótulos em maiúsculas, números de destaque e textos.
+// Hoje só o padrão; novos estilos entram aqui (e a fonte no <link> do index.html).
 
 const SERIF = 'Georgia, serif';
 const SANS = 'system-ui, sans-serif';
@@ -8,65 +9,11 @@ export const FONT_PAIRS = [
   {
     id: 'classica',
     name: 'Clássica',
-    note: 'Cormorant Garamond + Manrope · a atual',
+    note: 'Cormorant Garamond + Manrope · padrão do JurisFlow',
     display: `'Cormorant Garamond', ${SERIF}`,
     label: `'Manrope', ${SANS}`,
     numeric: `'Manrope', ${SANS}`,
     body: `'Manrope', ${SANS}`,
-  },
-  {
-    id: 'tribunal',
-    name: 'Tribunal',
-    note: 'Cinzel + Crimson Pro · tudo serifado, cara de petição e de escritório tradicional',
-    display: `'Cinzel', ${SERIF}`,
-    label: `'Cinzel', ${SERIF}`,
-    numeric: `'Cinzel', ${SERIF}`,
-    body: `'Crimson Pro', ${SERIF}`,
-  },
-  {
-    id: 'biblioteca',
-    name: 'Biblioteca',
-    note: 'Libre Baskerville + Lora · livro jurídico, leitura clássica e calorosa',
-    display: `'Libre Baskerville', ${SERIF}`,
-    label: `'Libre Baskerville', ${SERIF}`,
-    numeric: `'Libre Baskerville', ${SERIF}`,
-    body: `'Lora', ${SERIF}`,
-  },
-  {
-    id: 'couture',
-    name: 'Couture',
-    note: 'Italiana + Raleway · finíssima e alongada, cara de maison de luxo',
-    display: `'Italiana', ${SERIF}`,
-    label: `'Raleway', ${SANS}`,
-    numeric: `'Italiana', ${SERIF}`,
-    body: `'Raleway', ${SANS}`,
-  },
-  {
-    id: 'vanguarda',
-    name: 'Vanguarda',
-    note: 'Syne + Space Grotesk · ousada e contemporânea, fintech de alto padrão',
-    display: `'Syne', ${SANS}`,
-    label: `'Space Grotesk', ${SANS}`,
-    numeric: `'Syne', ${SANS}`,
-    body: `'Space Grotesk', ${SANS}`,
-  },
-  {
-    id: 'suico',
-    name: 'Suíço',
-    note: 'Unbounded + Outfit · largas e geométricas, minimalismo de estúdio',
-    display: `'Unbounded', ${SANS}`,
-    label: `'Unbounded', ${SANS}`,
-    numeric: `'Unbounded', ${SANS}`,
-    body: `'Outfit', ${SANS}`,
-  },
-  {
-    id: 'engenharia',
-    name: 'Engenharia',
-    note: 'IBM Plex Serif + Plex Sans + Plex Mono · técnica e precisa, números de terminal',
-    display: `'IBM Plex Serif', ${SERIF}`,
-    label: `'IBM Plex Mono', monospace`,
-    numeric: `'IBM Plex Mono', monospace`,
-    body: `'IBM Plex Sans', ${SANS}`,
   },
 ];
 

@@ -148,9 +148,8 @@ export function SettingsView() {
 
   // Lista de abas com controle estrito de RBAC
   const availableTabs = [
+    // Filiais ficam em Configurações → Filiais; IA em Configurações → Plataforma
     { id: 'office', label: 'Dados do Escritório', icon: Building2 },
-    { id: 'ai', label: 'Agente AdvJuris & IA', icon: Sparkles },
-    ...(isDevUser ? [{ id: 'multitenant', label: 'Multi-Escritórios (Exclusivo Dev/TI)', icon: Layers }] : []),
     { id: 'areas', label: 'Áreas Jurídicas', icon: Scale },
     { id: 'system', label: 'Dados & Sistema', icon: RotateCcw },
   ];

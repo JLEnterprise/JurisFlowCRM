@@ -560,7 +560,7 @@ function ClosedLeadsSheet({ type, items, period, onEditLead, onReopen, getUserNa
 
   const exportCsv = () => {
     const header = ['Data de fechamento', 'Lead', 'Área', 'Origem', 'Responsável', 'Valor (R$)', 'Telefone', 'E-mail'];
-    if (!isWon) header.push('Motivo da perda');
+    if (!isWon) header.push('Perdido em', 'Motivo da perda');
     const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = items.map(l => {
       const row = [
@@ -573,7 +573,7 @@ function ClosedLeadsSheet({ type, items, period, onEditLead, onReopen, getUserNa
         l.whatsapp || l.phone || '',
         l.email || '',
       ];
-      if (!isWon) row.push(l.lossReason || '');
+      if (!isWon) row.push(KANBAN_STAGES.find(s => s.id === l.lostFromStage)?.name || '', l.lossReason || '');
       return row.map(esc).join(';');
     });
     // BOM + ";" para o Excel em português abrir com acentos e colunas certas
@@ -644,6 +644,7 @@ function ClosedLeadsSheet({ type, items, period, onEditLead, onReopen, getUserNa
                 <th className="px-4 py-3">Lead</th>
                 <th className="px-4 py-3">Área</th>
                 <th className="px-4 py-3">Responsável</th>
+                {!isWon && <th className="px-4 py-3">Perdido em</th>}
                 {!isWon && <th className="px-4 py-3">Motivo</th>}
                 <th className="px-4 py-3 text-right">Valor</th>
                 <th className="px-4 py-3 text-right">Ações</th>
@@ -654,7 +655,7 @@ function ClosedLeadsSheet({ type, items, period, onEditLead, onReopen, getUserNa
               return (
                 <tbody key={monthKey}>
                   <tr className="bg-slate-50 dark:bg-white/[0.03] border-t border-slate-100 dark:border-white/[0.05]">
-                    <td colSpan={isWon ? 4 : 5} className="px-4 py-2 font-display text-sm font-semibold text-slate-800 dark:text-gold-100">
+                    <td colSpan={isWon ? 4 : 6} className="px-4 py-2 font-display text-sm font-semibold text-slate-800 dark:text-gold-100">
                       {monthKey === 'sem-data' ? 'Sem data' : formatMonthKey(monthKey)}
                       <span className="ml-2 font-sans text-[11px] font-medium text-slate-400">
                         {monthLeads.length} {monthLeads.length === 1 ? 'lead' : 'leads'}
@@ -677,6 +678,11 @@ function ClosedLeadsSheet({ type, items, period, onEditLead, onReopen, getUserNa
                       </td>
                       <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{getAreaName(l.legalArea)}</td>
                       <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{getUserName(l.assignedTo)}</td>
+                      {!isWon && (
+                        <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                          {KANBAN_STAGES.find(s => s.id === l.lostFromStage)?.name || '—'}
+                        </td>
+                      )}
                       {!isWon && (
                         <td className="px-4 py-2.5 text-rose-600 dark:text-rose-400 max-w-[220px] truncate" title={l.lossReason}>
                           {l.lossReason || 'Não informado'}

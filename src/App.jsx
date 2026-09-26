@@ -55,7 +55,7 @@ import { UserProfileModal } from './components/common/UserProfileModal';
 
 export function App() {
   const { isAuthenticated, currentUser, permissions } = useAuth();
-  const { toast, hideToast, initialSupabaseSyncDone, currentEscritorioId } = useCRM();
+  const { toast, hideToast, initialSupabaseSyncDone, currentEscritorioId, isConsolidated, switchEscritorio, ownEscritorioId } = useCRM();
 
   // Navigation state
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -536,6 +536,15 @@ export function App() {
         {/* Dynamic Main Body with Smooth Scroll */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl">
+            {isConsolidated && (
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-gold-500/30 bg-gold-500/[0.07] px-4 py-2.5 text-xs text-slate-700 dark:text-slate-200">
+                <span>
+                  <b className="text-slate-900 dark:text-white">Visão consolidada:</b> você está vendo a matriz e as filiais juntas.
+                  Novos cadastros vão para a <b>matriz</b> — para cadastrar numa filial, escolha a filial no topo.
+                </span>
+                <button type="button" onClick={() => switchEscritorio(ownEscritorioId)} className="premium-link">Voltar para a matriz</button>
+              </div>
+            )}
             <ErrorBoundary
               key={currentTab}
               onReset={() => {

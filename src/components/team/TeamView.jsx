@@ -74,7 +74,9 @@ export const SYSTEM_ROLES = [
 ];
 
 export function TeamView() {
-  const { users = [], createUser, updateUser, deleteUser, currentUser, resetPassword } = useAuth();
+  const { users: allUsers = [], createUser, updateUser, deleteUser, currentUser, resetPassword } = useAuth();
+  // Numa filial, o dono entra na lista geral só como responsável possível; aqui aparece só a equipe da filial
+  const users = allUsers.filter(u => !u.fromMatriz);
   const { leads = [], contracts = [], showToast, logActivity } = useCRM();
 
   const [searchTerm, setSearchTerm] = useState('');
