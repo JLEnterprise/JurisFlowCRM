@@ -44,7 +44,6 @@ export function SettingsView() {
     leadSources,
     addLeadSource,
     removeLeadSource,
-    resetAllData,
     showToast,
     logActivity,
     supabaseConnected,
@@ -135,15 +134,6 @@ export function SettingsView() {
     }
     showToast('Canal de captação "' + newSourceName.trim() + '" adicionado!');
     setNewSourceName('');
-  };
-
-  const handleConfirmReset = () => {
-    resetAllData();
-    if (logActivity) {
-      logActivity('Restauração de Dados', 'Seed Original', 'Base limpa inicial restaurada.');
-    }
-    showToast('Base de dados restaurada com sucesso!');
-    setResetConfirmOpen(false);
   };
 
   // Lista de abas com controle estrito de RBAC
@@ -520,43 +510,16 @@ export function SettingsView() {
           <div className="rounded-3xl bg-white dark:bg-navy-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Manutenção da Base & Restauração</h3>
-                <p className="text-xs text-slate-500">Ferramentas de diagnóstico, integridade e limpeza do banco de dados</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Base de dados</h3>
+                <p className="text-xs text-slate-500">Informações sobre o armazenamento dos dados</p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-4 dark:border-rose-900/40 dark:bg-rose-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h4 className="text-xs font-bold text-rose-900 dark:text-rose-300">Restaurar Dados Originais de Demonstração</h4>
-                <p className="text-[11px] text-rose-700 dark:text-rose-400">
-                  Restaura os clientes, contratos e tarefas de exemplo da base original limpa.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setResetConfirmOpen(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Restaurar Dados
-              </button>
-            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Os dados do escritório ficam guardados no banco e são compartilhados com toda a equipe.</p>
           </div>
         </div>
       )}
 
-      {/* Confirmation Modals */}
-      {resetConfirmOpen && (
-        <ConfirmModal
-          isOpen={resetConfirmOpen}
-          onClose={() => setResetConfirmOpen(false)}
-          onConfirm={handleConfirmReset}
-          title="Restaurar Banco de Dados"
-          message="Tem certeza que deseja restaurar a base de demonstração? Dados criados localmente serão reiniciados."
-          confirmText="Restaurar"
-          isDanger
-        />
-      )}
     </div>
   );
 }

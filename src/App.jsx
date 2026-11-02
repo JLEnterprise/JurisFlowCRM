@@ -42,6 +42,7 @@ import { TaskList } from './components/tasks/TaskList';
 import { TaskModal } from './components/tasks/TaskModal';
 
 import { DocumentManager } from './components/documents/DocumentManager';
+import { TemplatesView } from './components/templates/TemplatesView';
 import { FinancialOverview } from './components/financial/FinancialOverview';
 import { ReportsView } from './components/reports/ReportsView';
 import { TeamView } from './components/team/TeamView';
@@ -346,6 +347,7 @@ export function App() {
       attendance: ['canAccessAttendance', 'Atendimentos'],
       agenda: ['canAccessAgenda', 'Agenda & Audiências'],
       tasks: ['canAccessTasks', 'Prazos & Tarefas'],
+      templates: ['canAccessTemplates', 'Modelos'],
     };
     const gate = TAB_PERMISSION[currentTab];
     if (gate && permissions && !permissions[gate[0]]) {
@@ -455,6 +457,9 @@ export function App() {
           return renderAccessRestricted('Gestão de Documentos', 'Advogados, Financeiro, Secretaria, Sócia Administradora e Dev');
         }
         return <DocumentManager />;
+
+      case 'templates':
+        return <TemplatesView />;
 
       case 'financial':
         if (!permissions?.canAccessFinancial) {

@@ -42,7 +42,7 @@ export function WhatsAppModal({ isOpen, onClose, initialData = {} }) {
         processNumber: initialData.processNumber || '',
         updateSummary: initialData.updateSummary || 'Decisão proferida pelo magistrado.',
         dueDate: initialData.dueDate || new Date().toLocaleDateString('pt-BR'),
-        pixKey: initialData.pixKey || 'pix@escritorioadv.com.br',
+        pixKey: initialData.pixKey || '',
         officeName: initialData.officeName || 'JurisFlow Advocacia & Consultoria',
       });
 
@@ -66,7 +66,7 @@ export function WhatsAppModal({ isOpen, onClose, initialData = {} }) {
         processNumber: initialData.processNumber || '',
         updateSummary: initialData.updateSummary || 'Decisão proferida pelo magistrado.',
         dueDate: initialData.dueDate || new Date().toLocaleDateString('pt-BR'),
-        pixKey: initialData.pixKey || 'pix@escritorioadv.com.br',
+        pixKey: initialData.pixKey || '',
         officeName: initialData.officeName || 'JurisFlow Advocacia & Consultoria',
       });
       setMessageText(generated);

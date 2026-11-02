@@ -447,7 +447,11 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
   // Criar Prazo Fatal a partir da Publicação Analisada
   const handleCreateTaskFromPub = () => {
     if (!pubResult) return;
-    const days = pubResult.days || 15;
+    const days = pubResult.days;
+    if (!days) {
+      showToast('O prazo não foi identificado no texto. Crie a tarefa em Prazos & Tarefas com a data conferida.', 'warning', 6000);
+      return;
+    }
     const isPenal = pubResult.type === 'penal';
 
     const dueDate = new Date();
@@ -465,11 +469,11 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
     }
 
     const taskPayload = {
-      title: `Prazo Fatal (${days}d): ${pubResult.action || 'Manifestação nos Autos'} - Proc. ${pubResult.processNumber || 'Judicial'}`,
+      title: `Conferir prazo (${days}d): ${pubResult.action || 'Manifestação nos Autos'} - Proc. ${pubResult.processNumber || 'Judicial'}`,
       dueDate: dueDate.toISOString().split('T')[0],
       priority: 'high',
       status: 'pending',
-      description: `Publicação Judicial Analisada:\n${pubResult.text.slice(0, 350)}...`
+      description: `Data estimada sem considerar feriados e suspensões: confira antes de confiar nela.\n\nPublicação Judicial Analisada:\n${pubResult.text.slice(0, 350)}...`
     };
 
     if (typeof onAddTask === 'function') {
@@ -478,7 +482,7 @@ Estou **100% ativo e pronto para te atender**, integrado à sua base de dados de
       addTask(taskPayload);
     }
 
-    showToast(`Prazo de ${days} dias registrado no CRM com sucesso! (Limite: ${dueDate.toLocaleDateString('pt-BR')})`, 'success');
+    showToast(`Tarefa criada com data estimada de ${dueDate.toLocaleDateString('pt-BR')}. Confira feriados e suspensões do tribunal.`, 'success', 6000);
   };
 
   // Analisar Publicação

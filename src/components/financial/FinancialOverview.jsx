@@ -296,7 +296,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
         value: inst.amount || inst.value || 0,
         dueDate: formatDate(inst.dueDate || inst.due_date),
         officeName: officeSettings.officeName || 'JurisFlow Advocacia & Consultoria',
-        pixKey: officeSettings.pixKey || 'pix@escritorioadv.com.br',
+        pixKey: officeSettings.pixKey || '',
       });
     } else {
       alert(`Abrindo cobrança para ${inst.clientName}:\nValor: ${formatCurrency(inst.amount || inst.value)}\nVencimento: ${formatDate(inst.dueDate || inst.due_date)}`);
