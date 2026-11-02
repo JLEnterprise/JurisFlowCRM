@@ -205,9 +205,13 @@ export function CRMProvider({ children }) {
         setOfficeSettings(cloudSettings[0]);
       }
       // Áreas personalizadas do escritório (a lista padrão entra sempre, via mergeLegalAreas)
-      if (Array.isArray(cloudLegalAreas) && cloudLegalAreas.length > 0) {
-        setLegalAreas(cloudLegalAreas);
-      }
+      if (Array.isArray(cloudLegalAreas)) setLegalAreas(cloudLegalAreas);
+      const [cloudSources, cloudLogs] = await Promise.all([
+        storageService.fetchFromSupabase('lead_sources', [], escritorioId),
+        storageService.fetchFromSupabase('activity_logs', [], escritorioId),
+      ]);
+      if (Array.isArray(cloudSources)) setLeadSources(cloudSources);
+      if (Array.isArray(cloudLogs)) setActivityLogs(cloudLogs);
       setCloudLoadedAt(Date.now());
     } catch (err) {
       console.warn('Erro ao carregar dados remotos do escritorio:', err);
@@ -367,7 +371,13 @@ export function CRMProvider({ children }) {
         }
         // Áreas personalizadas do escritório (a lista padrão entra sempre, via mergeLegalAreas)
         const cloudLegalAreas = await storageService.fetchFromSupabase('legal_areas', [], targetEscritorioId);
-        if (Array.isArray(cloudLegalAreas) && cloudLegalAreas.length > 0) setLegalAreas(cloudLegalAreas);
+        if (Array.isArray(cloudLegalAreas)) setLegalAreas(cloudLegalAreas);
+        const [cloudSources, cloudLogs] = await Promise.all([
+          storageService.fetchFromSupabase('lead_sources', [], targetEscritorioId),
+          storageService.fetchFromSupabase('activity_logs', [], targetEscritorioId),
+        ]);
+        if (Array.isArray(cloudSources)) setLeadSources(cloudSources);
+        if (Array.isArray(cloudLogs)) setActivityLogs(cloudLogs);
 
         setSupabaseConnected(true);
         // Dados da nuvem carregados: dispara a renovação dos contratos mensais
@@ -445,129 +455,129 @@ export function CRMProvider({ children }) {
     installments: setInstallments,
     documents: setDocuments,
     escritorios: setEscritorios,
+    legal_areas: setLegalAreas,
+    lead_sources: setLeadSources,
+    activity_logs: setActivityLogs,
     office_settings: (data) => {
       if (Array.isArray(data) && data.length > 0) setOfficeSettings(data[0]);
       else if (data && !Array.isArray(data)) setOfficeSettings(data);
     },
   });
 
+  // Visão atual, lida pelos eventos sem precisar recriar o canal a cada troca
+  const officeScopeRef = useRef(null);
+  officeScopeRef.current = officeScope;
+  const refreshTimersRef = useRef({});
+  const lastFullRefreshRef = useRef(0);
+
+  // Busca de novo uma tabela no banco. Em falha mantém o que está na tela.
+  const refreshTable = useCallback(async (table) => {
+    const activeEscritorio = storageService.getCurrentEscritorioId();
+    if (!activeEscritorio) return;
+    const consolidated = officeScopeRef.current === ALL_OFFICES && table !== 'office_settings';
+    try {
+      const refreshed = await storageService.fetchFromSupabase(table, [], activeEscritorio, { strict: true, allAccessible: consolidated });
+      const setter = stateSettersRef.current[table];
+      if (setter) setter(refreshed);
+    } catch (err) {
+      console.warn(`[Atualização ${table}]:`, err.message);
+    }
+  }, []);
+
+  // Várias alterações seguidas (ex.: as parcelas de um contrato) viram uma busca só
+  const scheduleRefresh = useCallback((table) => {
+    clearTimeout(refreshTimersRef.current[table]);
+    refreshTimersRef.current[table] = setTimeout(() => refreshTable(table), 500);
+  }, [refreshTable]);
+
+  const WATCHED_TABLES = useRef([
+    'leads', 'clients', 'contracts', 'proposals', 'processes',
+    'tasks', 'appointments', 'attendances', 'installments',
+    'documents', 'office_settings', 'escritorios',
+    'legal_areas', 'lead_sources', 'activity_logs',
+  ]).current;
+
+  const refreshEverything = useCallback(() => {
+    if (!isSyncReadyRef.current) return;
+    lastFullRefreshRef.current = Date.now();
+    WATCHED_TABLES.forEach(table => scheduleRefresh(table));
+  }, [WATCHED_TABLES, scheduleRefresh]);
+
+  // Canal de tempo real: o que outro computador grava aparece aqui sem recarregar
+  const [channelAttempt, setChannelAttempt] = useState(0);
+  const currentUserId = currentUser?.id || null;
+
   useEffect(() => {
+    if (!currentUserId) return undefined;
     let mounted = true;
+    let retryTimer = null;
 
-    const tablesToWatch = [
-      'leads', 'clients', 'contracts', 'proposals', 'processes',
-      'tasks', 'appointments', 'attendances', 'installments',
-      'documents', 'office_settings', 'escritorios'
-    ];
-
-    // Handler centralizado de realtime
-    const handleRealtimeEvent = async (table, payload) => {
+    const handleRealtimeEvent = (table, payload) => {
       if (!mounted) return;
-      try {
-        console.info(`[Realtime] Evento recebido na tabela ${table}:`, payload.eventType);
-
-        // Se for DELETE, remove imediatamente do state sem disparar refetch com race condition
-        if (payload.eventType === 'DELETE') {
-          const deletedId = payload.old?.id;
-          if (deletedId) {
-            storageService.markAsDeleted(deletedId);
-            const setter = stateSettersRef.current[table];
-            if (setter) {
-              setter(prev => Array.isArray(prev) ? prev.filter(item => String(item.id) !== String(deletedId)) : prev);
-            }
-          }
-          return;
-        }
-
-        const activeEscritorio = storageService.getCurrentEscritorioId();
-
-        // ISOLAMENTO MULTI-TENANT ESTRITO EM TEMPO REAL:
-        // Ignora sumariamente qualquer evento gerado por outro escritório
-        const payloadEscritorio = payload.new?.escritorio_id || payload.old?.escritorio_id;
-        if (payloadEscritorio && activeEscritorio && payloadEscritorio !== activeEscritorio) {
-          return;
-        }
-
-        const refreshed = await storageService.fetchFromSupabase(table, [], activeEscritorio);
-        if (!mounted || !refreshed) return;
-
-        // Marca que esta atualização vem do realtime — os useEffects de persist
-        // NÃO devem chamar syncToSupabase novamente para evitar loop infinito
-        isRealtimeUpdateRef.current = true;
-
+      if (payload.eventType === 'DELETE') {
+        const deletedId = payload.old?.id;
         const setter = stateSettersRef.current[table];
-        if (setter) {
-          setter(refreshed);
+        if (deletedId && setter && table !== 'office_settings') {
+          setter(prev => (Array.isArray(prev) ? prev.filter(item => String(item.id) !== String(deletedId)) : prev));
         }
-
-        // Reseta a flag após o React processar o setState
-        requestAnimationFrame(() => {
-          isRealtimeUpdateRef.current = false;
-        });
-      } catch (err) {
-        console.warn(`[Realtime Sync Warning ${table}]:`, err.message);
+        return;
       }
+      // Isolamento multi-tenant: fora da visão consolidada, ignora evento de outro escritório
+      const activeEscritorio = storageService.getCurrentEscritorioId();
+      const payloadEscritorio = payload.new?.escritorio_id;
+      if (officeScopeRef.current !== ALL_OFFICES && payloadEscritorio && activeEscritorio && payloadEscritorio !== activeEscritorio) {
+        return;
+      }
+      scheduleRefresh(table);
     };
 
-    // Cria o canal realtime com tracking de status
-    const crmChannel = supabase.channel('realtime_crm_data_changes', {
-      config: { broadcast: { self: false } }
-    });
-
-    tablesToWatch.forEach(table => {
-      crmChannel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
-        (payload) => handleRealtimeEvent(table, payload)
-      );
+    const crmChannel = supabase.channel(`realtime_crm_${currentUserId}_${channelAttempt}`);
+    WATCHED_TABLES.forEach((table) => {
+      crmChannel.on('postgres_changes', { event: '*', schema: 'public', table }, payload => handleRealtimeEvent(table, payload));
     });
 
     crmChannel.subscribe((status) => {
+      if (!mounted) return;
+      const wasDown = subscriptionStatusRef.current !== 'SUBSCRIBED' && subscriptionStatusRef.current !== 'closed';
       subscriptionStatusRef.current = status;
-      console.info('[Realtime] Status da subscription:', status);
       if (status === 'SUBSCRIBED') {
-        console.info('[Realtime] ✅ Canal ativo — sincronização em tempo real funcionando');
-      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-        console.warn('[Realtime] ⚠️ Canal fechado/erro — tentando reconectar em 5s...');
-        setTimeout(() => {
-          if (mounted) {
-            crmChannel.subscribe();
-          }
-        }, 5000);
+        // Voltou depois de queda: busca o que mudou enquanto estava fora do ar
+        if (wasDown) refreshEverything();
+      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => { if (mounted) setChannelAttempt(n => n + 1); }, 5000);
       }
     });
 
-    // Polling de fallback a cada 30s caso o realtime perca conexão silenciosamente
-    pollingIntervalRef.current = setInterval(async () => {
-      if (!mounted) return;
-      if (subscriptionStatusRef.current !== 'SUBSCRIBED') {
-        console.info('[Polling Fallback] Realtime offline — buscando dados do Supabase...');
-        try {
-          const activeEscritorio = storageService.getCurrentEscritorioId();
-          const refreshPromises = tablesToWatch
-            .filter(t => t !== 'escritorios' && t !== 'office_settings')
-            .map(async (table) => {
-              const data = await storageService.fetchFromSupabase(table, [], activeEscritorio);
-              if (data && mounted) {
-                isRealtimeUpdateRef.current = true;
-                const setter = stateSettersRef.current[table];
-                if (setter) setter(data);
-                requestAnimationFrame(() => { isRealtimeUpdateRef.current = false; });
-              }
-            });
-          await Promise.allSettled(refreshPromises);
-        } catch (err) {
-          console.warn('[Polling Fallback] Erro:', err.message);
-        }
-      }
+    // Sem tempo real, busca a cada 30 s para ninguém trabalhar com dado velho
+    pollingIntervalRef.current = setInterval(() => {
+      if (mounted && subscriptionStatusRef.current !== 'SUBSCRIBED') refreshEverything();
     }, 30000);
 
     return () => {
       mounted = false;
+      clearTimeout(retryTimer);
       if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
       supabase.removeChannel(crmChannel);
     };
-  }, []);
+  }, [currentUserId, channelAttempt, WATCHED_TABLES, scheduleRefresh, refreshEverything]);
+
+  // Ao voltar para a aba ou a internet voltar: envia o que ficou pendente e busca o que mudou
+  useEffect(() => {
+    const catchUp = () => {
+      if (document.visibilityState === 'hidden') return;
+      storageService.flushOutbox();
+      if (Date.now() - lastFullRefreshRef.current > 60000) refreshEverything();
+    };
+    window.addEventListener('focus', catchUp);
+    window.addEventListener('online', catchUp);
+    document.addEventListener('visibilitychange', catchUp);
+    return () => {
+      window.removeEventListener('focus', catchUp);
+      window.removeEventListener('online', catchUp);
+      document.removeEventListener('visibilitychange', catchUp);
+    };
+  }, [refreshEverything]);
 
   // Global filters & UI state
   // Filtro de período global (ver utils/period.js). Começa em "todo o período" para nada sumir sem querer.
@@ -633,9 +643,41 @@ export function CRMProvider({ children }) {
     }
   }, []);
 
+  // Gravação que não chegou ao banco nunca fica parecendo salva
+  const [pendingSync, setPendingSync] = useState(0);
+  useEffect(() => {
+    storageService.setOutboxOwner(currentUserId);
+    setPendingSync(storageService.getPendingSyncCount());
+    const unsubscribe = storageService.subscribeSync((event) => {
+      setPendingSync(event.pending);
+      if (event.type === 'queued') {
+        showToast('Sem conexão: a alteração está guardada neste computador e será enviada assim que a internet voltar.', 'warning', 6000);
+      } else if (event.type === 'denied') {
+        showToast('Seu cargo não tem permissão para esta alteração. Ela não foi salva.', 'danger', 6000);
+        if (event.table) scheduleRefresh(event.table);
+      } else if (event.type === 'failed') {
+        showToast('Não foi possível salvar esta alteração. Confira e tente novamente.', 'danger', 6000);
+        if (event.table) scheduleRefresh(event.table);
+      }
+    });
+    const retry = setInterval(() => storageService.flushOutbox(), 30000);
+    storageService.flushOutbox();
+    const warnIfSaving = (e) => {
+      if (!storageService.isSaving()) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnIfSaving);
+    return () => {
+      unsubscribe();
+      clearInterval(retry);
+      window.removeEventListener('beforeunload', warnIfSaving);
+    };
+  }, [currentUserId, showToast, scheduleRefresh]);
+
   const logActivity = useCallback((action, target, details) => {
     const newLog = {
-      id: `log_${Date.now()}`,
+      id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       escritorio_id: currentEscritorioId,
       userName: currentUser?.name || 'Sistema',
       userRole: currentUser?.role || 'admin',
@@ -649,7 +691,44 @@ export function CRMProvider({ children }) {
       storageService.saveData('activity_logs', next);
       return next;
     });
+    storageService.saveToSupabase('activity_logs', [newLog], { silent: true });
   }, [currentUser, currentEscritorioId]);
+
+  // Altera um registro e devolve o resultado. O cálculo fica FORA do setState de propósito: o React
+  // pode adiar a função passada ao setState, e quem lia o resultado logo depois recebia "nada" e não
+  // enviava a alteração ao banco (ficava só na tela de quem editou).
+  const listsRef = useRef({});
+  listsRef.current = { leads, clients, contracts, proposals, processes, tasks, appointments, attendances, installments, documents };
+
+  const patchRecord = (table, setter, id, build) => {
+    const list = listsRef.current[table] || [];
+    const current = list.find(item => String(item.id) === String(id));
+    if (!current) return null;
+    const updated = build(current);
+    listsRef.current[table] = list.map(item => (String(item.id) === String(id) ? updated : item));
+    setter((prev) => {
+      const next = prev.map(item => (String(item.id) === String(id) ? updated : item));
+      storageService.saveData(table, next);
+      return next;
+    });
+    storageService.saveToSupabase(table, [updated]);
+    return updated;
+  };
+
+  // Clientes de um lançamento: pelo id; só pelo nome quando o lançamento não tem id (há homônimos)
+  const patchClientOf = (record, build) => {
+    const clientId = record.clientId || record.client_id;
+    const name = String(record.clientName || record.client_name || '').trim().toLowerCase();
+    const targets = (listsRef.current.clients || []).filter(c => (clientId
+      ? String(c.id) === String(clientId)
+      : (name && String(c.name || '').trim().toLowerCase() === name)));
+    targets.forEach(c => patchRecord('clients', setClients, c.id, build));
+  };
+
+  const addToClientPaid = (record, amount) => patchClientOf(record, (c) => {
+    const total = Math.max(0, (Number(c.totalPaid || c.total_paid) || 0) + amount);
+    return { ...c, totalPaid: total, total_paid: total };
+  });
 
   // --- MULTI-TENANT ACTIONS ---
   // Filial nova: fica ligada à matriz (escritório do dono) e já nasce com as configurações próprias
@@ -752,21 +831,7 @@ export function CRMProvider({ children }) {
   };
 
   const updateLead = (id, leadData) => {
-    let updatedLead = null;
-    setLeads(prev => {
-      const next = prev.map(l => {
-        if (l.id === id) {
-          updatedLead = { ...l, ...leadData, escritorio_id: l.escritorio_id || currentEscritorioId };
-          return updatedLead;
-        }
-        return l;
-      });
-      storageService.saveData('leads', next);
-      return next;
-    });
-    if (updatedLead) {
-      storageService.saveToSupabase('leads', [updatedLead]);
-    }
+    patchRecord('leads', setLeads, id, l => ({ ...l, ...leadData, escritorio_id: l.escritorio_id || currentEscritorioId }));
     logActivity('Lead Atualizado', leadData.name || id, 'Informacoes atualizadas');
     showToast('Lead atualizado com sucesso!');
   };
@@ -777,38 +842,21 @@ export function CRMProvider({ children }) {
       typeof extra === 'string' ? { subStage: extra } : (extra || {});
     const today = new Date().toISOString().split('T')[0];
     const isClosedStage = newStage === 'contrato_fechado' || newStage === 'perdido';
-    let updatedLead = null;
-    setLeads(prev => {
-      const lead = prev.find(l => l.id === leadId);
-      const next = prev.map(l => {
-        if (l.id === leadId) {
-          updatedLead = {
-            ...l,
-            stage: newStage,
-            subStage: newSubStage || l.subStage,
-            lastContactDate: today,
-            // Data em que o lead foi ganho/perdido: base dos relatórios por período
-            closedAt: isClosedStage ? (l.stage === newStage && l.closedAt ? l.closedAt : today) : null,
-            lossReason: newStage === 'perdido' ? (lossReason ?? l.lossReason ?? '') : '',
-            // Etapa em que o lead estava quando foi perdido (o funil mostra onde ele "caiu")
-            lostFromStage: newStage === 'perdido'
-              ? (l.stage !== 'perdido' ? l.stage : (l.lostFromStage || null))
-              : null,
-            escritorio_id: l.escritorio_id || currentEscritorioId
-          };
-          return updatedLead;
-        }
-        return l;
-      });
-      storageService.saveData('leads', next);
-      if (lead) {
-        logActivity('Lead Movido', lead.name, `Etapa: ${newStage}`);
-      }
-      return next;
-    });
-    if (updatedLead) {
-      storageService.saveToSupabase('leads', [updatedLead]);
-    }
+    const updatedLead = patchRecord('leads', setLeads, leadId, l => ({
+      ...l,
+      stage: newStage,
+      subStage: newSubStage || l.subStage,
+      lastContactDate: today,
+      // Data em que o lead foi ganho/perdido: base dos relatórios por período
+      closedAt: isClosedStage ? (l.stage === newStage && l.closedAt ? l.closedAt : today) : null,
+      lossReason: newStage === 'perdido' ? (lossReason ?? l.lossReason ?? '') : '',
+      // Etapa em que o lead estava quando foi perdido (o funil mostra onde ele "caiu")
+      lostFromStage: newStage === 'perdido'
+        ? (l.stage !== 'perdido' ? l.stage : (l.lostFromStage || null))
+        : null,
+      escritorio_id: l.escritorio_id || currentEscritorioId,
+    }));
+    if (updatedLead) logActivity('Lead Movido', updatedLead.name, `Etapa: ${newStage}`);
   };
 
   const deleteLead = (id) => {
@@ -844,21 +892,7 @@ export function CRMProvider({ children }) {
   };
 
   const updateClient = (id, clientData) => {
-    let updatedClient = null;
-    setClients(prev => {
-      const next = prev.map(c => {
-        if (c.id === id) {
-          updatedClient = { ...c, ...clientData, escritorio_id: c.escritorio_id || currentEscritorioId };
-          return updatedClient;
-        }
-        return c;
-      });
-      storageService.saveData('clients', next);
-      return next;
-    });
-    if (updatedClient) {
-      storageService.saveToSupabase('clients', [updatedClient]);
-    }
+    patchRecord('clients', setClients, id, c => ({ ...c, ...clientData, escritorio_id: c.escritorio_id || currentEscritorioId }));
     logActivity('Cliente Atualizado', clientData.name || id, 'Dados atualizados');
     showToast('Cliente atualizado com sucesso!');
   };
@@ -894,7 +928,7 @@ export function CRMProvider({ children }) {
 
   const addContract = (contractData) => {
     const now = Date.now();
-    const contractNumber = contractData.contractNumber || contractData.contract_number || `CTR-2026/${String(now).slice(-4)}`;
+    const contractNumber = contractData.contractNumber || contractData.contract_number || `CTR-${new Date().getFullYear()}/${String(now).slice(-4)}`;
 
     // Auto-associação com cliente existente caso o clientId não tenha sido passado
     let finalClientId = contractData.clientId || contractData.client_id || null;
@@ -964,18 +998,9 @@ export function CRMProvider({ children }) {
 
     // Atualizar totalContracted do cliente
     if (finalClientId) {
-      setClients(prev => {
-        const next = prev.map(cl => {
-          if (String(cl.id) === String(finalClientId)) {
-            const newTotal = (Number(cl.totalContracted || cl.total_contracted) || 0) + contractValue;
-            const updated = { ...cl, totalContracted: newTotal, total_contracted: newTotal };
-            storageService.saveToSupabase('clients', [updated]);
-            return updated;
-          }
-          return cl;
-        });
-        storageService.saveData('clients', next);
-        return next;
+      patchClientOf({ clientId: finalClientId }, (cl) => {
+        const newTotal = (Number(cl.totalContracted || cl.total_contracted) || 0) + contractValue;
+        return { ...cl, totalContracted: newTotal, total_contracted: newTotal };
       });
     }
 
@@ -985,24 +1010,10 @@ export function CRMProvider({ children }) {
   };
 
   const updateContract = (id, contractData) => {
-    let updatedContract = null;
     const strId = String(id);
-    setContracts(prev => {
-      const next = prev.map(c => {
-        if (String(c.id) === strId) {
-          updatedContract = { ...c, ...contractData, escritorio_id: c.escritorio_id || currentEscritorioId };
-          return updatedContract;
-        }
-        return c;
-      });
-      storageService.saveData('contracts', next);
-      return next;
-    });
+    const updatedContract = patchRecord('contracts', setContracts, strId, c => ({ ...c, ...contractData, escritorio_id: c.escritorio_id || currentEscritorioId }));
 
     if (updatedContract) {
-      // Salva contrato no Supabase (com anexos devidamente sanitizados contra payload gigante)
-      storageService.saveToSupabase('contracts', [updatedContract]);
-
       // 1. Replicar anexos do contrato na coleção documents (GED Jurídico e Acervo do Cliente)
       const currentAtts = Array.isArray(updatedContract.attachments) ? updatedContract.attachments : [];
       if (currentAtts.length > 0) {
@@ -1157,23 +1168,12 @@ export function CRMProvider({ children }) {
       // 3. Atualizar métricas financeiras do cliente
       const cId = updatedContract.clientId || updatedContract.client_id;
       if (cId) {
-        setClients(prevClients => {
-          const nextClients = prevClients.map(cl => {
-            if (String(cl.id) === String(cId)) {
-              // Soma de todos os contratos vigentes deste cliente
-              const clientContractsList = contracts
-                .map(c => String(c.id) === strId ? updatedContract : c)
-                .filter(c => String(c.clientId || c.client_id) === String(cId));
-              const totalContractedSum = clientContractsList.reduce((acc, c) => acc + (Number(c.value) || 0), 0);
-              const upd = { ...cl, totalContracted: totalContractedSum, total_contracted: totalContractedSum };
-              storageService.saveToSupabase('clients', [upd]);
-              return upd;
-            }
-            return cl;
-          });
-          storageService.saveData('clients', nextClients);
-          return nextClients;
-        });
+        // Soma de todos os contratos vigentes deste cliente
+        const totalContractedSum = contracts
+          .map(c => (String(c.id) === strId ? updatedContract : c))
+          .filter(c => String(c.clientId || c.client_id) === String(cId))
+          .reduce((acc, c) => acc + (Number(c.value) || 0), 0);
+        patchClientOf({ clientId: cId }, cl => ({ ...cl, totalContracted: totalContractedSum, total_contracted: totalContractedSum }));
       }
     }
     logActivity('Contrato Atualizado', contractData.title || id, `Status: ${contractData.status} | Valor: R$ ${(Number(contractData.value) || 0).toLocaleString('pt-BR')}`);
@@ -1208,7 +1208,8 @@ export function CRMProvider({ children }) {
       storageService.saveData('documents', next);
       return next;
     });
-    supabase.from('documents').delete().like('id', `%${strId}%`).catch(() => {});
+    supabase.from('documents').delete().like('id', `doc_${strId}_%`)
+      .then(({ error }) => { if (error) console.warn('Erro ao excluir documentos do contrato:', error.message); });
 
     // Também remove as parcelas vinculadas ao contrato apagado (localmente e nuvem)
     setInstallments(prev => {
@@ -1216,25 +1217,14 @@ export function CRMProvider({ children }) {
       storageService.saveData('installments', next);
       return next;
     });
-    supabase.from('installments').delete().eq('contract_id', strId).catch(() => {});
 
     // Recalcular totalContracted do cliente
     if (contractToDelete && (contractToDelete.clientId || contractToDelete.client_id)) {
       const cId = contractToDelete.clientId || contractToDelete.client_id;
-      setClients(prevClients => {
-        const nextClients = prevClients.map(cl => {
-          if (String(cl.id) === String(cId)) {
-            const remainingContracts = contracts.filter(c => String(c.id) !== strId && String(c.clientId || c.client_id) === String(cId));
-            const newTotalContracted = remainingContracts.reduce((acc, c) => acc + (Number(c.value) || 0), 0);
-            const upd = { ...cl, totalContracted: newTotalContracted, total_contracted: newTotalContracted };
-            storageService.saveToSupabase('clients', [upd]);
-            return upd;
-          }
-          return cl;
-        });
-        storageService.saveData('clients', nextClients);
-        return nextClients;
-      });
+      const newTotalContracted = contracts
+        .filter(c => String(c.id) !== strId && String(c.clientId || c.client_id) === String(cId))
+        .reduce((acc, c) => acc + (Number(c.value) || 0), 0);
+      patchClientOf({ clientId: cId }, cl => ({ ...cl, totalContracted: newTotalContracted, total_contracted: newTotalContracted }));
     }
 
     showToast('Contrato excluído com sucesso.');
@@ -1267,7 +1257,7 @@ export function CRMProvider({ children }) {
         recurringMonths: leadIdOrPayload.recurringMonths,
         autoRenew: leadIdOrPayload.autoRenew,
         firstDueDate: leadIdOrPayload.firstDueDate,
-        responsibleLawyerId: leadIdOrPayload.responsibleLawyerId || 'usr_2',
+        responsibleLawyerId: leadIdOrPayload.responsibleLawyerId || currentUser?.id || null,
         signedDate: leadIdOrPayload.signedDate || new Date().toISOString().split('T')[0],
         observations: leadIdOrPayload.observations || '',
         status: 'assinado',
@@ -1314,7 +1304,7 @@ export function CRMProvider({ children }) {
     const now = Date.now();
     const contractValue = Number(contractData.value) || 0;
     const numInstallments = Number(contractData.installmentsCount) || 1;
-    const contractNumber = contractData.contractNumber || contractData.contract_number || `CTR-2026/${String(now).slice(-4)}`;
+    const contractNumber = contractData.contractNumber || contractData.contract_number || `CTR-${new Date().getFullYear()}/${String(now).slice(-4)}`;
     const contract = {
       ...contractData,
       id: contractData.id || `cnt_${now}`,
@@ -1413,7 +1403,8 @@ export function CRMProvider({ children }) {
       storageService.saveData('installments', next);
       return next;
     });
-    storageService.saveToSupabase('installments', created);
+    // Só cria: se outro computador já renovou (e alguém já deu baixa), não sobrescreve
+    storageService.saveToSupabase('installments', created, { insertOnly: true });
     renewedNames.forEach(name => logActivity('Contrato Renovado', name, 'Novo ciclo de mensalidades gerado automaticamente.'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cloudLoadedAt]);
@@ -1453,22 +1444,8 @@ export function CRMProvider({ children }) {
   };
 
   const updateProposal = (id, propData) => {
-    let updatedProp = null;
-    const strId = String(id);
-    setProposals(prev => {
-      const next = prev.map(p => {
-        if (String(p.id) === strId) {
-          updatedProp = { ...p, ...propData, escritorio_id: p.escritorio_id || currentEscritorioId };
-          return updatedProp;
-        }
-        return p;
-      });
-      storageService.saveData('proposals', next);
-      return next;
-    });
+    const updatedProp = patchRecord('proposals', setProposals, id, p => ({ ...p, ...propData, escritorio_id: p.escritorio_id || currentEscritorioId }));
     if (updatedProp) {
-      storageService.saveToSupabase('proposals', [updatedProp]);
-
       // Se a proposta foi marcada como aceita, converte para contrato caso ainda não exista para esta proposta
       if (updatedProp.status === 'aceita') {
         const val = Number(updatedProp.value || updatedProp.feeValue) || 0;
@@ -1518,27 +1495,8 @@ export function CRMProvider({ children }) {
       return next;
     });
 
-    // Expurgo assíncrono no Supabase (soft-delete seguro + tentativa de hard delete, com timeout não bloqueante)
-    try {
-      const ops = [];
-      if (strId) {
-        ops.push(supabase.from('proposals').update({ status: 'recusada', raw_data: { deleted: true, is_deleted: true } }).eq('id', strId));
-        ops.push(supabase.from('proposals').delete().eq('id', strId));
-        ops.push(storageService.deleteFromSupabase('proposals', strId));
-      }
-      if (strNumber && strNumber !== strId) {
-        ops.push(supabase.from('proposals').update({ status: 'recusada', raw_data: { deleted: true, is_deleted: true } }).eq('proposal_number', strNumber));
-        ops.push(supabase.from('proposals').delete().eq('proposal_number', strNumber));
-        ops.push(storageService.deleteFromSupabase('proposals', strNumber));
-      }
-      // Timeout seguro de 3s para garantir que nunca congele a UI caso haja lock no Supabase
-      await Promise.race([
-        Promise.allSettled(ops),
-        new Promise(resolve => setTimeout(resolve, 3000))
-      ]);
-    } catch (err) {
-      console.warn('Operação no Supabase (não bloqueante):', err);
-    }
+    if (strId) await storageService.deleteFromSupabase('proposals', strId);
+    if (strNumber && strNumber !== strId) await storageService.deleteFromSupabase('proposals', strNumber);
   };
 
   // --- PROCESSES ACTIONS ---
@@ -1563,21 +1521,12 @@ export function CRMProvider({ children }) {
   };
 
   const updateProcess = (id, procData) => {
-    let updatedProc = null;
-    setProcesses(prev => {
-      const next = prev.map(p => {
-        if (p.id === id) {
-          updatedProc = { ...p, ...procData, lastUpdateDate: new Date().toISOString().split('T')[0], escritorio_id: p.escritorio_id || currentEscritorioId };
-          return updatedProc;
-        }
-        return p;
-      });
-      storageService.saveData('processes', next);
-      return next;
-    });
-    if (updatedProc) {
-      storageService.saveToSupabase('processes', [updatedProc]);
-    }
+    patchRecord('processes', setProcesses, id, p => ({
+      ...p,
+      ...procData,
+      lastUpdateDate: new Date().toISOString().split('T')[0],
+      escritorio_id: p.escritorio_id || currentEscritorioId,
+    }));
     logActivity('Processo Atualizado', procData.processNumber || id, `Status: ${procData.status}`);
     showToast('Processo atualizado!');
   };
@@ -1613,51 +1562,28 @@ export function CRMProvider({ children }) {
   };
 
   const updateTask = (id, taskData) => {
-    let updatedTask = null;
-    setTasks(prev => {
-      const next = prev.map(t => {
-        if (t.id === id) {
-          updatedTask = { ...t, ...taskData, escritorio_id: t.escritorio_id || currentEscritorioId };
-          // Guarda quando a tarefa foi concluída (usado no resumo do dia do menu)
-          if (taskData.status === 'completed' && t.status !== 'completed') updatedTask.completedAt = new Date().toISOString();
-          if (taskData.status && taskData.status !== 'completed') updatedTask.completedAt = null;
-          return updatedTask;
-        }
-        return t;
-      });
-      storageService.saveData('tasks', next);
-      return next;
+    patchRecord('tasks', setTasks, id, (t) => {
+      const updatedTask = { ...t, ...taskData, escritorio_id: t.escritorio_id || currentEscritorioId };
+      // Guarda quando a tarefa foi concluída (usado no resumo do dia do menu)
+      if (taskData.status === 'completed' && t.status !== 'completed') updatedTask.completedAt = new Date().toISOString();
+      if (taskData.status && taskData.status !== 'completed') updatedTask.completedAt = null;
+      return updatedTask;
     });
-    if (updatedTask) {
-      storageService.saveToSupabase('tasks', [updatedTask]);
-    }
     logActivity('Tarefa Atualizada', taskData.title || id, `Prioridade: ${taskData.priority || 'media'}`);
     showToast('Tarefa atualizada com sucesso!');
   };
 
   const toggleTask = (id) => {
-    let toggledTask = null;
-    setTasks(prev => {
-      const next = prev.map(t => {
-        if (t.id === id) {
-          const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
-          if (nextStatus === 'completed') showToast('Tarefa concluida!');
-          toggledTask = {
-            ...t,
-            status: nextStatus,
-            completedAt: nextStatus === 'completed' ? new Date().toISOString() : null,
-            escritorio_id: t.escritorio_id || currentEscritorioId,
-          };
-          return toggledTask;
-        }
-        return t;
-      });
-      storageService.saveData('tasks', next);
-      return next;
+    const toggled = patchRecord('tasks', setTasks, id, (t) => {
+      const nextStatus = t.status === 'completed' ? 'pending' : 'completed';
+      return {
+        ...t,
+        status: nextStatus,
+        completedAt: nextStatus === 'completed' ? new Date().toISOString() : null,
+        escritorio_id: t.escritorio_id || currentEscritorioId,
+      };
     });
-    if (toggledTask) {
-      storageService.saveToSupabase('tasks', [toggledTask]);
-    }
+    if (toggled?.status === 'completed') showToast('Tarefa concluida!');
   };
 
   const deleteTask = (id) => {
@@ -1737,21 +1663,7 @@ export function CRMProvider({ children }) {
   };
 
   const updateAppointment = (id, updatedFields) => {
-    let updatedApt = null;
-    setAppointments(prev => {
-      const next = prev.map(a => {
-        if (a.id === id) {
-          updatedApt = { ...a, ...updatedFields, escritorio_id: a.escritorio_id || currentEscritorioId };
-          return updatedApt;
-        }
-        return a;
-      });
-      storageService.saveData('appointments', next);
-      return next;
-    });
-    if (updatedApt) {
-      storageService.saveToSupabase('appointments', [updatedApt]);
-    }
+    patchRecord('appointments', setAppointments, id, a => ({ ...a, ...updatedFields, escritorio_id: a.escritorio_id || currentEscritorioId }));
     logActivity('Compromisso Atualizado', updatedFields.title || 'Agenda', `Atualizado em ${new Date().toLocaleDateString('pt-BR')}`);
     showToast('Compromisso atualizado com sucesso!');
     return true;
@@ -1787,26 +1699,13 @@ export function CRMProvider({ children }) {
   };
 
   const updateAttendance = (id, updatedFields) => {
-    let updatedAtt = null;
-    setAttendances(prev => {
-      const next = prev.map(a => {
-        if (String(a.id) === String(id)) {
-          updatedAtt = {
-            ...a,
-            ...updatedFields,
-            id: a.id,
-            escritorio_id: a.escritorio_id || currentEscritorioId,
-          };
-          return updatedAtt;
-        }
-        return a;
-      });
-      storageService.saveData('attendances', next);
-      return next;
-    });
-
+    const updatedAtt = patchRecord('attendances', setAttendances, id, a => ({
+      ...a,
+      ...updatedFields,
+      id: a.id,
+      escritorio_id: a.escritorio_id || currentEscritorioId,
+    }));
     if (updatedAtt) {
-      storageService.saveToSupabase('attendances', [updatedAtt]);
       logActivity('Atendimento Atualizado', updatedAtt.clientName || 'Cliente', `Assunto: ${updatedAtt.subject || ''}`);
       showToast('Atendimento atualizado com sucesso!');
     }
@@ -1814,10 +1713,8 @@ export function CRMProvider({ children }) {
   };
 
   const deleteAttendance = (id) => {
-    let removedAtt = null;
+    const removedAtt = (listsRef.current.attendances || []).find(a => String(a.id) === String(id));
     setAttendances(prev => {
-      const target = prev.find(a => String(a.id) === String(id));
-      if (target) removedAtt = target;
       const next = prev.filter(a => String(a.id) !== String(id));
       storageService.saveData('attendances', next);
       return next;
@@ -1833,56 +1730,23 @@ export function CRMProvider({ children }) {
 
   // --- FINANCIAL ACTIONS ---
   const markInstallmentPaid = (installmentId) => {
-    let paidInst = null;
     const today = new Date().toISOString().split('T')[0];
-
-    setInstallments(prev => {
-      const next = prev.map(inst => {
-        if (String(inst.id) === String(installmentId)) {
-          paidInst = {
-            ...inst,
-            status: 'paid',
-            paidDate: today,
-            paid_date: today,
-            paymentDate: today,
-            payment_date: today,
-            escritorio_id: inst.escritorio_id || currentEscritorioId,
-          };
-          return paidInst;
-        }
-        return inst;
-      });
-      storageService.saveData('installments', next);
-      return next;
-    });
+    const before = (listsRef.current.installments || []).find(inst => String(inst.id) === String(installmentId));
+    const wasPaid = before?.status === 'paid';
+    const paidInst = patchRecord('installments', setInstallments, installmentId, inst => ({
+      ...inst,
+      status: 'paid',
+      paidDate: today,
+      paid_date: today,
+      paymentDate: today,
+      payment_date: today,
+      escritorio_id: inst.escritorio_id || currentEscritorioId,
+    }));
 
     if (paidInst) {
-      storageService.saveToSupabase('installments', [paidInst]);
-
       const instAmount = Number(paidInst.amount || paidInst.value) || 0;
-      // Atualiza o total liquidado do cliente se houver cliente vinculado
-      if (instAmount > 0) {
-        setClients(prev => {
-          const next = prev.map(c => {
-            const isMatch = (paidInst.clientId && String(c.id) === String(paidInst.clientId)) ||
-              (paidInst.clientName && c.name?.trim().toLowerCase() === paidInst.clientName?.trim().toLowerCase());
-            if (isMatch) {
-              const updatedTotalPaid = (Number(c.totalPaid || c.total_paid) || 0) + instAmount;
-              const updatedClient = {
-                ...c,
-                totalPaid: updatedTotalPaid,
-                total_paid: updatedTotalPaid,
-              };
-              storageService.saveToSupabase('clients', [updatedClient]);
-              return updatedClient;
-            }
-            return c;
-          });
-          storageService.saveData('clients', next);
-          return next;
-        });
-      }
-
+      // Atualiza o total liquidado do cliente (uma vez só, mesmo com clique repetido)
+      if (instAmount > 0 && !wasPaid) addToClientPaid(paidInst, instAmount);
       logActivity('Baixa de Parcela', paidInst.clientName || 'Cliente', `Parcela de R$ ${instAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} liquidada com sucesso.`);
     }
 
@@ -1894,53 +1758,20 @@ export function CRMProvider({ children }) {
   };
 
   const unmarkInstallmentPaid = (installmentId) => {
-    let revertedInst = null;
-    
-    setInstallments(prev => {
-      const next = prev.map(inst => {
-        if (String(inst.id) === String(installmentId) && inst.status === 'paid') {
-          revertedInst = {
-            ...inst,
-            status: 'pending',
-            paidDate: null,
-            paid_date: null,
-            paymentDate: null,
-            payment_date: null,
-          };
-          return revertedInst;
-        }
-        return inst;
-      });
-      storageService.saveData('installments', next);
-      return next;
-    });
+    const before = (listsRef.current.installments || []).find(inst => String(inst.id) === String(installmentId));
+    if (before?.status !== 'paid') return;
+    const revertedInst = patchRecord('installments', setInstallments, installmentId, inst => ({
+      ...inst,
+      status: 'pending',
+      paidDate: null,
+      paid_date: null,
+      paymentDate: null,
+      payment_date: null,
+    }));
 
     if (revertedInst) {
-      storageService.saveToSupabase('installments', [revertedInst]);
-
       const instAmount = Number(revertedInst.amount || revertedInst.value) || 0;
-      if (instAmount > 0) {
-        setClients(prev => {
-          const next = prev.map(c => {
-            const isMatch = (revertedInst.clientId && String(c.id) === String(revertedInst.clientId)) ||
-              (revertedInst.clientName && c.name?.trim().toLowerCase() === revertedInst.clientName?.trim().toLowerCase());
-            if (isMatch) {
-              const updatedTotalPaid = Math.max(0, (Number(c.totalPaid || c.total_paid) || 0) - instAmount);
-              const updatedClient = {
-                ...c,
-                totalPaid: updatedTotalPaid,
-                total_paid: updatedTotalPaid,
-              };
-              storageService.saveToSupabase('clients', [updatedClient]);
-              return updatedClient;
-            }
-            return c;
-          });
-          storageService.saveData('clients', next);
-          return next;
-        });
-      }
-
+      if (instAmount > 0) addToClientPaid(revertedInst, -instAmount);
       logActivity('Estorno de Parcela', revertedInst.clientName || 'Cliente', `Parcela de R$ ${instAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} estornada para pendente.`);
       showToast('Baixa cancelada. Parcela voltou a ficar pendente.');
     }
@@ -1948,7 +1779,7 @@ export function CRMProvider({ children }) {
 
   const deleteInstallment = (installmentId) => {
     const deletedInst = installments.find(i => String(i.id) === String(installmentId));
-    
+
     if (deletedInst) {
       setInstallments(prev => {
         const next = prev.filter(i => String(i.id) !== String(installmentId));
@@ -1957,29 +1788,9 @@ export function CRMProvider({ children }) {
       });
 
       storageService.deleteFromSupabase('installments', deletedInst.id);
-      
+
       const instAmount = Number(deletedInst.amount || deletedInst.value) || 0;
-      if (deletedInst.status === 'paid' && instAmount > 0) {
-        setClients(prev => {
-          const next = prev.map(c => {
-            const isMatch = (deletedInst.clientId && String(c.id) === String(deletedInst.clientId)) ||
-              (deletedInst.clientName && c.name?.trim().toLowerCase() === deletedInst.clientName?.trim().toLowerCase());
-            if (isMatch) {
-              const updatedTotalPaid = Math.max(0, (Number(c.totalPaid || c.total_paid) || 0) - instAmount);
-              const updatedClient = {
-                ...c,
-                totalPaid: updatedTotalPaid,
-                total_paid: updatedTotalPaid,
-              };
-              storageService.saveToSupabase('clients', [updatedClient]);
-              return updatedClient;
-            }
-            return c;
-          });
-          storageService.saveData('clients', next);
-          return next;
-        });
-      }
+      if (deletedInst.status === 'paid' && instAmount > 0) addToClientPaid(deletedInst, -instAmount);
 
       logActivity('Exclusão de Parcela', deletedInst.clientName || 'Cliente', `Parcela no valor de R$ ${instAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} excluída.`);
       showToast('Parcela excluída com sucesso!');
@@ -1987,24 +1798,10 @@ export function CRMProvider({ children }) {
   };
 
   const updateInstallment = (installmentId, updates) => {
-    let updatedInst = null;
-    let oldInst = null;
-    setInstallments(prev => {
-      const next = prev.map(inst => {
-        if (String(inst.id) === String(installmentId)) {
-          oldInst = { ...inst };
-          updatedInst = { ...inst, ...updates, updatedAt: new Date().toISOString() };
-          return updatedInst;
-        }
-        return inst;
-      });
-      storageService.saveData('installments', next);
-      return next;
-    });
+    const oldInst = (listsRef.current.installments || []).find(inst => String(inst.id) === String(installmentId));
+    const updatedInst = patchRecord('installments', setInstallments, installmentId, inst => ({ ...inst, ...updates, updatedAt: new Date().toISOString() }));
 
     if (updatedInst) {
-      storageService.saveToSupabase('installments', [updatedInst]);
-
       // Handle totalPaid recalculation if status or amount changed and it was paid or became paid
       const oldStatus = oldInst.status;
       const newStatus = updatedInst.status;
@@ -2020,27 +1817,7 @@ export function CRMProvider({ children }) {
         valueDiff = -oldAmount; // it was unpaid
       }
 
-      if (valueDiff !== 0) {
-        setClients(prev => {
-          const next = prev.map(c => {
-            const isMatch = (updatedInst.clientId && String(c.id) === String(updatedInst.clientId)) ||
-              (updatedInst.clientName && c.name?.trim().toLowerCase() === updatedInst.clientName?.trim().toLowerCase());
-            if (isMatch) {
-              const updatedTotalPaid = Math.max(0, (Number(c.totalPaid || c.total_paid) || 0) + valueDiff);
-              const updatedClient = {
-                ...c,
-                totalPaid: updatedTotalPaid,
-                total_paid: updatedTotalPaid,
-              };
-              storageService.saveToSupabase('clients', [updatedClient]);
-              return updatedClient;
-            }
-            return c;
-          });
-          storageService.saveData('clients', next);
-          return next;
-        });
-      }
+      if (valueDiff !== 0) addToClientPaid(updatedInst, valueDiff);
 
       logActivity('Atualização de Parcela', updatedInst.clientName || 'Cliente', 'Dados da parcela/recibo atualizados.');
       showToast('Parcela/Recibo atualizado com sucesso!');
@@ -2068,10 +1845,9 @@ export function CRMProvider({ children }) {
 
   const deleteDocument = (id) => {
     const cleanId = String(id);
-    let docToRemove = null;
+    const docToRemove = (listsRef.current.documents || []).find(d => String(d.id) === cleanId) || null;
 
     setDocuments(prev => {
-      docToRemove = prev.find(d => String(d.id) === cleanId);
       const next = prev.filter(d => String(d.id) !== cleanId);
       storageService.saveData('documents', next);
       return next;
@@ -2124,24 +1900,34 @@ export function CRMProvider({ children }) {
     storageService.saveToSupabase('office_settings', [merged]);
 
     if (currentEscritorioId) {
-      setEscritorios(prev => {
-        const next = prev.map(e => {
-          if (e.id === currentEscritorioId) {
-            return {
-              ...e,
-              nome: settingsData.officeName || settingsData.name || e.nome,
-              cnpj: settingsData.cnpj !== undefined ? settingsData.cnpj : e.cnpj,
-              email: settingsData.email !== undefined ? settingsData.email : e.email,
-              telefone: settingsData.phone !== undefined ? settingsData.phone : e.telefone,
-              endereco: settingsData.address !== undefined ? settingsData.address : e.endereco,
-            };
-          }
-          return e;
+      const current = escritorios.find(e => e.id === currentEscritorioId);
+      if (current) {
+        const updatedOffice = {
+          ...current,
+          nome: settingsData.officeName || settingsData.name || current.nome,
+          cnpj: settingsData.cnpj !== undefined ? settingsData.cnpj : current.cnpj,
+          email: settingsData.email !== undefined ? settingsData.email : current.email,
+          telefone: settingsData.phone !== undefined ? settingsData.phone : current.telefone,
+          endereco: settingsData.address !== undefined ? settingsData.address : current.endereco,
+        };
+        setEscritorios(prev => {
+          const next = prev.map(e => (e.id === currentEscritorioId ? updatedOffice : e));
+          storageService.saveData('escritorios', next);
+          return next;
         });
-        storageService.saveData('escritorios', next);
-        storageService.saveToSupabase('escritorios', next);
-        return next;
-      });
+        // Só dono/sócio altera o cadastro do escritório; para os demais o banco ignora esta parte
+        supabase.from('escritorios')
+          .update({
+            nome: updatedOffice.nome,
+            cnpj: updatedOffice.cnpj || null,
+            email: updatedOffice.email || null,
+            telefone: updatedOffice.telefone || null,
+            endereco: updatedOffice.endereco || null,
+            raw_data: updatedOffice,
+          })
+          .eq('id', currentEscritorioId)
+          .then(({ error }) => { if (error) console.warn('Erro ao atualizar escritório:', error.message); });
+      }
     }
   };
 
@@ -2167,12 +1953,15 @@ export function CRMProvider({ children }) {
     storageService.deleteFromSupabase('legal_areas', id);
   };
 
+  // Origens de lead também ficam no banco (valem em qualquer computador)
   const addLeadSource = (source) => {
+    const newSource = { ...source, id: `source_${Date.now()}`, escritorio_id: currentEscritorioId };
     setLeadSources(prev => {
-      const next = [...prev, { ...source, id: `source_${Date.now()}` }];
+      const next = [...prev, newSource];
       storageService.saveData('lead_sources', next);
       return next;
     });
+    storageService.saveToSupabase('lead_sources', [newSource]);
   };
 
   const removeLeadSource = (id) => {
@@ -2181,24 +1970,7 @@ export function CRMProvider({ children }) {
       storageService.saveData('lead_sources', next);
       return next;
     });
-  };
-
-  const resetAllData = async () => {
-    await storageService.resetToDefault();
-    setEscritorios(INITIAL_ESCRITORIOS);
-    setLeads(INITIAL_LEADS);
-    setClients(INITIAL_CLIENTS);
-    setContracts(INITIAL_CONTRACTS);
-    setProposals(INITIAL_PROPOSALS);
-    setProcesses(INITIAL_PROCESSES);
-    setTasks(INITIAL_TASKS);
-    setAppointments(INITIAL_APPOINTMENTS);
-    setAttendances(INITIAL_ATTENDANCES);
-    setInstallments(INITIAL_INSTALLMENTS);
-    setDocuments(INITIAL_DOCUMENTS);
-    setLegalAreas(INITIAL_LEGAL_AREAS);
-    setLeadSources(INITIAL_LEAD_SOURCES);
-    setOfficeSettings(INITIAL_OFFICE_SETTINGS);
+    storageService.deleteFromSupabase('lead_sources', id);
   };
 
   const markAllNotificationsRead = () => {
@@ -2248,6 +2020,8 @@ export function CRMProvider({ children }) {
         setPeriodFilter,
         toast,
         showToast,
+        logActivity,
+        pendingSync,
         hideToast,
         triggerConfetti,
         supabaseConnected,
@@ -2292,7 +2066,6 @@ export function CRMProvider({ children }) {
         removeLegalArea,
         addLeadSource,
         removeLeadSource,
-        resetAllData,
         markAllNotificationsRead,
       }}
     >

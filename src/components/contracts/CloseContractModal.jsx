@@ -10,7 +10,7 @@ import { normalizePlan } from '../../utils/paymentPlan';
 
 export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) {
   const { closeContractWorkflow } = useCRM();
-  const { users } = useAuth();
+  const { users, currentUser } = useAuth();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -29,7 +29,7 @@ export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) 
     serviceDescription: '',
     paymentMethod: 'Parcelado no Boleto / PIX',
     installmentsCount: 3,
-    responsibleLawyerId: 'usr_2',
+    responsibleLawyerId: currentUser?.id || '',
     signedDate: new Date().toISOString().split('T')[0],
     observations: '',
   });
@@ -53,7 +53,7 @@ export function CloseContractModal({ isOpen, onClose, lead, onContractClosed }) 
         serviceDescription: lead.notes || `Prestação de serviços advocatícios na área de ${lead.legalArea}.`,
         paymentMethod: 'Parcelado (Boleto / PIX)',
         installmentsCount: 3,
-        responsibleLawyerId: lead.lawyerId || 'usr_2',
+        responsibleLawyerId: lead.lawyerId || currentUser?.id || '',
         signedDate: new Date().toISOString().split('T')[0],
         observations: 'Contrato fechado com sucesso através da negociação comercial.',
       });

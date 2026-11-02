@@ -5,15 +5,15 @@ import { Modal } from '../common/Modal';
 import { CONTRACT_STATUSES } from '../../data/legalAreas';
 import { readFileAsDataUrl, formatFileSize, getFileTypeInfo, downloadAttachment, openAttachment, sanitizeAttachmentForStorage } from '../../utils/fileHelper';
 import { UploadCloud, FileText, X, Download, Eye, Paperclip, Sparkles, ShieldCheck, RefreshCw } from 'lucide-react';
-import { generateContractWithAdvJuris } from '../../services/aiService';
 import { Select } from '../common/Select';
 import { PaymentPlanPicker } from './PaymentPlanPicker';
+import { TemplatePicker } from '../templates/TemplatePicker';
 import { DateField } from '../common/DateField';
 import { normalizePlan } from '../../utils/paymentPlan';
 
 export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillData = null }) {
   const { contracts = [], addContract, updateContract, clients = [], legalAreas = [], showToast } = useCRM();
-  const { users = [] } = useAuth();
+  const { users = [], permissions, currentUser } = useAuth();
   const fileInputRef = useRef(null);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -23,7 +23,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
     clientName: '',
     title: '',
     legalArea: 'civil',
-    responsibleLawyerId: 'usr_2',
+    responsibleLawyerId: currentUser?.id || '',
     serviceDescription: '',
     status: 'assinado',
     value: '',
@@ -60,7 +60,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
         clientName: effectivePrefill.clientName || effectivePrefill.leadName || '',
         title: effectivePrefill.title || `Contrato de Prestação de Serviços Advocatícios`,
         legalArea: effectivePrefill.legalArea || 'civil',
-        responsibleLawyerId: effectivePrefill.responsibleLawyerId || effectivePrefill.responsibleId || 'usr_2',
+        responsibleLawyerId: effectivePrefill.responsibleLawyerId || effectivePrefill.responsibleId || currentUser?.id || '',
         serviceDescription: effectivePrefill.serviceDescription || effectivePrefill.description || 'Patrocínio de causa e consultoria jurídica especializada.',
         status: effectivePrefill.status || 'assinado',
         value: prefVal,
@@ -79,7 +79,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
         clientName: clients[0]?.name || '',
         title: 'Contrato de Prestação de Serviços Advocatícios',
         legalArea: 'civil',
-        responsibleLawyerId: 'usr_2',
+        responsibleLawyerId: currentUser?.id || '',
         serviceDescription: 'Patrocínio de causa e consultoria jurídica especializada.',
         status: 'assinado',
         value: '',
@@ -385,6 +385,11 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
             Anexos do Contrato (PDF, DOC, DOCX)
           </label>
+          {permissions?.canAccessTemplates && (
+            <div className="mb-2">
+              <TemplatePicker />
+            </div>
+          )}
           <div
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}

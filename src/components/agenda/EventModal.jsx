@@ -73,7 +73,7 @@ export const isClientFacingEvent = (type) => {
 
 export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = null }) {
   const { addAppointment, updateAppointment, clients, leads } = useCRM();
-  const { users } = useAuth();
+  const { users, currentUser } = useAuth();
 
   const [isCustomType, setIsCustomType] = useState(false);
   const [customTypeName, setCustomTypeName] = useState('');
@@ -84,7 +84,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
     type: 'reuniao',
     clientId: '',
     clientName: '',
-    responsibleId: 'usr_1',
+    responsibleId: currentUser?.id || '',
     date: new Date().toISOString().split('T')[0],
     startTime: '10:00',
     endTime: '11:00',
@@ -112,7 +112,7 @@ export function EventModal({ isOpen, onClose, eventToEdit = null, defaultDate = 
         type: 'reuniao',
         clientId: '',
         clientName: '',
-        responsibleId: users[0]?.id || 'usr_1',
+        responsibleId: currentUser?.id || users[0]?.id || '',
         date: defaultDate || new Date().toISOString().split('T')[0],
         startTime: '10:00',
         endTime: '11:00',

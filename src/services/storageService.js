@@ -434,7 +434,7 @@ function normalizeRow(table, row, activeEscritorio) {
       titles: titles,
       oab: base.oab || '',
       phone: base.phone || '',
-      avatar: base.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256',
+      avatar: base.avatar || null,
       status: base.status || 'active',
     };
   }
@@ -474,20 +474,108 @@ function sanitizePayload(data, keepLargeData = false) {
   return clean;
 }
 
-// Salva com "cria ou atualiza" (upsert). Se o banco recusar pela segurança por cargo
-// (ex.: advogado sem acesso ao financeiro criando parcelas ao fechar contrato, ou registrando
-// auditoria), tenta de novo como inserção simples: cria o que é novo e ignora o que já existe,
-// sem sobrescrever registros que a pessoa não pode ver.
-async function upsertRespectingRoles(table, rows) {
-  const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
+// --- ENVIO AO BANCO ---
+// O banco é a fonte da verdade: é ele que todos os computadores do escritório leem.
+// Sem conexão, a alteração fica guardada na fila abaixo (sobrevive a fechar o navegador) e é
+// reenviada sozinha; recusa do banco é avisada na hora, nunca fica parecendo que salvou.
+const OUTBOX_KEY = STORAGE_PREFIX + 'outbox';
+const syncListeners = new Set();
+const inFlight = new Map(); // `tabela:id` -> registro sendo enviado agora
+let outboxOwner = null;
+let flushing = false;
+
+const readOutbox = () => {
+  try {
+    const list = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+};
+const writeOutbox = (list) => {
+  try {
+    localStorage.setItem(OUTBOX_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+const myOutbox = () => readOutbox().filter(entry => entry.owner === outboxOwner);
+const emitSync = (event) => {
+  syncListeners.forEach((listener) => {
+    try { listener({ ...event, pending: myOutbox().length }); } catch (e) { /* ouvinte não derruba o envio */ }
+  });
+};
+
+// Queda de internet e instabilidade valem nova tentativa; recusa do banco não.
+function isRetryable(error) {
+  const code = String(error?.code || '');
+  if (/^(PGRST0|PGRST30|57|08|53)/.test(code)) return true;
+  if (code) return false;
+  return /fetch|network|timeout|load failed|aborted/i.test(String(error?.message || ''));
+}
+const isPermissionError = (error) => error?.code === '42501' || /row-level security/i.test(error?.message || '');
+
+function enqueue(entry) {
+  const others = readOutbox().filter(e => !(e.owner === outboxOwner && e.table === entry.table && String(e.id) === String(entry.id)));
+  return writeOutbox([...others, { ...entry, owner: outboxOwner }]);
+}
+const dequeue = (table, id) => writeOutbox(readOutbox().filter(e => !(e.owner === outboxOwner && e.table === table && String(e.id) === String(id))));
+
+// Registros que ainda não chegaram ao banco valem sobre o que veio dele, para não sumirem da tela
+function applyPendingChanges(table, rows) {
+  let result = rows;
+  const pendingUpserts = [];
+  myOutbox().filter(e => e.table === table).forEach((entry) => {
+    if (entry.op === 'delete') result = result.filter(r => String(r.id) !== String(entry.id));
+    else pendingUpserts.push(entry.item);
+  });
+  inFlight.forEach((item, key) => {
+    if (key.startsWith(table + ':')) pendingUpserts.push(item);
+  });
+  if (pendingUpserts.length === 0) return result;
+  const ids = new Set(pendingUpserts.map(i => String(i.id)));
+  return [...pendingUpserts, ...result.filter(r => !ids.has(String(r.id)))];
+}
+
+// Cache local guarda anexo grande sem o arquivo: nunca deixar isso apagar o arquivo que está no banco
+async function restoreLargeFiles(table, rows) {
+  if (table !== 'contracts') return rows;
+  const needsRestore = rows.filter(r => (r.raw_data?.attachments || []).some(a => a?.isLarge && !a.dataUrl));
+  if (needsRestore.length === 0) return rows;
+  const { data, error } = await supabase.from('contracts').select('id, raw_data').in('id', needsRestore.map(r => r.id));
+  if (error) throw error;
+  const byId = new Map((data || []).map(r => [String(r.id), r.raw_data?.attachments || []]));
+  return rows.map((row) => {
+    const saved = byId.get(String(row.id));
+    if (!saved) return row;
+    const attachments = (row.raw_data?.attachments || []).map((att) => {
+      if (!att?.isLarge || att.dataUrl) return att;
+      const original = saved.find(s => String(s?.id) === String(att.id));
+      return original?.dataUrl ? { ...att, dataUrl: original.dataUrl } : att;
+    });
+    return { ...row, raw_data: { ...row.raw_data, attachments } };
+  });
+}
+
+// Salva com "cria ou atualiza" (upsert). Contratos e parcelas podem nascer pelas mãos de quem não
+// os enxerga depois (ex.: comercial fechando negócio): a segurança por cargo recusa o upsert, então
+// tenta como inserção simples. Nas demais tabelas a recusa volta como erro e a pessoa é avisada.
+const INSERT_FALLBACK_TABLES = ['contracts', 'installments'];
+
+async function upsertRespectingRoles(table, rows, { insertOnly = false } = {}) {
+  // Auditoria: quem registra não pode ler, então é sempre inserção
+  if (table === 'activity_logs') {
+    const { error } = await supabase.from(table).insert(rows);
+    if (error && error.code !== '23505') throw error;
+    return;
+  }
+  const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id', ignoreDuplicates: insertOnly });
   if (!error) return;
-  const blockedByRole = error.code === '42501' || /row-level security/i.test(error.message || '');
-  if (!blockedByRole) throw error;
+  if (!isPermissionError(error) || !INSERT_FALLBACK_TABLES.includes(table)) throw error;
   for (const row of rows) {
     const { error: insertError } = await supabase.from(table).insert(row);
-    if (insertError && insertError.code !== '23505') {
-      console.warn(`[${table}] sem permissão para salvar ${row.id}:`, insertError.message);
-    }
+    if (insertError && insertError.code !== '23505') throw insertError;
   }
 }
 
@@ -687,6 +775,15 @@ function mapItemToSqlRow(table, item, activeEscritorio) {
     };
   }
 
+  if (table === 'legal_areas' || table === 'lead_sources') {
+    return {
+      ...base,
+      name: item.name || null,
+      color: item.color || null,
+      icon: item.icon || null,
+    };
+  }
+
   if (table === 'activity_logs') {
     return {
       ...base,
@@ -864,6 +961,7 @@ export const storageService = {
           // Preserva preferências e chaves utilitárias do sistema
           if (
             k !== STORAGE_PREFIX + 'theme' &&
+            k !== OUTBOX_KEY &&
             k !== STORAGE_PREFIX + 'gemini_api_key'
           ) {
             keysToRemove.push(k);
@@ -900,6 +998,7 @@ export const storageService = {
           if (
             k !== STORAGE_PREFIX + 'current_escritorio_id' &&
             k !== STORAGE_PREFIX + 'current_user' &&
+            k !== OUTBOX_KEY &&
             k !== STORAGE_PREFIX + 'gemini_api_key' &&
             k !== STORAGE_PREFIX + 'theme' &&
             !k.startsWith(`${STORAGE_PREFIX}${activeEscritorio}_`)
@@ -1025,6 +1124,7 @@ export const storageService = {
 
   // options.allAccessible: visão consolidada ("Todos os escritórios") — traz tudo o que o banco
   // libera para a pessoa (matriz + filiais do dono), sem filtrar por um escritório só.
+  // options.strict: em falha lança o erro, para quem chamou manter o que já está na tela.
   async fetchFromSupabase(table, fallback = [], escritorioId = null, options = {}) {
     if (!supabase) return fallback;
     const allAccessible = !!options.allAccessible;
@@ -1038,7 +1138,7 @@ export const storageService = {
       let query = supabase.from(table).select('*');
 
       // ISOLAMENTO MULTI-TENANT ESTRITO NO SUPABASE (o banco também garante via RLS):
-      if (!allAccessible && ['users', 'clients', 'processes', 'leads', 'contracts', 'proposals', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications', 'office_settings'].includes(table)) {
+      if (!allAccessible && ['users', 'clients', 'processes', 'leads', 'contracts', 'proposals', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications', 'office_settings', 'legal_areas', 'lead_sources'].includes(table)) {
         query = query.eq('escritorio_id', activeEscritorio);
       }
       // Escritórios: o banco devolve só os acessíveis (o próprio + filiais, se for o dono)
@@ -1047,18 +1147,18 @@ export const storageService = {
       if (['proposals', 'contracts', 'clients', 'leads', 'processes', 'tasks', 'appointments', 'attendances', 'installments', 'documents', 'activity_logs', 'notifications'].includes(table)) {
         query = query.order('created_at', { ascending: false });
       }
+      if (table === 'activity_logs') query = query.limit(500);
 
       const { data, error } = await query;
       if (error) throw error;
-      if (!data || data.length === 0) return effectiveFallback;
-      
+
       const deletedIds = this.getDeletedIds();
-      const mapped = data
+      const fromCloud = (data || [])
         .filter(row => {
           if (!row || !row.id) return false;
           const id = String(row.id);
           const num = String(row.proposal_number || (row.raw_data && (row.raw_data.proposalNumber || row.raw_data.proposal_number)) || '');
-          
+
           // Blindagem de validação de isolamento (escritórios e visão consolidada já vêm filtrados pelo banco)
           if (table !== 'escritorios' && !allAccessible) {
             const rowEsc = row.escritorio_id || (row.raw_data && row.raw_data.escritorio_id);
@@ -1070,56 +1170,82 @@ export const storageService = {
         .map(row => (allAccessible
           ? { ...normalizeRow(table, row, row.escritorio_id || activeEscritorio), escritorio_id: row.escritorio_id }
           : normalizeRow(table, row, activeEscritorio)));
+      const mapped = applyPendingChanges(table, fromCloud);
 
       // A visão consolidada não vai para o cache de um escritório específico
       if (!allAccessible) this.saveData(table, mapped, activeEscritorio);
-      return mapped;
+      return mapped.length === 0 ? effectiveFallback : mapped;
     } catch (e) {
+      if (options.strict) throw e;
       console.warn('[Supabase Fetch] Usando cache local para ' + table + ':', e.message);
       return this.loadData(table, fallback, escritorioId);
     }
   },
 
+  // O banco é a referência de todos os computadores: cópia local nunca sobe sozinha por cima dele
+  // (isso ressuscitava o que outra pessoa excluiu). O que falta enviar fica na fila de envio.
   async recoverAndSyncLocalData(table, fallback = [], escritorioId = null) {
+    return this.fetchFromSupabase(table, fallback, escritorioId);
+  },
+
+  // --- Fila de envio: uso pelo CRMContext ---
+  setOutboxOwner(userId) {
+    outboxOwner = userId || null;
+  },
+
+  subscribeSync(listener) {
+    syncListeners.add(listener);
+    return () => syncListeners.delete(listener);
+  },
+
+  reportSyncIssue(type, table) {
+    emitSync({ type, table });
+  },
+
+  getPendingSyncCount() {
+    return outboxOwner ? myOutbox().length : 0;
+  },
+
+  isSaving() {
+    return inFlight.size > 0;
+  },
+
+  async flushOutbox() {
+    if (!supabase || flushing || !outboxOwner) return;
+    const entries = myOutbox();
+    if (entries.length === 0) return;
+    flushing = true;
     try {
-      const activeEscritorio = escritorioId || this.getCurrentEscritorioId();
-      if (!activeEscritorio) return Array.isArray(fallback) ? [] : fallback;
-
-      // Para qualquer escritório, a autoridade primária é o Supabase
-      const cloudData = await this.fetchFromSupabase(table, [], activeEscritorio);
-      if (Array.isArray(cloudData) && cloudData.length > 0) {
-        return cloudData;
-      }
-
-      const localData = this.loadData(table, [], activeEscritorio);
-      const deletedIds = this.getDeletedIds();
-
-      if (Array.isArray(localData) && localData.length > 0) {
-        const validLocal = localData.filter(l => {
-          if (!l || !l.id || deletedIds.includes(String(l.id))) return false;
-          if (table === 'escritorios') return l.id === activeEscritorio || l.parent_id === activeEscritorio;
-          const itemEsc = l.escritorio_id || (l.raw_data && l.raw_data.escritorio_id);
-          return itemEsc === activeEscritorio;
-        });
-        if (validLocal.length > 0) {
-          await this.syncToSupabase(table, validLocal);
-          return validLocal;
+      for (const entry of entries) {
+        try {
+          if (entry.op === 'delete') {
+            await this.runDelete(entry.table, String(entry.id));
+            this.unmarkAsDeleted(entry.id);
+          } else {
+            const rows = await restoreLargeFiles(entry.table, [mapItemToSqlRow(entry.table, entry.item, entry.item?.escritorio_id)]);
+            await upsertRespectingRoles(entry.table, rows, { insertOnly: !!entry.insertOnly });
+          }
+          dequeue(entry.table, entry.id);
+        } catch (err) {
+          if (isRetryable(err)) break; // continua sem conexão: tenta tudo de novo mais tarde
+          dequeue(entry.table, entry.id);
+          if (entry.op === 'delete') this.unmarkAsDeleted(entry.id);
+          console.warn('[Fila de envio] recusado pelo banco:', entry.table, err.message);
+          if (!entry.silent) emitSync({ type: isPermissionError(err) ? 'denied' : 'failed', table: entry.table });
         }
       }
-
-      return Array.isArray(fallback) ? [] : fallback;
-    } catch (err) {
-      console.warn(`[Auto-Recovery Falhou em ${table}]:`, err);
-      return this.loadData(table, fallback, escritorioId);
+    } finally {
+      flushing = false;
+      emitSync({ type: 'progress' });
     }
   },
 
-  async syncToSupabase(table, data) {
-    if (!supabase) return;
-    try {
-      const activeEscritorio = this.getCurrentEscritorioId();
+  async syncToSupabase(table, data, { insertOnly = false, silent = false } = {}) {
+    if (!supabase) return false;
+    const activeEscritorio = this.getCurrentEscritorioId();
 
-      if (table === 'users') {
+    if (table === 'users') {
+      try {
         const items = Array.isArray(data) ? data : [data];
         for (const item of items) {
           if (!item?.email) continue;
@@ -1144,105 +1270,111 @@ export const storageService = {
 
           if (!updated || updated.length === 0) {
             const insertRow = { ...row, id: cleanId || `usr_${Date.now()}` };
-            await supabase.from('users').insert(insertRow);
+            const { error } = await supabase.from('users').insert(insertRow);
+            if (error) throw error;
           }
         }
-        return;
+        return true;
+      } catch (err) {
+        console.warn('Erro ao sincronizar users com Supabase:', err.message);
+        emitSync({ type: isPermissionError(err) ? 'denied' : 'failed', table });
+        return false;
       }
+    }
 
-      const deletedIds = this.getDeletedIds();
+    const deletedIds = this.getDeletedIds();
+    const items = (Array.isArray(data) ? data : [data]).filter((item) => {
+      if (!item || typeof item !== 'object' || !item.id) return false;
+      const id = String(item.id);
+      const num = String(item.proposalNumber || item.proposal_number || '');
+      return !deletedIds.includes(id) && (!num || !deletedIds.includes(num));
+    });
+    if (items.length === 0) return true;
 
-      if (Array.isArray(data)) {
-        const activeItems = data.filter(item => {
-          if (!item || !item.id) return false;
-          const id = String(item.id);
-          const num = String(item.proposalNumber || item.proposal_number || '');
-          return !deletedIds.includes(id) && (!num || !deletedIds.includes(num));
-        });
-        if (activeItems.length === 0) return;
-        const rows = activeItems.map(item => mapItemToSqlRow(table, item, activeEscritorio));
-        await upsertRespectingRoles(table, rows);
-      } else if (data && typeof data === 'object') {
-        const id = String(data.id || '');
-        const num = String(data.proposalNumber || data.proposal_number || '');
-        if ((id && deletedIds.includes(id)) || (num && deletedIds.includes(num))) {
-          console.info(`[syncToSupabase] Ignorando item ${id || num} pois está marcado como excluído.`);
-          return;
-        }
-        const row = mapItemToSqlRow(table, data, activeEscritorio);
-        await upsertRespectingRoles(table, [row]);
+    const keys = items.map(item => `${table}:${item.id}`);
+    items.forEach((item, i) => inFlight.set(keys[i], item));
+    try {
+      let rows = items.map(item => mapItemToSqlRow(table, item, activeEscritorio));
+      if (table === 'office_settings') {
+        // Uma linha por escritório: usa a que já existe, sem depender do id que está na tela
+        const officeId = rows[0].escritorio_id;
+        const { data: existing, error: lookupError } = await supabase
+          .from('office_settings').select('id').eq('escritorio_id', officeId).limit(1);
+        if (lookupError) throw lookupError;
+        const id = existing?.[0]?.id || `settings_${officeId}`;
+        rows = rows.map(row => ({ ...row, id }));
       }
+      rows = await restoreLargeFiles(table, rows);
+      await upsertRespectingRoles(table, rows, { insertOnly });
+      items.forEach(item => dequeue(table, item.id));
+      return true;
     } catch (err) {
       console.warn('Erro ao sincronizar ' + table + ' com Supabase:', err.message);
+      if (isRetryable(err)) {
+        const queued = items.every(item => enqueue({ op: 'upsert', table, id: item.id, item, insertOnly, silent }));
+        if (!silent) emitSync({ type: queued ? 'queued' : 'failed', table });
+      } else if (!silent) {
+        emitSync({ type: isPermissionError(err) ? 'denied' : 'failed', table });
+      }
+      return false;
+    } finally {
+      keys.forEach(key => inFlight.delete(key));
     }
   },
 
-  async saveToSupabase(table, data) {
-    return this.syncToSupabase(table, data);
+  async saveToSupabase(table, data, options) {
+    return this.syncToSupabase(table, data, options);
+  },
+
+  // Exclui no banco e confirma: a segurança do banco recusa exclusão sem dar erro (só não apaga nada)
+  async runDelete(table, cleanId) {
+    if (table === 'contracts') {
+      const { error } = await supabase.from('installments').delete().eq('contract_id', cleanId);
+      if (error) throw error;
+    }
+    const columns = table === 'proposals' ? ['id', 'proposal_number'] : ['id'];
+    let removed = 0;
+    for (const column of columns) {
+      const { data, error } = await supabase.from(table).delete().eq(column, cleanId).select('id');
+      if (error) throw error;
+      removed += (data || []).length;
+    }
+    if (removed > 0) return;
+    const { data: stillThere, error: checkError } = await supabase.from(table).select('id').eq('id', cleanId).limit(1);
+    if (checkError) throw checkError;
+    if ((stillThere || []).length > 0) {
+      throw Object.assign(new Error('Exclusão recusada pela segurança do banco'), { code: '42501' });
+    }
   },
 
   async deleteFromSupabase(table, id, email = null) {
+    const cleanId = String(id || '');
+    this.markAsDeleted(cleanId);
     try {
-      const cleanId = String(id || '');
-      this.markAsDeleted(cleanId);
-
       if (table === 'users') {
         const cleanEmail = email ? String(email).toLowerCase().trim() : '';
         if (cleanEmail) {
-          await supabase.from('users').delete().eq('email', cleanEmail);
+          const { error } = await supabase.from('users').delete().eq('email', cleanEmail);
+          if (error) throw error;
         }
         if (cleanId) {
-          await supabase.from('users').delete().eq('id', cleanId);
+          const { error } = await supabase.from('users').delete().eq('id', cleanId);
+          if (error) throw error;
         }
-        return;
-      }
-
-      // Se for contrato, remove também as parcelas no Supabase para não deixar órfãos
-      if (table === 'contracts' && cleanId) {
-        await supabase.from('installments').delete().eq('contract_id', cleanId);
-      }
-
-      if (table === 'proposals' && cleanId) {
-        await supabase.from('proposals').delete().eq('id', cleanId);
-        await supabase.from('proposals').delete().eq('proposal_number', cleanId);
       } else {
-        const { error } = await supabase.from(table).delete().eq('id', cleanId);
-        if (error) throw error;
+        await this.runDelete(table, cleanId);
       }
-      console.info(`[Supabase Delete] Registro ${cleanId} removido da tabela ${table}.`);
+      this.unmarkAsDeleted(cleanId);
+      return true;
     } catch (err) {
       console.warn('Erro ao deletar ' + id + ' de ' + table + ' no Supabase:', err.message);
-    }
-  },
-
-  async resetToDefault() {
-    try {
-      const defaults = {
-        escritorios: INITIAL_ESCRITORIOS,
-        leads: INITIAL_LEADS,
-        clients: INITIAL_CLIENTS,
-        contracts: INITIAL_CONTRACTS,
-        proposals: INITIAL_PROPOSALS,
-        processes: INITIAL_PROCESSES,
-        tasks: INITIAL_TASKS,
-        appointments: INITIAL_APPOINTMENTS,
-        attendances: INITIAL_ATTENDANCES,
-        installments: INITIAL_INSTALLMENTS,
-        documents: INITIAL_DOCUMENTS,
-        activity_logs: INITIAL_ACTIVITY_LOGS,
-        notifications: INITIAL_NOTIFICATIONS,
-        office_settings: INITIAL_OFFICE_SETTINGS,
-        legal_areas: INITIAL_LEGAL_AREAS,
-        lead_sources: INITIAL_LEAD_SOURCES,
-      };
-
-      for (const [key, value] of Object.entries(defaults)) {
-        localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
-        await this.syncToSupabase(key, value);
+      if (table !== 'users' && isRetryable(err)) {
+        const queued = enqueue({ op: 'delete', table, id: cleanId });
+        emitSync({ type: queued ? 'queued' : 'failed', table });
+      } else {
+        this.unmarkAsDeleted(cleanId);
+        emitSync({ type: isPermissionError(err) ? 'denied' : 'failed', table });
       }
-      return true;
-    } catch (e) {
-      console.error('Erro ao resetar dados:', e);
       return false;
     }
   }

@@ -54,7 +54,7 @@ appointments, attendances, installments, documents, activity_logs, notifications
 
 ## Regras de ouro
 1. **Multi-tenant:** todo registro tem `escritorio_id`. Toda query/insert deve respeitar o escritório do usuário logado; RLS usa `public.current_user_escritorio_id()`. Nunca remover/afrouxar políticas RLS sem pedido explícito.
-2. **Storage:** arquivos em `jurisflow-docs/{escritorio_id}/...`.
+2. **Storage:** bucket privado `jurisflow-docs`, arquivos em `{escritorio_id}/...` (a 1ª pasta decide o acesso). Hoje só os Modelos usam (`services/templateService.js`); anexos de contrato e Documentos ainda guardam o arquivo no banco/navegador.
 3. **Sem dados fictícios:** nada de usuários/clientes/contratos de exemplo (`INITIAL_USERS = []`).
 4. **Mudanças no banco:** inspecionar tabelas antes; aplicar via migração e salvar o SQL em `supabase/migrations/AAAAMMDD_descricao.sql`.
 5. **Segredos:** `.env` é ignorado pelo git; nunca commitar chaves (só a anon key é pública por design).
@@ -81,6 +81,7 @@ Tudo o que existia antes da migração (zip de backup, pasta `Backup_JurisFlow/`
   Volta quando houver integração de assinatura digital (Configurações → Integrações do escritório).
 
 ## Publicação (há clientes usando o app desde 2026-09-25)
-- O usuário decidiu trabalhar direto no oficial (`main`): build sempre passando antes do push,
-  tag de backup antes de mudança grande.
-- Localhost e link de teste usam o MESMO banco: testar no escritório "Jotaeli Testes".
+- Fluxo: alterar em ramo local → mostrar no localhost → usuário aprova → build + merge na `main` (push publica).
+  Nunca publicar antes da aprovação. Tag de backup antes de mudança grande.
+- O localhost usa o MESMO banco do oficial: testar no escritório "Jotaeli Testes" e nunca criar dados no escritório real.
+  Mudança no banco vale na hora para os clientes: testar em transação desfeita e só aplicar se for compatível com a versão publicada.

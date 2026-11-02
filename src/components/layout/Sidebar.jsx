@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FolderLock,
+  Files,
   Gavel,
   PhoneCall,
   Calendar,
@@ -146,6 +147,7 @@ export function Sidebar({
         { id: 'processes', label: 'Processos', icon: Gavel, show: permissions?.canAccessProcesses },
         { id: 'contracts', label: 'Contratos & Minutas', icon: FileCheck, show: permissions?.canAccessContracts },
         { id: 'documents', label: 'Documentos', icon: FolderLock, show: permissions?.canAccessDocuments },
+        { id: 'templates', label: 'Modelos', icon: Files, show: permissions?.canAccessTemplates },
       ],
     },
     {
