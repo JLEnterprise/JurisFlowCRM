@@ -39,7 +39,7 @@ import { Select } from '../common/Select';
 const NO_CLIENT = '__sem_cliente';
 
 export function DocumentManager() {
-  const { documents = [], addDocument, deleteDocument, clients = [], showToast, logActivity } = useCRM();
+  const { documents = [], addDocument, deleteDocument, clients = [], contracts = [], showToast, logActivity } = useCRM();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
@@ -414,7 +414,7 @@ export function DocumentManager() {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
-                            onClick={() => openAttachment(doc)}
+                            onClick={() => openAttachment(doc, contracts)}
                             className="p-1.5 rounded-lg text-slate-500 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800 transition-colors"
                             title="Visualizar documento em nova aba"
                           >
@@ -423,8 +423,8 @@ export function DocumentManager() {
                           <button
                             type="button"
                             onClick={async () => {
-                              await downloadAttachment(doc);
-                              showToast(`Download de "${fileName}" iniciado!`, 'success');
+                              const started = await downloadAttachment(doc, contracts);
+                              if (started) showToast(`Download de "${fileName}" iniciado!`, 'success');
                             }}
                             className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors"
                             title="Baixar arquivo para o computador"

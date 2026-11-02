@@ -301,8 +301,8 @@ function normalizeRow(table, row, activeEscritorio) {
       file_size: base.fileSize || base.file_size || '1.0 MB',
       uploadedAt: base.uploadedAt || base.uploaded_at || base.created_at || new Date().toISOString(),
       uploaded_at: base.uploadedAt || base.uploaded_at || base.created_at || new Date().toISOString(),
-      uploadedBy: base.uploadedBy || base.uploaded_by || 'Dra. Tatiane Camargo',
-      uploaded_by: base.uploadedBy || base.uploaded_by || 'Dra. Tatiane Camargo',
+      uploadedBy: base.uploadedBy || base.uploaded_by || null,
+      uploaded_by: base.uploadedBy || base.uploaded_by || null,
       dataUrl,
       fileData: dataUrl,
     };

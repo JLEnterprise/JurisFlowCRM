@@ -177,19 +177,50 @@ export async function sanitizeAttachmentForStorage(att) {
   };
 }
 
-export async function downloadAttachment(attachment) {
+// O documento do GED copiado de um contrato guarda só os metadados: o arquivo fica no anexo
+function findContractAttachment(doc, contracts) {
+  const docId = String(doc.id);
+  for (const contract of contracts || []) {
+    const attachments = Array.isArray(contract?.attachments) ? contract.attachments : [];
+    const found = attachments.find(att => att && (
+      String(att.id) === docId ||
+      `doc_${contract.id}_${att.id}` === docId ||
+      `doc_${contract.id}_${att.name}` === docId
+    ));
+    if (found) return found;
+  }
+  return null;
+}
+
+// Procura no próprio registro, no anexo do contrato e, por último, no IndexedDB deste navegador
+async function resolveDataUrl(attachment, contracts) {
+  const linked = findContractAttachment(attachment, contracts);
+  const dataUrl = attachment.dataUrl || attachment.fileData || linked?.dataUrl;
+  if (dataUrl) return dataUrl;
+
+  // O IndexedDB guarda pelo id do anexo, que continua no id do documento mesmo sem o contrato
+  const anexoId = String(attachment.id || '').match(/_(att_.+)$/)?.[1];
+  const ids = new Set([attachment.id, linked?.id, anexoId].filter(Boolean));
+  for (const id of ids) {
+    const localFile = await getFileFromIndexedDB(id);
+    if (localFile) return localFile;
+  }
+  return null;
+}
+
+function alertFileUnavailable(fileName) {
+  alert(`Arquivo indisponível: "${fileName}" não foi encontrado no sistema nem neste navegador. Envie o arquivo novamente para que ele possa ser aberto.`);
+}
+
+// Retorna true quando o download começou; false quando o arquivo não foi encontrado
+export async function downloadAttachment(attachment, contracts = []) {
   if (!attachment) {
     alert('Arquivo não especificado.');
-    return;
+    return false;
   }
 
   const fileName = attachment.fileName || attachment.name || attachment.title || 'documento';
-  let dataUrl = attachment.dataUrl;
-
-  // Busca do IndexedDB se não estiver direto no objeto
-  if (!dataUrl && attachment.id) {
-    dataUrl = await getFileFromIndexedDB(attachment.id);
-  }
+  const dataUrl = await resolveDataUrl(attachment, contracts);
 
   // Se tiver dataUrl (Base64 ou Blob URL)
   if (dataUrl) {
@@ -215,7 +246,7 @@ export async function downloadAttachment(attachment) {
         link.click();
         document.body.removeChild(link);
         setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-        return;
+        return true;
       } else {
         // Link direto ou URL de Blob
         const link = document.createElement('a');
@@ -225,31 +256,28 @@ export async function downloadAttachment(attachment) {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        return;
+        return true;
       }
     } catch (err) {
       console.error('Erro ao converter dataUrl para download:', err);
     }
   }
 
-  // Fallback: Gerar arquivo oficial baixável (Certidão Digital de Arquivo GED)
-  generateAndDownloadArchiveProof(attachment, fileName);
+  alertFileUnavailable(fileName);
+  return false;
 }
 
-export async function openAttachment(attachment) {
+export async function openAttachment(attachment, contracts = []) {
   if (!attachment) {
     alert('Arquivo não especificado.');
     return;
   }
 
   const fileName = attachment.fileName || attachment.name || attachment.title || 'documento';
-  let dataUrl = attachment.dataUrl;
-  if (!dataUrl && attachment.id) {
-    dataUrl = await getFileFromIndexedDB(attachment.id);
-  }
+  const dataUrl = await resolveDataUrl(attachment, contracts);
 
   if (!dataUrl) {
-    previewArchiveProof(attachment, fileName);
+    alertFileUnavailable(fileName);
     return;
   }
 
@@ -279,105 +307,6 @@ export async function openAttachment(attachment) {
   if (typeof dataUrl === 'string' && (dataUrl.startsWith('http') || dataUrl.startsWith('blob:'))) {
     window.open(dataUrl, '_blank');
   } else {
-    downloadAttachment(attachment);
+    downloadAttachment({ ...attachment, dataUrl });
   }
 }
-
-function generateAndDownloadArchiveProof(attachment, fileName) {
-  const safeName = fileName.replace(/\.[^/.]+$/, '');
-  const htmlContent = buildArchiveProofHtml(attachment, fileName);
-  
-  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-  const blobUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = blobUrl;
-  link.download = `Certidao_GED_${safeName}.html`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-}
-
-function previewArchiveProof(attachment, fileName) {
-  const win = window.open('', '_blank');
-  if (!win) {
-    generateAndDownloadArchiveProof(attachment, fileName);
-    return;
-  }
-  win.document.write(buildArchiveProofHtml(attachment, fileName));
-}
-
-function buildArchiveProofHtml(attachment, fileName) {
-  const title = attachment.title || fileName || 'Documento Jurídico';
-  const client = attachment.clientName || attachment.client_name || 'Geral';
-  const category = attachment.category || 'Geral';
-  const size = attachment.fileSize || formatFileSize(attachment.size) || 'Conforme Original';
-  const dateStr = new Date(attachment.uploadedAt || attachment.uploaded_at || Date.now()).toLocaleString('pt-BR');
-  const docId = attachment.id || 'N/A';
-
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="utf-8">
-    <title>Certidão de Registro Documental - JurisFlow</title>
-    <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px; color: #1e293b; background: #f1f5f9; margin: 0; }
-      .card { max-width: 680px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
-      .header { border-bottom: 2px solid #0284c7; padding-bottom: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; }
-      .badge { display: inline-block; padding: 5px 14px; background: #e0f2fe; color: #0369a1; font-weight: 700; border-radius: 9999px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-      h1 { font-size: 22px; color: #0f172a; margin: 0 0 6px 0; font-weight: 800; }
-      .sub { font-size: 13px; color: #64748b; margin: 0; }
-      .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 24px; margin: 24px 0; }
-      .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed #cbd5e1; font-size: 13px; }
-      .row:last-child { border-bottom: none; }
-      .label { color: #64748b; font-weight: 600; }
-      .val { font-weight: 700; color: #0f172a; text-align: right; }
-      .highlight { color: #0284c7; }
-      .security { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 14px 18px; border-radius: 12px; font-size: 12px; line-height: 1.5; margin: 20px 0; }
-      .footer { margin-top: 32px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; }
-      @media print {
-        body { background: #fff; padding: 0; }
-        .card { box-shadow: none; border: none; padding: 0; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <div class="header">
-        <div>
-          <h1>Certidão de Registro Eletrônico GED</h1>
-          <p class="sub">JurisFlow ADV • Sistema Jurídico Integrado</p>
-        </div>
-        <span class="badge">Autenticado</span>
-      </div>
-
-      <div class="info-box">
-        <div class="row"><span class="label">Título do Documento:</span><span class="val highlight">${title}</span></div>
-        <div class="row"><span class="label">Arquivo Original:</span><span class="val">${fileName}</span></div>
-        <div class="row"><span class="label">Categoria:</span><span class="val">${category}</span></div>
-        <div class="row"><span class="label">Cliente Vinculado:</span><span class="val">${client}</span></div>
-        <div class="row"><span class="label">Tamanho do Arquivo:</span><span class="val">${size}</span></div>
-        <div class="row"><span class="label">Data de Registro:</span><span class="val">${dateStr}</span></div>
-        <div class="row"><span class="label">Protocolo / ID:</span><span class="val" style="font-family:monospace;">${docId}</span></div>
-      </div>
-
-      <div class="security">
-        🔒 <strong>Certificação de Integridade Digital:</strong><br/>
-        Este documento foi incorporado ao acervo eletrônico do escritório Tatiane Camargo Advocacia e protegido em conformidade com as diretrizes do Marco Civil da Internet (Lei 12.965/14) e LGPD (Lei 13.709/18).
-      </div>
-
-      <div style="text-align:center; margin-top:20px;">
-        <button onclick="window.print()" style="background:#0284c7; color:#fff; border:none; padding:10px 20px; font-size:12px; font-weight:bold; border-radius:8px; cursor:pointer;">
-          Imprimir Certidão
-        </button>
-      </div>
-
-      <div class="footer">
-        Tatiane Camargo Advocacia • JurisFlow CRM Multi-Tenant • Registro Digital Auditável
-      </div>
-    </div>
-  </body>
-</html>`;
-}
-
-

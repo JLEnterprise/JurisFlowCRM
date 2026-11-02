@@ -929,14 +929,14 @@ export function CRMProvider({ children }) {
     const newAtts = Array.isArray(newContract.attachments) ? newContract.attachments : [];
     if (newAtts.length > 0) {
       const generatedDocs = newAtts.map(att => ({
-        id: `doc_${newContract.id}_${att.id || Math.random().toString(36).substr(2, 6)}`,
+        id: `doc_${newContract.id}_${att.id || att.name}`,
         title: att.name || 'Documento Anexado',
         clientId: finalClientId,
         clientName: finalClientName,
         category: att.category || (att.name?.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos'),
         fileName: att.name || 'documento.pdf',
         fileSize: typeof att.size === 'number' ? formatFileSize(att.size) : (att.size || '1.0 MB'),
-        uploadedBy: 'Dra. Tatiane Camargo',
+        uploadedBy: currentUser?.name || null,
         uploadedAt: att.uploadedAt || new Date().toISOString(),
         escritorio_id: currentEscritorioId,
       }));
@@ -1019,7 +1019,7 @@ export function CRMProvider({ children }) {
               category: att.category || (att.name?.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos'),
               fileName: att.name || 'documento.pdf',
               fileSize: typeof att.size === 'number' ? formatFileSize(att.size) : (att.size || '1.0 MB'),
-              uploadedBy: 'Dra. Tatiane Camargo',
+              uploadedBy: currentUser?.name || null,
               uploadedAt: att.uploadedAt || new Date().toISOString(),
               escritorio_id: updatedContract.escritorio_id || currentEscritorioId,
             });
@@ -2052,6 +2052,7 @@ export function CRMProvider({ children }) {
     const newDoc = {
       ...docData,
       id: docData.id || `doc_${Date.now()}`,
+      uploadedBy: docData.uploadedBy || currentUser?.name || null,
       escritorio_id: currentEscritorioId,
       uploadedAt: new Date().toISOString(),
     };

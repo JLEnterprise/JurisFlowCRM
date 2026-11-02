@@ -176,7 +176,6 @@ export function ClientDetail({
           clientName: client.name,
           fileName: file.name,
           fileSize: typeof safeAtt.size === 'number' ? formatFileSize(safeAtt.size) : (safeAtt.size || '1.0 MB'),
-          uploadedBy: 'Dra. Tatiane Camargo',
           uploadedAt: safeAtt.uploadedAt,
           dataUrl: safeAtt.dataUrl,
         });
@@ -226,7 +225,6 @@ export function ClientDetail({
           clientName: client.name,
           fileName: file.name,
           fileSize: typeof safeAtt.size === 'number' ? formatFileSize(safeAtt.size) : (safeAtt.size || '1.0 MB'),
-          uploadedBy: 'Advocacia',
           uploadedAt: safeAtt.uploadedAt,
           dataUrl: safeAtt.dataUrl,
         });
@@ -802,7 +800,7 @@ export function ClientDetail({
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
-                        onClick={() => openAttachment(doc)}
+                        onClick={() => openAttachment(doc, contracts)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         title="Visualizar documento"
                       >
@@ -810,7 +808,7 @@ export function ClientDetail({
                       </button>
                       <button
                         type="button"
-                        onClick={() => downloadAttachment(doc)}
+                        onClick={() => downloadAttachment(doc, contracts)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         title="Baixar arquivo"
                       >
