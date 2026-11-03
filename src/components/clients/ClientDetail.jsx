@@ -355,12 +355,9 @@ export function ClientDetail({
   const handleConfirmDeleteDoc = () => {
     if (docToDelete) {
       const docId = docToDelete.id;
-      const docTitle = docToDelete.title;
       setDeleteDocModalOpen(false);
       setDocToDelete(null);
       deleteDocument(docId);
-      logActivity('Exclusão de Documento', docTitle, `Documento do cliente ${client.name} excluído.`);
-      showToast('Documento excluído com sucesso!');
     }
   };
 
