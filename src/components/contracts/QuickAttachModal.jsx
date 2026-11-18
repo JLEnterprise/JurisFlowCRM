@@ -150,7 +150,7 @@ export function QuickAttachModal({ isOpen, onClose, onContractCreated }) {
         clientName: client.name,
         title: contractTitle || `Contrato / Minuta (${files[0]?.name || 'Escritório'})`,
         legalArea: client.legalArea || 'civil',
-        responsibleLawyerId: client.responsibleLawyerId || 'usr_2',
+        responsibleLawyerId: client.responsibleLawyerId || null,
         serviceDescription: `Contrato formalizado com anexo de documento externo (${files.map(f => f.name).join(', ')}).`,
         status: 'assinado',
         value: val,

@@ -402,7 +402,7 @@ export async function consultAdvJuris(question, chatHistory = [], crmContext = n
 
   // 2. Motor Cognitivo Nativo AdvJuris Especialista (Incluso no CRM - Sem dependência de chave)
   await new Promise(r => setTimeout(r, 200));
-  const localAnswer = generateDeepLegalAnswer(question, chatHistory, crmContext);
+  const localAnswer = `${generateDeepLegalAnswer(question, chatHistory, crmContext)}\n\n> Resposta de uma base pré-cadastrada, sem IA. Confira artigos, súmulas e precedentes antes de usar em peça ou orientação ao cliente.`;
 
   return {
     text: localAnswer,
@@ -457,7 +457,7 @@ O Art. 833, inciso IV, do CPC é peremptório ao estabelecer a impenhorabilidade
 "Art. 833. São impenhoráveis:
 IV - os vencimentos, os subsídios, os soldos, os salários, as remunerações, os proventos de aposentadoria, as pensões, os pecúlios e os montepios, bem como as quantias recebidas por liberalidade de terceiro e destinadas ao sustento do devedor e de sua família (...)"
 
-Ademais, conforme jurisprudência pacífica do Colendo Superior Tribunal de Justiça (STJ), a proteção legal da impenhorabilidade de até 40 salários mínimos (Art. 833, X, do CPC) se estende a contas-correntes e aplicações financeiras, visando resguardar a dignidade da pessoa humana e a subsistência do devedor.
+[SE APLICÁVEL, CITE E CONFIRA O PRECEDENTE ATUAL SOBRE A EXTENSÃO DO ART. 833, X, DO CPC A CONTAS-CORRENTES E APLICAÇÕES.]
 
 II. DOS PEDIDOS
 Diante do exposto, comprovada a natureza estritamente alimentar da verba constrita no montante de R$ ${data.value || '[VALOR BLOQUEADO]'}, requer-se:
@@ -490,11 +490,12 @@ CONTESTAÇÃO CÍVEL COM PRELIMINARES
 em face da Ação proposta por [NOME DO AUTOR], consubstanciada nas seguintes razões:
 
 I. DAS PRELIMINARES PROCESSUAIS (ART. 337 DO CPC)
-1. Da Inépcia da Petição Inicial (Art. 337, IV, c/c Art. 330, § 1º, do CPC): A exordial não preenche os requisitos legais essenciais, porquanto da narração dos fatos não decorre logicamente a conclusão pretendida.
-2. Da Ilegitimidade Passiva Ad Causam (Art. 337, XI, do CPC): O Contestante não possui vínculo jurídico material com a alegada relação obrigacional descrita pelo Autor.
+[MANTENHA SÓ AS PRELIMINARES QUE SE APLICAM AO CASO E FUNDAMENTE COM OS FATOS DOS AUTOS]
+1. Da Inépcia da Petição Inicial (Art. 337, IV, c/c Art. 330, § 1º, do CPC): [FUNDAMENTAR]
+2. Da Ilegitimidade Passiva Ad Causam (Art. 337, XI, do CPC): [FUNDAMENTAR]
 
 II. DA REALIDADE DOS FATOS E DO MÉRITO
-No mérito, restam integralmente impugnadas todas as alegações autorais com fulcro no Art. 341 do CPC. A obrigação contratual discutida (${data.subject || 'relação contratual'}) sempre observou a estrita boa-fé objetiva (Art. 422 do Código Civil)...
+No mérito, restam integralmente impugnadas todas as alegações autorais com fulcro no Art. 341 do CPC. A obrigação contratual discutida (${data.subject || 'relação contratual'}) [EXPONHA OS FATOS E A DEFESA COM BASE NOS DOCUMENTOS DO CASO].
 
 III. DOS PEDIDOS
 Diante de todo o exposto, requer a Vossa Excelência:
@@ -520,7 +521,7 @@ Advogado(a) — OAB/[UF] nº [NÚMERO DA OAB]`
 
 OUTORGANTE: ${data.clientName || '[NOME DO CLIENTE]'}, brasileiro(a), inscrito(a) no CPF/CNPJ sob o nº ${data.cpf || '[CPF/CNPJ]'}, residente e domiciliado(a) em ${data.address || '[ENDEREÇO COMPLETO]'}, telefone: ${data.phone || '[TELEFONE]'}.
 
-OUTORGADOS: ${data.lawyerName || 'JURISFLOW ADVOCACIA & ASSOCIADOS'}, sociedade de advogados inscrita na OAB sob o nº [OAB], com escritório profissional localizado em [ENDEREÇO DO ESCRITÓRIO], onde recebem intimações e notificações de estilo.
+OUTORGADOS: ${data.lawyerName || '[NOME DO ESCRITÓRIO]'}, sociedade de advogados inscrita na OAB sob o nº [OAB], com escritório profissional localizado em [ENDEREÇO DO ESCRITÓRIO], onde recebem intimações e notificações de estilo.
 
 PODERES GERAIS: Pelo presente instrumento particular de mandato, o(a) OUTORGANTE nomeia e constitui os OUTORGADOS seus procuradores, conferindo-lhes amplos poderes para o foro em geral, com a cláusula "ad judicia et extra", em qualquer Juízo, Tribunal, Vara ou Órgão Administrativo em todo o território nacional.
 
@@ -554,7 +555,7 @@ OBJETO: Notificação Formal para Cumprimento de Obrigação referente a: ${data
 
 Prezados Senhores,
 
-Servimo-nos da presente para NOTIFICAR formalmente Vossa Senhoria quanto à necessidade premente de regularização da obrigação em comento, no valor atualizado de R$ ${data.value || '0,00'}, oriunda de relação jurídica estabelecida entre as partes.
+Servimo-nos da presente para NOTIFICAR formalmente Vossa Senhoria quanto à necessidade premente de regularização da obrigação em comento, no valor atualizado de R$ ${data.value || '[VALOR]'}, oriunda de relação jurídica estabelecida entre as partes.
 
 Diante do exposto, concedemos o prazo IMPRORROGÁVEL de 5 (cinco) dias úteis, a contar do recebimento desta, para que proceda ao adimplemento integral do débito ou formalize proposta amigável de quitação.
 
@@ -582,7 +583,7 @@ ${draftType.toUpperCase().replace(/_/g, ' ')}
 em face de [NOME DO REQUERIDO], pessoa jurídica de direito privado, inscrita no CNPJ sob o nº [CNPJ], pelos fatos e fundamentos jurídicos a seguir aduzidos:
 
 I. DOS FATOS
-O requerente estabeleceu relação jurídica com o requerido consistente em: ${data.subject || 'prestação de serviços / obrigação contratual'}. Ocorre que a parte requerida restou inadimplente com os deveres assumidos...
+O requerente estabeleceu relação jurídica com o requerido consistente em: ${data.subject || '[DESCREVA A RELAÇÃO]'}. [NARRE OS FATOS COM BASE NOS DOCUMENTOS DO CASO].
 
 II. DO DIREITO
 Consoante preceitua a legislação pátria (Código Civil e Código de Processo Civil), o inadimplemento culposo obriga o devedor à reparação integral dos danos e ao cumprimento específico da obrigação...
@@ -590,10 +591,10 @@ Consoante preceitua a legislação pátria (Código Civil e Código de Processo 
 III. DOS PEDIDOS
 Ante o exposto, requer:
 a) A citação do requerido para contestar a presente ação no prazo legal;
-b) A total procedência dos pedidos formulados para condenar o requerido ao pagamento de R$ ${data.value || '10.000,00'};
+b) A total procedência dos pedidos formulados para condenar o requerido ao pagamento de R$ ${data.value || '[VALOR]'};
 c) A condenação do requerido ao pagamento de custas processuais e honorários advocatícios sucumbenciais.
 
-Dá-se à causa o valor de R$ ${data.value || '10.000,00'}.
+Dá-se à causa o valor de R$ ${data.value || '[VALOR]'}.
 
 Nestes termos, pede deferimento.
 [Cidade/UF], ${dateStr}.`
@@ -603,6 +604,15 @@ Nestes termos, pede deferimento.
 // ============================================================================
 // ANÁLISE DE PUBLICAÇÕES JUDICIAIS & PRAZOS
 // ============================================================================
+
+// Prazo escrito na publicação ("prazo de 15 dias", "5 (cinco) dias"). Sem isso, devolve null:
+// número solto do texto (ano, nº do processo, valor) não é prazo.
+function extractDeadlineDays(text) {
+  const clean = String(text || '').replace(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g, ' ');
+  const match = clean.match(/\b(\d{1,3})\s*(?:\([^)]{1,30}\)\s*)?dias?\b/i);
+  const days = match ? Number(match[1]) : null;
+  return days && days > 0 ? days : null;
+}
 
 export async function analyzeLegalPublication(pubText, crmContext = null) {
   if (!pubText || pubText.trim().length === 0) {
@@ -624,7 +634,7 @@ ${pubText}`;
     if (externalResult) {
       const isPenal = pubText.toLowerCase().includes('crime') || pubText.toLowerCase().includes('penal') || pubText.toLowerCase().includes('cpp');
       const isTrabalhista = pubText.toLowerCase().includes('trabalh') || pubText.toLowerCase().includes('vara do trabalho') || pubText.toLowerCase().includes('clt');
-      const days = pubText.includes('15') ? 15 : pubText.includes('5') ? 5 : pubText.includes('8') ? 8 : pubText.includes('10') ? 10 : 15;
+      const days = extractDeadlineDays(pubText);
 
       return {
         text: externalResult,
@@ -641,7 +651,7 @@ ${pubText}`;
   await new Promise(r => setTimeout(r, 200));
   const isPenal = pubText.toLowerCase().includes('crime') || pubText.toLowerCase().includes('penal') || pubText.toLowerCase().includes('réu preso') || pubText.toLowerCase().includes('cpp');
   const isTrabalhista = pubText.toLowerCase().includes('trabalh') || pubText.toLowerCase().includes('vara do trabalho') || pubText.toLowerCase().includes('clt');
-  const days = pubText.includes('15') ? 15 : pubText.includes('5') ? 5 : pubText.includes('8') ? 8 : pubText.includes('10') ? 10 : 15;
+  const days = extractDeadlineDays(pubText);
   const procMatch = pubText.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/)?.[0];
 
   return {
@@ -653,12 +663,14 @@ ${pubText}`;
 * **Regra de Contagem:** ${isPenal ? '**DIAS CORRIDOS** (Art. 798 do CPP)' : '**DIAS ÚTEIS** (Art. 219 do CPC / Art. 775 da CLT)'}
 
 ## 2. Providência Prática Obrigatória
-* **Prazo Assinalado pelo Juízo:** **${days} dias ${isPenal ? 'corridos' : 'úteis'}**
+* **Prazo encontrado no texto:** ${days ? `**${days} dias ${isPenal ? 'corridos' : 'úteis'}** (confira)` : '**não identificado**: leia a publicação e defina o prazo pela lei aplicável'}
 * **Providência da Equipe:** Manifestar-se formalmente nos autos, anexando as peças processuais e elementos de prova exigidos pelo magistrado.
 
 ## 3. Matriz de Riscos & Alerta de Preclusão
 * **[Risco Crítico]:** O não cumprimento no prazo fatal acarreta preclusão temporal e renúncia ao direito de produzir a prova ou recurso cabível.
-* **Ação Recomendada:** Clique no botão **"Criar Prazo no CRM"** para agendar a data fatal na agenda da equipe.`,
+* **Ação Recomendada:** ${days ? 'Clique em **"Criar Prazo no CRM"** e confira a data: o cálculo não considera feriados nem suspensões do tribunal.' : 'Crie o prazo manualmente em Prazos & Tarefas, depois de definir a data.'}
+
+> Análise automática por palavras-chave, sem IA: não substitui a leitura do advogado.`,
     processNumber: procMatch || 'Identificado na análise',
     days: days,
     type: isPenal ? 'penal' : isTrabalhista ? 'trabalhista' : 'civel',
@@ -691,14 +703,15 @@ ${legalText}`;
   return {
     text: `Olá, ${clientName}! Tudo bem? 😊
 
-Passando para te dar uma atualização rápida sobre o andamento do seu processo:
+Passando para te dar uma atualização sobre o seu processo:
 
-O juiz deu um despacho de rotina no caso solicitando uma manifestação da nossa equipe sobre os documentos juntados. Nossa equipe jurídica já está cuidando de tudo para protocolar nossa resposta no prazo certo com máxima atenção aos seus direitos.
+[ESCREVA AQUI, COM SUAS PALAVRAS, O QUE O JUIZ DECIDIU E O QUE MUDA PARA O CLIENTE]
 
-Você não precisa se preocupar com nada no momento! Qualquer novidade importante te aviso por aqui.
+Qualquer dúvida, estou à disposição.
 
-Um grande abraço,
-Sua Equipe Jurídica ⚖️`
+Um abraço,
+Sua equipe jurídica ⚖️`,
+    needsReview: true
   };
 }
 
@@ -706,9 +719,10 @@ Sua Equipe Jurídica ⚖️`
 // CONTRATOS & AUDITORIA ESPECIALIZADA
 // ============================================================================
 
-export async function analyzeContractWithAdvJuris(contractText, contractType = 'Honorários', crmContext = null) {
-  const prompt = `Faça uma auditoria minuciosa deste contrato de ${contractType} com base nas normas do Código Civil, Código de Defesa do Consumidor e Estatuto da OAB (Art. 50 do CED):
-${contractText}`;
+export async function analyzeContractWithAdvJuris(contract, contractType = 'Honorários', crmContext = null) {
+  const data = contract && typeof contract === 'object' ? contract : { contractText: String(contract || '') };
+  const prompt = `Faça uma auditoria minuciosa deste contrato de ${contractType} com base nas normas do Código Civil, Código de Defesa do Consumidor e Estatuto da OAB:
+${JSON.stringify(data, null, 2)}`;
 
   try {
     const externalResult = await callMultiProviderAi(prompt, ADVJURIS_PROMPTS.CONTRACT_REVIEW, [], crmContext);
@@ -718,12 +732,20 @@ ${contractText}`;
   }
 
   await new Promise(r => setTimeout(r, 200));
-  return `### 📑 AUDITORIA CONTRATUAL — ADVJURIS
+  const text = `${data.serviceDescription || ''}\n${data.observations || ''}\n${data.contractText || ''}`.toLowerCase();
+  const check = (ok, label, tip) => `${ok ? '✅' : '⚠️'} **${label}:** ${ok ? 'localizado no cadastro.' : tip}`;
+  return `### 📑 CHECKLIST DO CONTRATO
 
-1. **Objeto e Escopo:** Cláusula descritiva clara. Recomenda-se explicitar se inclui eventuais recursos aos Tribunais Superiores (STJ/STF).
-2. **Honorários e Quota Litis (Art. 50 do CED da OAB):** A soma dos honorários contratuais e sucumbenciais não pode exceder a vantagem econômica auferida pelo cliente.
-3. **Cláusula de Rescisão e Revogação:** Recomenda-se prever honorários proporcionais ao trabalho prestado em caso de revogação imotivada do mandato.
-4. **Proteção de Dados & LGPD:** Inclusão de cláusula expressa autorizando o tratamento estritamente para a finalidade da defesa jurídica.`;
+Verificação automática dos dados cadastrados, sem IA: **não é parecer jurídico** e não lê os arquivos anexados.
+
+${[
+    check(Boolean(data.serviceDescription), 'Objeto e escopo', 'descreva os serviços e se incluem recursos.'),
+    check(Number(data.value) > 0, 'Valor', 'informe o valor dos honorários.'),
+    check(/rescis|revoga|resili/.test(text), 'Rescisão e revogação', 'não localizado. Considere prever honorários proporcionais em caso de revogação.'),
+    check(/multa|juros|inadimpl/.test(text), 'Inadimplência', 'não localizado. Considere multa, juros e correção.'),
+    check(/lgpd|13\.709|dados pessoais/.test(text), 'LGPD', 'não localizado. Considere cláusula de tratamento de dados.'),
+    check(/foro/.test(text), 'Foro', 'não localizado. Considere cláusula de foro.'),
+  ].join('\n')}`;
 }
 
 export async function generateContractWithAdvJuris(type, data = {}, crmContext = null) {
@@ -740,10 +762,10 @@ ${JSON.stringify(data, null, 2)}`;
   return `CONTRATO DE PRESTAÇÃO DE SERVIÇOS ADVOCATÍCIOS E HONORÁRIOS
 
 CONTRATANTE: ${data.clientName || '[NOME DO CLIENTE]'}, inscrito(a) no CPF/CNPJ sob o nº ${data.cpf || '[CPF/CNPJ]'};
-CONTRATADO: ${data.lawyerName || 'JURISFLOW ADVOCACIA & ASSOCIADOS'}, OAB/SP nº [NÚMERO OAB];
+CONTRATADO: ${data.lawyerName || '[NOME DO ESCRITÓRIO]'}, OAB/[UF] nº [NÚMERO OAB];
 
 CLÁUSULA 1ª - DO OBJETO: Prestação de serviços jurídicos em favor do CONTRATANTE para atuação em ${data.subject || 'demanda cível/trabalhista'}.
-CLÁUSULA 2ª - DOS HONORÁRIOS: Pelos serviços prestados, o CONTRATANTE pagará a quantia de R$ ${data.value || '5.000,00'}.
+CLÁUSULA 2ª - DOS HONORÁRIOS: Pelos serviços prestados, o CONTRATANTE pagará a quantia de R$ ${data.value || '[VALOR]'}.
 CLÁUSULA 3ª - DA LGPD: As partes declaram ciência e conformidade com a Lei Geral de Proteção de Dados (Lei 13.709/2018).
 CLÁUSULA 4ª - DO FORO: Fica eleito o foro da Comarca local.`;
 }

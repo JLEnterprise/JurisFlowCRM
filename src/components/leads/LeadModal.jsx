@@ -33,7 +33,7 @@ function getUtmSummary(lead) {
 
 export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
   const { addLead, updateLead, legalAreas, leadSources } = useCRM();
-  const { users } = useAuth();
+  const { users, currentUser } = useAuth();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -48,7 +48,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
     howFound: '',
     legalArea: 'trabalhista',
     assignedTo: 'usr_4',
-    lawyerId: 'usr_2',
+    lawyerId: currentUser?.id || '',
     stage: 'novo_lead',
     temperature: 'hot',
     estimatedValue: '',
@@ -78,7 +78,7 @@ export function LeadModal({ isOpen, onClose, leadToEdit = null }) {
     howFound: '',
         legalArea: 'trabalhista',
         assignedTo: 'usr_4',
-        lawyerId: 'usr_2',
+        lawyerId: currentUser?.id || '',
         stage: 'novo_lead',
         temperature: 'hot',
         estimatedValue: '',

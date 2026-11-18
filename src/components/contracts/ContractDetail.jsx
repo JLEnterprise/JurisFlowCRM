@@ -22,6 +22,7 @@ import {
   Check,
   Copy,
   AlertTriangle,
+  Scale,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -154,8 +155,8 @@ export function ContractDetail({
         observations: contract.observations || '',
         contractText: contract.contractText || '',
       });
-      setAuditResult(res);
-      showToast('Auditoria de risco concluída pelo AdvJuris!', 'success');
+      setAuditResult({ analysis: res });
+      showToast('Checklist do contrato gerado.', 'success');
     } catch (e) {
       showToast('Erro na auditoria: ' + e.message, 'error');
     } finally {

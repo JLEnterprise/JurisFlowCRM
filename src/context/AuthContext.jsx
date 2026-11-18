@@ -91,7 +91,7 @@ export function AuthProvider({ children }) {
                 titles: assignedTitles,
                 oab: data.oab || raw.oab || '',
                 phone: data.phone || raw.phone || '',
-                avatar: data.avatar || raw.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
+                avatar: data.avatar || raw.avatar || null,
                 status: data.status || 'active',
                 escritorio_id: userEscritorioId
               };
@@ -270,7 +270,7 @@ export function AuthProvider({ children }) {
               oab: payload.new.oab || raw.oab || '',
               phone: payload.new.phone || raw.phone || '',
               firmName: raw.firmName || 'JurisFlow Advocacia',
-              avatar: payload.new.avatar || raw.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
+              avatar: payload.new.avatar || raw.avatar || null,
               status: payload.new.status || 'active',
               escritorio_id: userEscritorioId,
             };
@@ -333,7 +333,7 @@ export function AuthProvider({ children }) {
       title: primaryTitle,
       oab: userObj.oab || null,
       phone: userObj.phone || null,
-      avatar: userObj.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
+      avatar: userObj.avatar || null,
       status: userObj.status || 'active',
       escritorio_id: userObj.escritorio_id || storageService.getCurrentEscritorioId(),
       raw_data: {
@@ -347,7 +347,7 @@ export function AuthProvider({ children }) {
         titles: assignedTitles,
         oab: userObj.oab || null,
         phone: userObj.phone || null,
-        avatar: userObj.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
+        avatar: userObj.avatar || null,
         status: userObj.status || 'active',
         escritorio_id: userObj.escritorio_id || storageService.getCurrentEscritorioId(),
       }
@@ -374,10 +374,12 @@ export function AuthProvider({ children }) {
       // 3. Se ainda não existia, insere
       if (!updated || updated.length === 0) {
         const insertData = { ...userData, id: cleanId || `usr_${Date.now()}` };
-        await supabase.from('users').insert(insertData);
+        const { error: insertError } = await supabase.from('users').insert(insertData);
+        if (insertError) throw insertError;
       }
     } catch (e) {
       console.warn('[Users Supabase Sync Warning]:', e.message);
+      storageService.reportSyncIssue('failed', null);
     }
   };
 
@@ -446,7 +448,7 @@ export function AuthProvider({ children }) {
             oab: data.oab || raw.oab || '',
             phone: data.phone || raw.phone || '',
             firmName: raw.firmName || 'JurisFlow Advocacia',
-            avatar: data.avatar || raw.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
+            avatar: data.avatar || raw.avatar || null,
             status: data.status || 'active',
             escritorio_id: data.escritorio_id || null
           };
@@ -586,7 +588,7 @@ export function AuthProvider({ children }) {
       title: userData.title || assignedTitles.join(' • '),
       titles: assignedTitles,
       status: 'active',
-      avatar: userData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256',
+      avatar: userData.avatar || null,
     };
     setUsers(prev => {
       const next = [...prev, newUser];
@@ -660,6 +662,11 @@ export function AuthProvider({ children }) {
     const targetUser = users.find(u => u.id === id);
     const targetEmail = targetUser?.email ? targetUser.email.toLowerCase().trim() : '';
     const cleanId = String(id || '');
+    // A conta não troca de pessoa sozinha: para sair da própria conta, é "Sair"
+    if (currentUser?.id === cleanId || (targetEmail && currentUser?.email?.toLowerCase() === targetEmail)) {
+      alert('Você não pode excluir a própria conta. Peça a outro administrador.');
+      return false;
+    }
 
     // 1. Atualização instantânea no estado e localStorage
     setUsers(prev => {
@@ -669,24 +676,7 @@ export function AuthProvider({ children }) {
     });
 
     // 2. Exclusão direta no Supabase
-    try {
-      if (targetEmail) {
-        await supabase.from('users').delete().eq('email', targetEmail);
-      }
-      if (cleanId) {
-        await supabase.from('users').delete().eq('id', cleanId);
-      }
-    } catch (err) {
-      console.warn('Erro ao deletar usuário do Supabase:', err.message);
-    }
-
-    // 3. Se for o usuário atual, muda para o próximo
-    if (currentUser?.id === cleanId || (targetEmail && currentUser?.email?.toLowerCase() === targetEmail)) {
-      const nextUser = users.find(u => u.id !== cleanId && (!targetEmail || u.email?.toLowerCase() !== targetEmail)) || null;
-      setCurrentUser(nextUser);
-      storageService.saveData('current_user', nextUser);
-    }
-    return true;
+    return storageService.deleteFromSupabase('users', cleanId, targetEmail);
   };
 
   // Envia o e-mail de redefinição. Não revela se o e-mail existe; só avisa quando o envio

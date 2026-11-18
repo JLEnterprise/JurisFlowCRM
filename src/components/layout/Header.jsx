@@ -12,6 +12,7 @@ import {
   Building2,
   Sparkles,
   MessageSquare,
+  CloudOff,
   User,
   Settings as SettingsIcon,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ const PAGE_NAMES = {
   tasks: 'Prazos & tarefas',
   attendance: 'Atendimentos',
   documents: 'Documentos',
+  templates: 'Modelos',
   financial: 'Contas & honorários',
   reports: 'Relatórios',
   team: 'Equipe',
@@ -60,7 +62,7 @@ export function Header({
 }) {
   const { currentUser, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
-  const { currentEscritorio, escritorios = [], switchEscritorio, currentEscritorioId, officeSettings } = useCRM();
+  const { currentEscritorio, escritorios = [], switchEscritorio, currentEscritorioId, officeSettings, pendingSync = 0 } = useCRM();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [localProfileModalOpen, setLocalProfileModalOpen] = useState(false);
   const userMenuRef = useRef(null);
@@ -140,6 +142,18 @@ export function Header({
 
       {/* Direita: busca, período, ações e perfil */}
       <div className="flex items-center gap-1.5 sm:gap-2.5">
+        {/* Alteração guardada aqui e ainda não enviada (sem internet): reenvio é automático */}
+        {pendingSync > 0 && (
+          <span
+            role="status"
+            title="Sem conexão com o sistema. Será enviado automaticamente quando a internet voltar. Não limpe os dados do navegador."
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300"
+          >
+            <CloudOff className="h-3.5 w-3.5" aria-hidden="true" />
+            {pendingSync} aguardando envio
+          </span>
+        )}
+
         {/* Busca global */}
         <button
           onClick={onOpenSearch}

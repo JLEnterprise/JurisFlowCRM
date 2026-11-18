@@ -104,7 +104,7 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
     const duplicated = {
       ...contract,
       id: `cnt_${Date.now()}`,
-      contractNumber: `CTR-2026/${Math.floor(100 + Math.random() * 900)}`,
+      contractNumber: `CTR-${new Date().getFullYear()}/${String(Date.now()).slice(-4)}`,
       title: `${contract.title || 'Contrato'} (Cópia)`,
       status: 'rascunho',
       createdDate: new Date().toISOString().split('T')[0],

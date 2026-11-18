@@ -115,7 +115,7 @@ export function TeamView() {
       titles: ['Advogado(a) Associado(a)'],
       oab: 'OAB/SP ',
       phone: '(11) 98888-0000',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256',
+      avatar: null,
     });
     setCustomTitleInput('');
     setIsModalOpen(true);

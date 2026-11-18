@@ -23,6 +23,7 @@ export const ACCESS_MODULES = [
     { key: 'canAccessProcesses', label: 'Processos' },
     { key: 'canAccessContracts', label: 'Contratos & minutas' },
     { key: 'canAccessDocuments', label: 'Documentos' },
+    { key: 'canAccessTemplates', label: 'Modelos', hint: 'Petições, contratos e laudos do escritório' },
   ] },
   { group: 'Agenda & prazos', items: [
     { key: 'canAccessAgenda', label: 'Agenda & audiências' },
@@ -52,6 +53,7 @@ const DEFAULT_WHO = {
   canAccessProcesses: ['lawyer', 'senior_lawyer'],
   canAccessContracts: ['lawyer', 'senior_lawyer', 'sales_manager'],
   canAccessDocuments: ['lawyer', 'senior_lawyer', 'financial', 'secretary'],
+  canAccessTemplates: ['lawyer', 'senior_lawyer', 'sales_manager', 'secretary'],
   canAccessAgenda: ALL,
   canViewAllAgendas: ['secretary'],
   canAccessTasks: ALL,

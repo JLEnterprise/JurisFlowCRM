@@ -9,14 +9,14 @@ import { DateField } from '../common/DateField';
 
 export function ProposalModal({ isOpen, onClose, proposalToEdit = null }) {
   const { addProposal, updateProposal, moveLeadStage, leads, clients, legalAreas } = useCRM();
-  const { users } = useAuth();
+  const { users, currentUser } = useAuth();
 
   const [formData, setFormData] = useState({
     clientName: '',
     leadId: '',
     serviceName: '',
     legalArea: 'empresarial',
-    responsibleId: 'usr_1',
+    responsibleId: currentUser?.id || '',
     description: '',
     feeValue: '',
     paymentTerms: 'Entrada de 30% + saldo em até 4 parcelas',
@@ -35,7 +35,7 @@ export function ProposalModal({ isOpen, onClose, proposalToEdit = null }) {
         clientId: '',
         serviceName: '',
         legalArea: 'empresarial',
-        responsibleId: 'usr_1',
+        responsibleId: currentUser?.id || '',
         description: '',
         feeValue: '',
         paymentTerms: 'Entrada de 30% + saldo em até 4 parcelas',

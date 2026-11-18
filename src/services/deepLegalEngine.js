@@ -149,7 +149,7 @@ O JurisFlow CRM é estruturado em 7 pilares integrados:
     const activeClients = clients.filter(c => c.status === 'active' || !c.status);
     const activeProcesses = processes.filter(p => p.status !== 'arquivado');
 
-    return `### ☀️ BRIEFING EXECUTIVO & OPERACIONAL — JURISFLOW ADVOCACIA
+    return `### ☀️ BRIEFING EXECUTIVO & OPERACIONAL
 **Data:** ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
 **Colaborador:** ${currentUser?.name || 'Equipe do Escritório'} | **Escritório:** ${officeSettings.officeName || 'JurisFlow Advocacia'}
 
@@ -316,7 +316,7 @@ ${relContracts.length > 0 ? relContracts.map(c => `* 📄 **${c.title || c.subje
 
 ### 1. Regra Fundamental de Contagem de Prazos (Art. 219 do CPC)
 * **DIAS ÚTEIS:** Na contagem de prazos em dias computam-se **somente os dias úteis**.
-* **Termo Inicial (Art. 224 do CPC):** Exclui-se o dia do começo e inclui-se o do vencimento. A intimação veiculada no DJe considera-se realizada no primeiro dia útil seguinte ao da disponibilização.
+* **Termo Inicial (Art. 224 do CPC):** Exclui-se o dia do começo e inclui-se o do vencimento. A publicação no DJe considera-se feita no primeiro dia útil seguinte ao da disponibilização, e o prazo começa no primeiro dia útil seguinte ao da publicação (Art. 224, §§ 2º e 3º).
 * **Suspensão Forense de Fim de Ano (Art. 220 do CPC):** Suspende-se o curso do prazo processual e a realização de audiências entre **20 de dezembro e 20 de janeiro**.
 
 ---

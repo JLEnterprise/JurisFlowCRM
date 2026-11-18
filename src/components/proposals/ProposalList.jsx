@@ -122,7 +122,7 @@ export function ProposalList({ onOpenNewProposal, onEditProposal, onConvertToCon
     const duplicated = {
       ...prop,
       id: `prop_${Date.now()}`,
-      proposalNumber: `PROP-2026/${Math.floor(100 + Math.random() * 900)}`,
+      proposalNumber: `PROP-${new Date().getFullYear()}/${String(Date.now()).slice(-4)}`,
       status: 'rascunho',
       createdAt: new Date().toISOString(),
     };
