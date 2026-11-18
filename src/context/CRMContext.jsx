@@ -963,14 +963,14 @@ export function CRMProvider({ children }) {
     const newAtts = Array.isArray(newContract.attachments) ? newContract.attachments : [];
     if (newAtts.length > 0) {
       const generatedDocs = newAtts.map(att => ({
-        id: `doc_${newContract.id}_${att.id || Math.random().toString(36).substr(2, 6)}`,
+        id: `doc_${newContract.id}_${att.id || att.name}`,
         title: att.name || 'Documento Anexado',
         clientId: finalClientId,
         clientName: finalClientName,
         category: att.category || (att.name?.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos'),
         fileName: att.name || 'documento.pdf',
         fileSize: typeof att.size === 'number' ? formatFileSize(att.size) : (att.size || '1.0 MB'),
-        uploadedBy: 'Dra. Tatiane Camargo',
+        uploadedBy: currentUser?.name || null,
         uploadedAt: att.uploadedAt || new Date().toISOString(),
         escritorio_id: currentEscritorioId,
       }));
@@ -1030,7 +1030,7 @@ export function CRMProvider({ children }) {
               category: att.category || (att.name?.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos'),
               fileName: att.name || 'documento.pdf',
               fileSize: typeof att.size === 'number' ? formatFileSize(att.size) : (att.size || '1.0 MB'),
-              uploadedBy: 'Dra. Tatiane Camargo',
+              uploadedBy: currentUser?.name || null,
               uploadedAt: att.uploadedAt || new Date().toISOString(),
               escritorio_id: updatedContract.escritorio_id || currentEscritorioId,
             });
@@ -1217,6 +1217,8 @@ export function CRMProvider({ children }) {
       storageService.saveData('installments', next);
       return next;
     });
+    supabase.from('installments').delete().eq('contract_id', strId)
+      .then(({ error }) => { if (error) console.warn('Erro ao excluir parcelas do contrato:', error.message); });
 
     // Recalcular totalContracted do cliente
     if (contractToDelete && (contractToDelete.clientId || contractToDelete.client_id)) {
@@ -1829,6 +1831,7 @@ export function CRMProvider({ children }) {
     const newDoc = {
       ...docData,
       id: docData.id || `doc_${Date.now()}`,
+      uploadedBy: docData.uploadedBy || currentUser?.name || null,
       escritorio_id: currentEscritorioId,
       uploadedAt: new Date().toISOString(),
     };
@@ -1859,36 +1862,37 @@ export function CRMProvider({ children }) {
     // Exclui do Supabase
     storageService.deleteFromSupabase('documents', cleanId);
 
-    // Se o documento pertencia a anexos de contratos, remove também do contrato para não ressuscitar
-    if (docToRemove) {
-      setContracts(prev => {
-        let contractChanged = false;
-        const next = prev.map(c => {
-          if (Array.isArray(c.attachments) && c.attachments.length > 0) {
-            const filteredAtts = c.attachments.filter(att => 
-              String(att.id) !== cleanId && 
-              att.name !== docToRemove.fileName && 
-              att.name !== docToRemove.title &&
-              `doc_${c.id}_${att.id}` !== cleanId &&
-              `doc_${c.id}_${att.name}` !== cleanId
-            );
-            if (filteredAtts.length !== c.attachments.length) {
-              contractChanged = true;
-              const updatedContract = { ...c, attachments: filteredAtts };
-              storageService.saveToSupabase('contracts', [updatedContract]);
-              return updatedContract;
-            }
+    // Se o documento foi copiado de um anexo de contrato, remove só esse anexo para não ressuscitar.
+    // Nunca comparar por nome: outro cliente pode ter um arquivo de mesmo nome.
+    setContracts(prev => {
+      let contractChanged = false;
+      const next = prev.map(c => {
+        if (Array.isArray(c.attachments) && c.attachments.length > 0) {
+          const filteredAtts = c.attachments.filter(att =>
+            String(att.id) !== cleanId &&
+            `doc_${c.id}_${att.id}` !== cleanId &&
+            `doc_${c.id}_${att.name}` !== cleanId
+          );
+          if (filteredAtts.length !== c.attachments.length) {
+            contractChanged = true;
+            const updatedContract = { ...c, attachments: filteredAtts };
+            storageService.saveToSupabase('contracts', [updatedContract]);
+            return updatedContract;
           }
-          return c;
-        });
-        if (contractChanged) {
-          storageService.saveData('contracts', next);
         }
-        return next;
+        return c;
       });
-    }
+      if (contractChanged) {
+        storageService.saveData('contracts', next);
+      }
+      return next;
+    });
 
-    logActivity('Exclusão de Documento', docToRemove?.title || 'Documento', 'Documento removido do acervo.');
+    logActivity(
+      'Exclusão de Documento',
+      docToRemove?.title || 'Documento',
+      docToRemove?.clientName ? `Documento do cliente ${docToRemove.clientName} removido do acervo.` : 'Documento removido do acervo.'
+    );
     showToast('Documento excluído com sucesso!', 'success');
   };
 

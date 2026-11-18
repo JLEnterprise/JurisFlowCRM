@@ -128,10 +128,8 @@ export function ContractDetail({
     }
 
     if (attToDelete) {
-      const matchedDoc = (documents || []).find(d => 
-        d.id === attachmentId || 
-        (String(d.id).includes(String(contract.id)) && (d.title === attToDelete.name || d.fileName === attToDelete.name))
-      );
+      const sourceIds = [attachmentId, `doc_${contract.id}_${attachmentId}`, `doc_${contract.id}_${attToDelete.name}`];
+      const matchedDoc = (documents || []).find(d => sourceIds.includes(d.id));
       if (matchedDoc) {
         deleteDocument(matchedDoc.id);
       }
@@ -229,9 +227,9 @@ export function ContractDetail({
 
           {attachments.length > 0 ? (
             <button
-              onClick={() => {
-                downloadAttachment(attachments[0]);
-                showToast(`Baixando contrato oficial: ${attachments[0]?.name || 'arquivo'}`);
+              onClick={async () => {
+                const started = await downloadAttachment(attachments[0]);
+                if (started) showToast(`Baixando contrato oficial: ${attachments[0]?.name || 'arquivo'}`);
               }}
               className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 shadow-sm hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300 transition-colors"
               title={`Baixar contrato oficial verídico: ${attachments[0]?.name || 'arquivo'}`}

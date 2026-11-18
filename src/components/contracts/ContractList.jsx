@@ -116,12 +116,12 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
     showToast('Contrato duplicado com sucesso!');
   };
 
-  const handleAccessContractFile = (contract) => {
+  const handleAccessContractFile = async (contract) => {
     if (!contract) return;
     const atts = Array.isArray(contract.attachments) ? contract.attachments : [];
     if (atts.length > 0) {
-      downloadAttachment(atts[0]);
-      showToast(`Baixando contrato oficial: ${atts[0].name || 'documento'}`);
+      const started = await downloadAttachment(atts[0]);
+      if (started) showToast(`Baixando contrato oficial: ${atts[0].name || 'documento'}`);
     } else {
       setQuickAttachOpen(true);
       showToast('Nenhum arquivo anexado a este contrato ainda. Anexe a lauda oficial.', 'info');
