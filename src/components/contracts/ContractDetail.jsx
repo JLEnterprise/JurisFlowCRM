@@ -128,10 +128,8 @@ export function ContractDetail({
     }
 
     if (attToDelete) {
-      const matchedDoc = (documents || []).find(d => 
-        d.id === attachmentId || 
-        (String(d.id).includes(String(contract.id)) && (d.title === attToDelete.name || d.fileName === attToDelete.name))
-      );
+      const sourceIds = [attachmentId, `doc_${contract.id}_${attachmentId}`, `doc_${contract.id}_${attToDelete.name}`];
+      const matchedDoc = (documents || []).find(d => sourceIds.includes(d.id));
       if (matchedDoc) {
         deleteDocument(matchedDoc.id);
       }

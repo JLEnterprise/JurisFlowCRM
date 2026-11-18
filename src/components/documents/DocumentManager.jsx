@@ -260,12 +260,9 @@ export function DocumentManager() {
   const handleConfirmDeleteDoc = () => {
     if (documentToDelete) {
       const docId = documentToDelete.id;
-      const docTitle = documentToDelete.title || 'Documento';
       setDeleteModalOpen(false);
       setDocumentToDelete(null);
       deleteDocument(docId);
-      logActivity('Exclusão de Documento', docTitle, 'Documento removido do acervo.');
-      showToast('Documento excluído com sucesso!');
     }
   };
 
