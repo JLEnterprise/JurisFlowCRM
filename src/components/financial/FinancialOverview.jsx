@@ -39,6 +39,7 @@ import { Select } from '../common/Select';
 import { DateField } from '../common/DateField';
 import { Avatar } from '../common/Avatar';
 import { ClientPaymentHistory } from './ClientPaymentHistory';
+import { TeamPayoutPanel } from './TeamPayoutPanel';
 import {
   instAmount, instDue, instPaidOn, instClientName, instNumber, instTotal, instMethod,
   instState, fmtDay, relativeDay, clientKeyOf,
@@ -762,6 +763,9 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
           );
         })}
       </div>
+
+      {/* Repasses da equipe (percentual sobre o bruto recebido no mês) */}
+      <TeamPayoutPanel />
 
       {/* Contas a receber */}
       <div className="dash-panel !p-0 overflow-hidden">
