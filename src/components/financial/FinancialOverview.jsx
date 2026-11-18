@@ -86,6 +86,10 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
   const [selectedStatus, setSelectedStatus] = useState(''); // '', 'paid', 'pending', 'overdue'
   const [activeCardKey, setActiveCardKey] = useState(null); // 'contracted', 'received', 'pending', 'ticket', 'overdue'
   const [historyClientKey, setHistoryClientKey] = useState(null); // cliente aberto no histórico de pagamentos
+  // Filtro por data de pagamento ("AAAA-MM-DD"; vazio = sem limite)
+  const [paidFrom, setPaidFrom] = useState('');
+  const [paidTo, setPaidTo] = useState('');
+  const hasPaidFilter = !!(paidFrom || paidTo);
 
   // Modals de exclusão e edição padrão
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -175,9 +179,44 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
         matchesStatus = i.status === selectedStatus;
       }
 
-      return matchesSearch && matchesStatus;
+      // Com período de pagamento escolhido, só entram parcelas pagas dentro dele
+      let matchesPaidDate = true;
+      if (paidFrom || paidTo) {
+        const paidOn = instPaidOn(i);
+        matchesPaidDate = i.status === 'paid' && !!paidOn
+          && (!paidFrom || paidOn >= paidFrom)
+          && (!paidTo || paidOn <= paidTo);
+      }
+
+      return matchesSearch && matchesStatus && matchesPaidDate;
     });
-  }, [installments, search, selectedStatus]);
+  }, [installments, search, selectedStatus, paidFrom, paidTo]);
+
+  const paidPeriodTotal = useMemo(
+    () => filteredInstallments.reduce((acc, i) => acc + instAmount(i), 0),
+    [filteredInstallments]
+  );
+
+  // Atalhos de período (mês atual, mês passado, ano atual)
+  const applyPaidPreset = (preset) => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const pad = (n) => String(n).padStart(2, '0');
+    const day = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    if (preset === 'month') {
+      setPaidFrom(day(new Date(y, m, 1)));
+      setPaidTo(day(new Date(y, m + 1, 0)));
+    } else if (preset === 'lastMonth') {
+      setPaidFrom(day(new Date(y, m - 1, 1)));
+      setPaidTo(day(new Date(y, m, 0)));
+    } else if (preset === 'year') {
+      setPaidFrom(`${y}-01-01`);
+      setPaidTo(`${y}-12-31`);
+    }
+  };
+
+  const clearPaidFilter = () => { setPaidFrom(''); setPaidTo(''); };
 
   // Ordem da lista: atrasadas (mais antigas primeiro), depois a vencer (mais próximas), por fim pagas (mais recentes)
   const sortedInstallments = useMemo(() => {
@@ -460,6 +499,62 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
               className="w-full rounded-full border border-slate-200 bg-white/70 py-1.5 pl-8 pr-3 text-xs text-slate-900 focus:border-gold-500/50 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-white"
             />
           </div>
+        </div>
+
+        {/* Filtro por data de pagamento */}
+        <div className="flex flex-wrap items-center gap-2 px-5 pb-4">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+            <Calendar className="h-3.5 w-3.5 text-gold-600 dark:text-gold-400" /> Pagamento
+          </span>
+          <DateField
+            type="date"
+            value={paidFrom}
+            max={paidTo || undefined}
+            onChange={(e) => setPaidFrom(e.target.value)}
+            placeholder="De"
+            aria-label="Pagamento a partir de"
+            className="text-xs w-36"
+          />
+          <span className="text-xs text-slate-400">até</span>
+          <DateField
+            type="date"
+            value={paidTo}
+            min={paidFrom || undefined}
+            onChange={(e) => setPaidTo(e.target.value)}
+            placeholder="Até"
+            aria-label="Pagamento até"
+            className="text-xs w-36"
+          />
+          <div className="flex flex-wrap items-center gap-1">
+            {[
+              { id: 'month', label: 'Este mês' },
+              { id: 'lastMonth', label: 'Mês passado' },
+              { id: 'year', label: 'Este ano' },
+            ].map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPaidPreset(p.id)}
+                className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-gold-500/40 hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:text-white"
+              >
+                {p.label}
+              </button>
+            ))}
+            {hasPaidFilter && (
+              <button
+                type="button"
+                onClick={clearPaidFilter}
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-300"
+              >
+                <X className="h-3 w-3" /> Limpar
+              </button>
+            )}
+          </div>
+          {hasPaidFilter && (
+            <span className="ml-auto rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-500/25 dark:text-emerald-300">
+              {filteredInstallments.length} pagamento(s) · {formatCurrency(paidPeriodTotal)}
+            </span>
+          )}
         </div>
 
         {sortedInstallments.length === 0 ? (
