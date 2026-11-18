@@ -218,6 +218,64 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
 
   const clearPaidFilter = () => { setPaidFrom(''); setPaidTo(''); };
 
+  // Visão agrupada: uma linha por contrato (só muda a exibição, nenhum dado é alterado).
+  // Em "Em atraso" e com período de pagamento escolhido, a lista continua parcela por parcela.
+  const [expandedGroups, setExpandedGroups] = useState({});
+  const useGrouped = !hasPaidFilter && selectedStatus !== 'overdue';
+
+  const contractGroups = useMemo(() => {
+    const term = search.toLowerCase();
+    const byContract = new Map();
+    (installments || []).forEach((i) => {
+      if (term && !instClientName(i).toLowerCase().includes(term)) return;
+      const key = String(i.contractId || i.contract_id || `${clientKeyOf(i, clients)}|${instTotal(i)}`);
+      if (!byContract.has(key)) byContract.set(key, []);
+      byContract.get(key).push(i);
+    });
+
+    const groups = [];
+    byContract.forEach((items, key) => {
+      const sorted = [...items].sort((a, b) =>
+        (Number(instNumber(a)) - Number(instNumber(b))) || instDue(a).localeCompare(instDue(b)));
+      const paid = sorted.filter((i) => instState(i) === 'paid');
+      const overdue = sorted.filter((i) => instState(i) === 'overdue');
+      const upcoming = sorted
+        .filter((i) => instState(i) === 'upcoming')
+        .sort((a, b) => instDue(a).localeCompare(instDue(b)));
+      if (selectedStatus === 'paid' && !paid.length) return;
+      if (selectedStatus === 'pending' && !upcoming.length) return;
+
+      const first = sorted[0];
+      const contractId = String(first.contractId || first.contract_id || '');
+      groups.push({
+        key,
+        items: sorted,
+        first,
+        paid,
+        overdue,
+        upcoming,
+        next: upcoming[0] || null,
+        contract: (contracts || []).find((c) => String(c.id) === contractId) || null,
+        total: Math.max(Number(instTotal(first)) || 0, sorted.length),
+        remaining: [...overdue, ...upcoming].reduce((acc, i) => acc + instAmount(i), 0),
+        lastPaid: paid.map(instPaidOn).filter(Boolean).sort().pop() || '',
+      });
+    });
+
+    // Contratos com atraso primeiro, depois os próximos vencimentos, por fim os quitados
+    const rank = (g) => (g.overdue.length ? 0 : g.next ? 1 : 2);
+    return groups.sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      if (ra === 0) return instDue(a.overdue[0]).localeCompare(instDue(b.overdue[0]));
+      if (ra === 1) return instDue(a.next).localeCompare(instDue(b.next));
+      return b.lastPaid.localeCompare(a.lastPaid);
+    });
+  }, [installments, contracts, clients, search, selectedStatus]);
+
+  const toggleGroup = (key) => setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+
   // Ordem da lista: atrasadas (mais antigas primeiro), depois a vencer (mais próximas), por fim pagas (mais recentes)
   const sortedInstallments = useMemo(() => {
     const rank = { overdue: 0, upcoming: 1, paid: 2 };
@@ -419,6 +477,265 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
     upcoming: 'bg-gold-500/10 text-gold-800 ring-gold-500/30 dark:text-gold-200',
   };
 
+  // Linha de uma parcela (lista simples ou parcela aberta dentro de um contrato)
+  const renderInstallmentRow = (inst, nested = false) => {
+    const state = instState(inst);
+    const due = instDue(inst);
+    const paidOn = instPaidOn(inst);
+    const number = instNumber(inst);
+    const total = instTotal(inst);
+    const reason = inst.overdueReason || inst.overdue_reason;
+
+    return (
+      <tr
+        key={inst.id}
+        className={`group transition-colors hover:bg-gold-500/[0.035] ${nested ? 'bg-slate-50/60 dark:bg-white/[0.015]' : ''}`}
+      >
+        {nested ? (
+          <td className="py-2.5 pl-16 pr-5">
+            <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              {state === 'overdue' ? 'Parcela em atraso' : state === 'paid' ? 'Parcela paga' : 'Parcela a vencer'}
+            </span>
+            {state === 'overdue' && reason && (
+              <span className="block max-w-[14rem] truncate text-[11px] text-rose-600 dark:text-rose-400">{reason}</span>
+            )}
+          </td>
+        ) : (
+        <td className="px-5 py-3">
+          <button
+            type="button"
+            onClick={() => setHistoryClientKey(clientKeyOf(inst, clients))}
+            className="flex items-center gap-3 text-left"
+            title="Ver histórico de pagamentos"
+          >
+            <Avatar src={clients.find(c => String(c.id) === clientKeyOf(inst, clients))?.avatar} name={instClientName(inst)} size="sm" />
+            <span className="min-w-0">
+              <span className="block max-w-[13rem] truncate font-semibold text-slate-900 transition-colors group-hover:text-gold-700 dark:text-white dark:group-hover:text-gold-300">
+                {instClientName(inst)}
+              </span>
+              {state === 'overdue' && reason ? (
+                <span className="block max-w-[14rem] truncate text-[11px] text-rose-600 dark:text-rose-400">{reason}</span>
+              ) : (
+                <span className="block text-[11px] text-slate-400">Ver histórico</span>
+              )}
+            </span>
+          </button>
+        </td>
+        )}
+
+        <td className="px-4 py-3">
+          {inst.recurring ? (
+            <>
+              <div className="inline-flex items-center gap-1 font-numeric text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <Repeat className="h-3 w-3 text-gold-600 dark:text-gold-400" /> Mensalidade {number}
+              </div>
+              <div className="text-[10px] text-slate-400">{inst.totalInstallments ? `de ${inst.totalInstallments} · recorrente` : 'recorrente'}</div>
+            </>
+          ) : (
+          <>
+          <div className="font-numeric text-xs font-semibold text-slate-700 dark:text-slate-200">{number} de {total}</div>
+          <div className="mt-1 flex h-1 w-16 gap-[2px]">
+            {Array.from({ length: Math.min(total, 12) }).map((_, n) => (
+              <span
+                key={n}
+                className={`flex-1 rounded-full ${n < Math.round((number / total) * Math.min(total, 12)) ? 'bg-gold-500/80' : 'bg-slate-200 dark:bg-white/[0.08]'}`}
+              />
+            ))}
+          </div>
+          </>
+          )}
+        </td>
+
+        <td className="px-4 py-3">
+          <div className="font-numeric text-xs text-slate-800 dark:text-slate-200">{fmtDay(due)}</div>
+          <div className={`text-[11px] ${state === 'overdue' ? 'font-semibold text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
+            {state === 'paid' ? `pago ${fmtDay(paidOn || due, { day: '2-digit', month: '2-digit' })}` : relativeDay(due)}
+          </div>
+        </td>
+
+        <td className="px-4 py-3 text-right font-numeric font-semibold text-slate-900 dark:text-white">
+          {formatCurrency(instAmount(inst))}
+        </td>
+
+        <td className="px-4 py-3">
+          <button
+            type="button"
+            onClick={state === 'overdue' ? () => handleOpenOverdueDetail(inst) : undefined}
+            className={`inline-flex items-center gap-1.5 ${state === 'paid' ? 'max-w-[12rem] text-left' : 'whitespace-nowrap'} rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${STATE_PILL[state]} ${state === 'overdue' ? 'cursor-pointer' : 'cursor-default'}`}
+            title={state === 'overdue' ? 'Registrar motivo do atraso' : undefined}
+          >
+            {state === 'paid' && <CheckCircle2 className="h-3 w-3" />}
+            {state === 'overdue' && <AlertTriangle className="h-3 w-3" />}
+            {state === 'upcoming' && <Clock className="h-3 w-3" />}
+            {state === 'paid' ? `Pago${instMethod(inst) ? ` · ${instMethod(inst)}` : ''}` : state === 'overdue' ? `${getDaysOverdue(inst)} dia(s) de atraso` : 'A vencer'}
+          </button>
+        </td>
+
+        <td className="px-5 py-3">
+          <div className="flex items-center justify-end gap-0.5">
+            {state !== 'paid' ? (
+              <button
+                onClick={() => markInstallmentPaid(inst.id)}
+                className="mr-1 inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 dark:text-emerald-300"
+                title="Dar baixa (pago hoje)"
+              >
+                <Check className="h-3 w-3" /> Baixa
+              </button>
+            ) : (
+              <button onClick={() => unmarkInstallmentPaid(inst.id)} className={ICON_BTN} title="Estornar baixa">
+                <Undo2 className="h-4 w-4" />
+              </button>
+            )}
+            {state === 'overdue' && (
+              <button onClick={() => handleSendCollectionWhatsApp(inst)} className={`${ICON_BTN} hover:!text-emerald-600`} title="Cobrar no WhatsApp">
+                <MessageSquare className="h-4 w-4" />
+              </button>
+            )}
+            {state === 'paid' && (
+              <button onClick={() => handleShowReceipt(inst)} className={ICON_BTN} title="Recibo">
+                <Receipt className="h-4 w-4" />
+              </button>
+            )}
+            <button onClick={() => handleOpenEdit(inst)} className={ICON_BTN} title="Editar parcela">
+              <Edit className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => { setInstallmentToDelete(inst); setDeleteModalOpen(true); }}
+              className={`${ICON_BTN} hover:!text-rose-600`}
+              title="Excluir parcela"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  // Linha-resumo de um contrato: andamento, próximo vencimento e atrasos
+  const renderGroup = (g) => {
+    const open = !!expandedGroups[g.key];
+    const inst = g.first;
+    const clientKey = clientKeyOf(inst, clients);
+    const contractLabel = g.contract?.contractNumber || g.contract?.contract_number || g.contract?.title || 'Contrato';
+    const isRecurring = !!inst.recurring;
+    const ratio = g.total ? g.paid.length / g.total : 0;
+    // Fechado: só as parcelas em atraso aparecem por extenso (na aba "Todas"). Aberto: todas.
+    const nestedRows = open ? g.items : (selectedStatus === '' ? g.overdue : []);
+    const state = g.overdue.length ? 'overdue' : g.next ? 'upcoming' : 'paid';
+
+    return (
+      <React.Fragment key={g.key}>
+        <tr className="group transition-colors hover:bg-gold-500/[0.035]">
+          <td className="px-5 py-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => toggleGroup(g.key)}
+                className="rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white"
+                title={open ? 'Recolher parcelas' : 'Ver todas as parcelas'}
+                aria-expanded={open}
+              >
+                <ChevronRight className={`h-4 w-4 transition-transform ${open ? 'rotate-90' : ''}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryClientKey(clientKey)}
+                className="flex items-center gap-3 text-left"
+                title="Ver histórico de pagamentos"
+              >
+                <Avatar src={clients.find(c => String(c.id) === clientKey)?.avatar} name={instClientName(inst)} size="sm" />
+                <span className="min-w-0">
+                  <span className="block max-w-[13rem] truncate font-semibold text-slate-900 transition-colors group-hover:text-gold-700 dark:text-white dark:group-hover:text-gold-300">
+                    {instClientName(inst)}
+                  </span>
+                  <span className="block text-[11px] text-slate-400">{contractLabel} · Ver histórico</span>
+                </span>
+              </button>
+            </div>
+          </td>
+
+          <td className="px-4 py-3">
+            {isRecurring ? (
+              <div className="inline-flex items-center gap-1 font-numeric text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <Repeat className="h-3 w-3 text-gold-600 dark:text-gold-400" /> {g.paid.length} paga(s) · recorrente
+              </div>
+            ) : (
+              <>
+                <div className="whitespace-nowrap font-numeric text-xs font-semibold text-slate-700 dark:text-slate-200">{g.paid.length} de {g.total} pagas</div>
+                <div className="mt-1 h-1 w-20 overflow-hidden rounded-full bg-slate-200 dark:bg-white/[0.08]">
+                  <div className="h-full rounded-full bg-gold-500/80" style={{ width: `${Math.round(ratio * 100)}%` }} />
+                </div>
+              </>
+            )}
+          </td>
+
+          <td className="px-4 py-3">
+            {g.next ? (
+              <>
+                <div className="font-numeric text-xs text-slate-800 dark:text-slate-200">{fmtDay(instDue(g.next))}</div>
+                <div className="whitespace-nowrap text-[11px] text-slate-400">próxima · {relativeDay(instDue(g.next))}</div>
+              </>
+            ) : g.overdue.length ? (
+              <div className="text-[11px] text-slate-400">sem parcelas a vencer</div>
+            ) : (
+              <>
+                <div className="font-numeric text-xs text-slate-800 dark:text-slate-200">{fmtDay(g.lastPaid)}</div>
+                <div className="text-[11px] text-slate-400">último pagamento</div>
+              </>
+            )}
+          </td>
+
+          <td className="px-4 py-3 text-right">
+            <div className="font-numeric font-semibold text-slate-900 dark:text-white">
+              {formatCurrency(g.next ? instAmount(g.next) : g.remaining)}
+            </div>
+            <div className="whitespace-nowrap text-[11px] text-slate-400">
+              {g.remaining > 0 ? `falta ${formatCurrency(g.remaining)}` : 'quitado'}
+            </div>
+          </td>
+
+          <td className="px-4 py-3">
+            <button
+              type="button"
+              onClick={state === 'overdue' ? () => handleOpenOverdueDetail(g.overdue[0]) : undefined}
+              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${STATE_PILL[state]} ${state === 'overdue' ? 'cursor-pointer' : 'cursor-default'}`}
+              title={state === 'overdue' ? 'Registrar motivo do atraso' : undefined}
+            >
+              {state === 'paid' && <CheckCircle2 className="h-3 w-3" />}
+              {state === 'overdue' && <AlertTriangle className="h-3 w-3" />}
+              {state === 'upcoming' && <Clock className="h-3 w-3" />}
+              {state === 'paid' ? 'Quitado' : state === 'overdue' ? `${g.overdue.length} em atraso` : 'Em dia'}
+            </button>
+          </td>
+
+          <td className="px-5 py-3">
+            <div className="flex items-center justify-end gap-0.5">
+              {g.next && (
+                <button
+                  onClick={() => markInstallmentPaid(g.next.id)}
+                  className="mr-1 inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 dark:text-emerald-300"
+                  title={`Dar baixa na parcela ${instNumber(g.next)} (pago hoje)`}
+                >
+                  <Check className="h-3 w-3" /> Baixa
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => toggleGroup(g.key)}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-white"
+              >
+                {open ? 'Recolher' : `Parcelas (${g.items.length})`}
+              </button>
+            </div>
+          </td>
+        </tr>
+        {nestedRows.map((i) => renderInstallmentRow(i, true))}
+      </React.Fragment>
+    );
+  };
+
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Indicadores (clicáveis: filtram a lista) */}
@@ -557,7 +874,7 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
           )}
         </div>
 
-        {sortedInstallments.length === 0 ? (
+        {(useGrouped ? contractGroups.length : sortedInstallments.length) === 0 ? (
           <div className="px-5 pb-6">
             <EmptyState
               title="Nenhuma parcela encontrada"
@@ -575,133 +892,17 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
               <thead>
                 <tr className="border-y border-slate-200/80 bg-slate-50/70 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-400">
                   <th className="px-5 py-3 font-label">Cliente</th>
-                  <th className="px-4 py-3 font-label">Parcela</th>
-                  <th className="px-4 py-3 font-label">Vencimento</th>
+                  <th className="px-4 py-3 font-label">{useGrouped ? 'Andamento' : 'Parcela'}</th>
+                  <th className="px-4 py-3 font-label">{useGrouped ? 'Próximo vencimento' : 'Vencimento'}</th>
                   <th className="px-4 py-3 font-label text-right">Valor</th>
                   <th className="px-4 py-3 font-label">Situação</th>
                   <th className="px-5 py-3 font-label text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
-                {sortedInstallments.map((inst) => {
-                  const state = instState(inst);
-                  const due = instDue(inst);
-                  const paidOn = instPaidOn(inst);
-                  const number = instNumber(inst);
-                  const total = instTotal(inst);
-                  const reason = inst.overdueReason || inst.overdue_reason;
-
-                  return (
-                    <tr key={inst.id} className="group transition-colors hover:bg-gold-500/[0.035]">
-                      <td className="px-5 py-3">
-                        <button
-                          type="button"
-                          onClick={() => setHistoryClientKey(clientKeyOf(inst, clients))}
-                          className="flex items-center gap-3 text-left"
-                          title="Ver histórico de pagamentos"
-                        >
-                          <Avatar src={clients.find(c => String(c.id) === clientKeyOf(inst, clients))?.avatar} name={instClientName(inst)} size="sm" />
-                          <span className="min-w-0">
-                            <span className="block truncate font-semibold text-slate-900 transition-colors group-hover:text-gold-700 dark:text-white dark:group-hover:text-gold-300">
-                              {instClientName(inst)}
-                            </span>
-                            {state === 'overdue' && reason ? (
-                              <span className="block max-w-[14rem] truncate text-[11px] text-rose-600 dark:text-rose-400">{reason}</span>
-                            ) : (
-                              <span className="block text-[11px] text-slate-400">Ver histórico</span>
-                            )}
-                          </span>
-                        </button>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {inst.recurring ? (
-                          <>
-                            <div className="inline-flex items-center gap-1 font-numeric text-xs font-semibold text-slate-700 dark:text-slate-200">
-                              <Repeat className="h-3 w-3 text-gold-600 dark:text-gold-400" /> Mensalidade {number}
-                            </div>
-                            <div className="text-[10px] text-slate-400">{inst.totalInstallments ? `de ${inst.totalInstallments} · recorrente` : 'recorrente'}</div>
-                          </>
-                        ) : (
-                        <>
-                        <div className="font-numeric text-xs font-semibold text-slate-700 dark:text-slate-200">{number} de {total}</div>
-                        <div className="mt-1 flex h-1 w-16 gap-[2px]">
-                          {Array.from({ length: Math.min(total, 12) }).map((_, n) => (
-                            <span
-                              key={n}
-                              className={`flex-1 rounded-full ${n < Math.round((number / total) * Math.min(total, 12)) ? 'bg-gold-500/80' : 'bg-slate-200 dark:bg-white/[0.08]'}`}
-                            />
-                          ))}
-                        </div>
-                        </>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="font-numeric text-xs text-slate-800 dark:text-slate-200">{fmtDay(due)}</div>
-                        <div className={`text-[11px] ${state === 'overdue' ? 'font-semibold text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
-                          {state === 'paid' ? `pago ${fmtDay(paidOn || due, { day: '2-digit', month: '2-digit' })}` : relativeDay(due)}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3 text-right font-numeric font-semibold text-slate-900 dark:text-white">
-                        {formatCurrency(instAmount(inst))}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={state === 'overdue' ? () => handleOpenOverdueDetail(inst) : undefined}
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${STATE_PILL[state]} ${state === 'overdue' ? 'cursor-pointer' : 'cursor-default'}`}
-                          title={state === 'overdue' ? 'Registrar motivo do atraso' : undefined}
-                        >
-                          {state === 'paid' && <CheckCircle2 className="h-3 w-3" />}
-                          {state === 'overdue' && <AlertTriangle className="h-3 w-3" />}
-                          {state === 'upcoming' && <Clock className="h-3 w-3" />}
-                          {state === 'paid' ? `Pago${instMethod(inst) ? ` · ${instMethod(inst)}` : ''}` : state === 'overdue' ? `${getDaysOverdue(inst)} dia(s) de atraso` : 'A vencer'}
-                        </button>
-                      </td>
-
-                      <td className="px-5 py-3">
-                        <div className="flex items-center justify-end gap-0.5">
-                          {state !== 'paid' ? (
-                            <button
-                              onClick={() => markInstallmentPaid(inst.id)}
-                              className="mr-1 inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 dark:text-emerald-300"
-                              title="Dar baixa (pago hoje)"
-                            >
-                              <Check className="h-3 w-3" /> Baixa
-                            </button>
-                          ) : (
-                            <button onClick={() => unmarkInstallmentPaid(inst.id)} className={ICON_BTN} title="Estornar baixa">
-                              <Undo2 className="h-4 w-4" />
-                            </button>
-                          )}
-                          {state === 'overdue' && (
-                            <button onClick={() => handleSendCollectionWhatsApp(inst)} className={`${ICON_BTN} hover:!text-emerald-600`} title="Cobrar no WhatsApp">
-                              <MessageSquare className="h-4 w-4" />
-                            </button>
-                          )}
-                          {state === 'paid' && (
-                            <button onClick={() => handleShowReceipt(inst)} className={ICON_BTN} title="Recibo">
-                              <Receipt className="h-4 w-4" />
-                            </button>
-                          )}
-                          <button onClick={() => handleOpenEdit(inst)} className={ICON_BTN} title="Editar parcela">
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => { setInstallmentToDelete(inst); setDeleteModalOpen(true); }}
-                            className={`${ICON_BTN} hover:!text-rose-600`}
-                            title="Excluir parcela"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {useGrouped
+                  ? contractGroups.map((g) => renderGroup(g))
+                  : sortedInstallments.map((inst) => renderInstallmentRow(inst))}
               </tbody>
             </table>
           </div>
