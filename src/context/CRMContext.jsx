@@ -1217,6 +1217,8 @@ export function CRMProvider({ children }) {
       storageService.saveData('installments', next);
       return next;
     });
+    supabase.from('installments').delete().eq('contract_id', strId)
+      .then(({ error }) => { if (error) console.warn('Erro ao excluir parcelas do contrato:', error.message); });
 
     // Recalcular totalContracted do cliente
     if (contractToDelete && (contractToDelete.clientId || contractToDelete.client_id)) {
