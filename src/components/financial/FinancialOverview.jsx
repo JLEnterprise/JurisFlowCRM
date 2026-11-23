@@ -552,7 +552,9 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
         <td className="px-4 py-3">
           <div className="font-numeric text-xs text-slate-800 dark:text-slate-200">{fmtDay(due)}</div>
           <div className={`text-[11px] ${state === 'overdue' ? 'font-semibold text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
-            {state === 'paid' ? `pago ${fmtDay(paidOn || due, { day: '2-digit', month: '2-digit' })}` : relativeDay(due)}
+            {state === 'paid'
+              ? `pago ${fmtDay(paidOn || due, { day: '2-digit', month: '2-digit' })}${paidOn && due && paidOn.slice(0, 7) !== due.slice(0, 7) ? ` · ref. ${fmtDay(due, { month: '2-digit', year: '2-digit' })}` : ''}`
+              : relativeDay(due)}
           </div>
         </td>
 

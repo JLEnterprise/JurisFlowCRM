@@ -1228,6 +1228,23 @@ export function CRMProvider({ children }) {
     showToast('Contrato atualizado com sucesso!');
   };
 
+  // Contrato não se exclui: fica guardado como "Encerrado" (histórico, auditoria, prestação de contas).
+  // As parcelas continuam como estão: o que falta receber segue em Contas & honorários.
+  const archiveContract = (id) => {
+    const strId = String(id);
+    const archived = patchRecord('contracts', setContracts, strId, c => ({
+      ...c,
+      status: 'encerrado',
+      closedAt: c.closedAt || new Date().toISOString().split('T')[0],
+      escritorio_id: c.escritorio_id || currentEscritorioId,
+    }));
+    if (archived) {
+      logActivity('Contrato Encerrado', archived.contractNumber || archived.title || strId, 'Contrato encerrado e mantido no histórico.');
+      showToast('Contrato encerrado. Ele continua guardado no histórico; as parcelas em aberto seguem no financeiro.');
+    }
+    return archived;
+  };
+
   const deleteContract = (id) => {
     const strId = String(id);
     const contractToDelete = contracts.find(c => String(c.id) === strId);
@@ -1800,7 +1817,8 @@ export function CRMProvider({ children }) {
     const before = (listsRef.current.installments || []).find(inst => String(inst.id) === String(installmentId));
     const wasPaid = before?.status === 'paid';
     const due = String(before?.dueDate || before?.due_date || '').split('T')[0];
-    if (!paidOn && !wasPaid && due && due.slice(0, 7) < today.slice(0, 7)) {
+    // Toda baixa pergunta a data em que o dinheiro entrou (e permite baixar outras parcelas do contrato junto)
+    if (!paidOn && !wasPaid && before) {
       setPaidDatePrompt({ installment: before, dueDate: due });
       return;
     }
@@ -2113,6 +2131,7 @@ export function CRMProvider({ children }) {
         addContract,
         updateContract,
         deleteContract,
+        archiveContract,
         closeContractWorkflow,
         addProposal,
         updateProposal,

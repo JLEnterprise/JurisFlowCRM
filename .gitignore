@@ -36,3 +36,6 @@ dist-ssr
 .gemini
 
 .vercel
+
+# Relatórios com dados de clientes (nunca versionar)
+relatorios/
