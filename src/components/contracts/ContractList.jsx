@@ -30,7 +30,7 @@ import { formatFileSize, getFileTypeInfo, downloadAttachment, openAttachment } f
 import { Select } from '../common/Select';
 
 export function ContractList({ onOpenNewContract, onEditContract, onSelectContract, onOpenContractDetail, onNavigate, onSignContract }) {
-  const { contracts = [], deleteContract, clients = [], legalAreas = [], officeSettings = {}, addContract, showToast, logActivity } = useCRM();
+  const { contracts = [], archiveContract, clients = [], legalAreas = [], officeSettings = {}, addContract, showToast, logActivity } = useCRM();
   const { users = [] } = useAuth();
 
   const [search, setSearch] = useState('');
@@ -139,9 +139,7 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
       const contractNumber = contractToDelete.contractNumber || contractToDelete.contract_number || 'Contrato';
       setDeleteModalOpen(false);
       setContractToDelete(null);
-      deleteContract(contractId);
-      logActivity('Exclusão de Contrato', contractNumber, 'Contrato excluído definitivamente.');
-      showToast(`Contrato "${contractNumber}" excluído com sucesso!`);
+      archiveContract(contractId);
     }
   };
 
@@ -395,7 +393,7 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
                               handleRequestDelete(contract);
                             }}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
-                            title="Excluir contrato"
+                            title="Encerrar contrato (fica guardado no histórico)"
                           >
                             <Trash2 className="h-3.5 w-3.5 pointer-events-none" />
                           </button>
@@ -432,9 +430,9 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           setContractToDelete(null);
         }}
         onConfirm={handleConfirmDelete}
-        title="Excluir Contrato de Honorários"
-        message={`Tem certeza que deseja excluir o contrato "${contractToDelete?.contractNumber || contractToDelete?.contract_number || 'selecionado'}" (${contractToDelete?.title || 'Contrato'})?`}
-        confirmLabel="Sim, Excluir Contrato"
+        title="Encerrar contrato"
+        message={`Contratos não são excluídos: precisam ficar guardados para consultas, auditoria e prestação de contas. O contrato "${contractToDelete?.contractNumber || contractToDelete?.contract_number || 'selecionado'}" será marcado como Encerrado e as parcelas em aberto continuam no financeiro. Confirma?`}
+        confirmLabel="Encerrar contrato"
       />
     </div>
   );

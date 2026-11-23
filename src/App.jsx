@@ -45,6 +45,7 @@ import { DocumentManager } from './components/documents/DocumentManager';
 import { TemplatesView } from './components/templates/TemplatesView';
 import { FinancialOverview } from './components/financial/FinancialOverview';
 import { MyPayoutCard } from './components/financial/TeamPayoutPanel';
+import { PaidDateModal } from './components/financial/PaidDateModal';
 import { ReportsView } from './components/reports/ReportsView';
 import { TeamView } from './components/team/TeamView';
 import { ActivityLogsView } from './components/security/ActivityLogsView';
@@ -676,6 +677,7 @@ export function App() {
 
       {/* Toast Notification Container */}
       <PasswordRecoveryModal />
+      <PaidDateModal />
       <Toast toast={toast} onClose={hideToast} />
     </div>
   );

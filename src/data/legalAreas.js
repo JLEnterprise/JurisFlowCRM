@@ -70,6 +70,7 @@ export const CONTRACT_STATUSES = [
   { id: 'enviado', label: 'Enviado', color: 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300' },
   { id: 'aguardando_assinatura', label: 'Aguardando Assinatura', color: 'bg-purple-100 text-purple-800 dark:bg-purple-950/50 dark:text-purple-300' },
   { id: 'assinado', label: 'Assinado', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300' },
+  { id: 'encerrado', label: 'Encerrado', color: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
   { id: 'cancelado', label: 'Cancelado', color: 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300' },
 ];
 

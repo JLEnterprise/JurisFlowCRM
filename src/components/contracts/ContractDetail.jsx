@@ -38,7 +38,7 @@ export function ContractDetail({
   onSignContract,
   onSendWhatsApp,
 }) {
-  const { contracts = [], updateContract, deleteContract, documents = [], deleteDocument, showToast, logActivity } = useCRM();
+  const { contracts = [], updateContract, archiveContract, documents = [], deleteDocument, showToast, logActivity } = useCRM();
 
   const contract = contracts.find(c => c.id === contractId);
 
@@ -77,10 +77,8 @@ export function ContractDetail({
   };
 
   const handleConfirmDelete = () => {
-    deleteContract(contract.id);
-    logActivity('Exclusão de Contrato', contractNumber, 'Contrato removido do sistema.');
-    showToast('Contrato excluído com sucesso.', 'success');
-    onBack();
+    archiveContract(contract.id);
+    setDeleteModalOpen(false);
   };
 
   const handleFileUpload = async (e) => {
@@ -501,9 +499,9 @@ export function ContractDetail({
           isOpen={deleteModalOpen}
           onClose={() => setDeleteModalOpen(false)}
           onConfirm={handleConfirmDelete}
-          title="Excluir Contrato"
-          message={`Tem certeza que deseja excluir o contrato ${contractNumber}? Esta ação não pode ser desfeita.`}
-          confirmLabel="Sim, Excluir Definitivamente"
+          title="Encerrar contrato"
+          message={`Contratos não são excluídos: precisam ficar guardados para consultas, auditoria e prestação de contas. O contrato ${contractNumber} será marcado como Encerrado e as parcelas em aberto continuam no financeiro. Confirma?`}
+          confirmLabel="Encerrar contrato"
         />
       )}
 
