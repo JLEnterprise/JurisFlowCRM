@@ -30,6 +30,8 @@ function normalizeRow(table, row, activeEscritorio) {
     id: String(row.id || raw.id || `id_${Date.now()}`),
     escritorio_id: row.escritorio_id || raw.escritorio_id || activeEscritorio
   };
+  // A coluna raw_data não volta para dentro do registro (senão cada gravação embutia uma cópia de si mesmo)
+  delete base.raw_data;
 
   if (table === 'clients') {
     const name = base.name || base.client_name || base.nome || 'Cliente';
@@ -541,7 +543,7 @@ function applyPendingChanges(table, rows) {
 // Cache local guarda anexo grande sem o arquivo: nunca deixar isso apagar o arquivo que está no banco
 async function restoreLargeFiles(table, rows) {
   if (table !== 'contracts') return rows;
-  const needsRestore = rows.filter(r => (r.raw_data?.attachments || []).some(a => a?.isLarge && !a.dataUrl));
+  const needsRestore = rows.filter(r => (r.raw_data?.attachments || []).some(a => a && !a.dataUrl && !a.storagePath));
   if (needsRestore.length === 0) return rows;
   const { data, error } = await supabase.from('contracts').select('id, raw_data').in('id', needsRestore.map(r => r.id));
   if (error) throw error;
@@ -550,8 +552,9 @@ async function restoreLargeFiles(table, rows) {
     const saved = byId.get(String(row.id));
     if (!saved) return row;
     const attachments = (row.raw_data?.attachments || []).map((att) => {
-      if (!att?.isLarge || att.dataUrl) return att;
+      if (!att || att.dataUrl || att.storagePath) return att;
       const original = saved.find(s => String(s?.id) === String(att.id));
+      if (original?.storagePath) return { ...att, storagePath: original.storagePath };
       return original?.dataUrl ? { ...att, dataUrl: original.dataUrl } : att;
     });
     return { ...row, raw_data: { ...row.raw_data, attachments } };
@@ -581,7 +584,8 @@ async function upsertRespectingRoles(table, rows, { insertOnly = false } = {}) {
 
 function mapItemToSqlRow(table, item, activeEscritorio) {
   if (!item) return null;
-  const sanitizedItem = sanitizePayload(item, true); // true = KEEP dataUrl for Supabase
+  const { raw_data: _embedded, ...withoutCopy } = item;
+  const sanitizedItem = sanitizePayload(withoutCopy, true); // true = KEEP dataUrl for Supabase
   const base = {
     id: String(item.id || `id_${Date.now()}`),
     escritorio_id: item.escritorio_id || activeEscritorio || DEFAULT_ESCRITORIO_ID,

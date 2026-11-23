@@ -178,6 +178,8 @@ export function ClientDetail({
           fileSize: typeof safeAtt.size === 'number' ? formatFileSize(safeAtt.size) : (safeAtt.size || '1.0 MB'),
           uploadedAt: safeAtt.uploadedAt,
           dataUrl: safeAtt.dataUrl,
+          storagePath: safeAtt.storagePath,
+          type: safeAtt.type,
         });
       }
       showToast(`${files.length} documento(s) anexado(s) com sucesso!`);
@@ -211,7 +213,7 @@ export function ClientDetail({
       if (updateContract) {
         updateContract(contractForUpload.id, {
           attachments: updatedAttachments,
-          fileUrl: safeAtt.dataUrl || '',
+          fileUrl: '',
           fileName: file.name,
         });
       }
@@ -227,6 +229,8 @@ export function ClientDetail({
           fileSize: typeof safeAtt.size === 'number' ? formatFileSize(safeAtt.size) : (safeAtt.size || '1.0 MB'),
           uploadedAt: safeAtt.uploadedAt,
           dataUrl: safeAtt.dataUrl,
+          storagePath: safeAtt.storagePath,
+          type: safeAtt.type,
         });
       }
 

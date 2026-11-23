@@ -19,7 +19,7 @@ import {
 } from '../data/initialData';
 import { INITIAL_LEGAL_AREAS, INITIAL_LEAD_SOURCES, mergeLegalAreas } from '../data/legalAreas';
 import { useAuth } from './AuthContext';
-import { deleteFileFromIndexedDB, formatFileSize } from '../utils/fileHelper';
+import { deleteFileFromIndexedDB, formatFileSize, removeStoredFiles } from '../utils/fileHelper';
 import { buildSchedule, normalizePlan, isRecurring, dayStr, RENEW_AHEAD_DAYS } from '../utils/paymentPlan';
 
 const CRMContext = createContext();
@@ -910,6 +910,15 @@ export function CRMProvider({ children }) {
   // --- CONTRACTS ACTIONS ---
 
   // Transforma o cronograma do plano de pagamento (parcelado ou mensal recorrente) em parcelas do financeiro
+  // Parcela marcada como "já paga" no lançamento: baixa na data do vencimento (ou hoje, se ainda não venceu)
+  const paidFields = (r) => {
+    if (!r.paid) return { status: 'pending' };
+    const today = new Date().toISOString().split('T')[0];
+    const paidOn = r.dueDate && r.dueDate < today ? r.dueDate : today;
+    return { status: 'paid', paidDate: paidOn, paid_date: paidOn, paymentDate: paidOn, payment_date: paidOn };
+  };
+  const paidTotalOf = (rows) => rows.filter(r => r.paid).reduce((acc, r) => acc + (Number(r.value) || 0), 0);
+
   const scheduleToInstallments = (contract, rows, idTag) => rows.map((r, i) => ({
     id: `inst_${idTag}_${r.cycle ? `c${r.cycle}_` : ''}${r.installmentNumber || i + 1}`,
     escritorio_id: contract.escritorio_id || currentEscritorioId,
@@ -921,8 +930,9 @@ export function CRMProvider({ children }) {
     value: r.value,
     amount: r.value,
     dueDate: r.dueDate,
-    status: 'pending',
+    ...paidFields(r),
     paymentMethod: contract.paymentMethod || contract.payment_method || 'PIX',
+    ...(r.downPayment ? { isDownPayment: true } : {}),
     ...(r.recurring ? { recurring: true, cycle: r.cycle } : {}),
   }));
 
@@ -984,8 +994,11 @@ export function CRMProvider({ children }) {
 
     // Gerar parcelas automaticamente se o contrato tiver valor e número de parcelas
     const contractValue = Number(newContract.value) || 0;
+    let alreadyPaid = 0;
     if (contractValue > 0) {
-      const generatedInstallments = scheduleToInstallments(newContract, buildSchedule(newContract), now);
+      const rows = buildSchedule(newContract);
+      alreadyPaid = paidTotalOf(rows);
+      const generatedInstallments = scheduleToInstallments(newContract, rows, now);
       if (generatedInstallments.length > 0) {
         setInstallments(prev => {
           const next = [...generatedInstallments, ...prev];
@@ -1000,7 +1013,8 @@ export function CRMProvider({ children }) {
     if (finalClientId) {
       patchClientOf({ clientId: finalClientId }, (cl) => {
         const newTotal = (Number(cl.totalContracted || cl.total_contracted) || 0) + contractValue;
-        return { ...cl, totalContracted: newTotal, total_contracted: newTotal };
+        const newPaid = (Number(cl.totalPaid || cl.total_paid) || 0) + alreadyPaid;
+        return { ...cl, totalContracted: newTotal, total_contracted: newTotal, totalPaid: newPaid, total_paid: newPaid };
       });
     }
 
@@ -1009,7 +1023,8 @@ export function CRMProvider({ children }) {
     return newContract;
   };
 
-  const updateContract = (id, contractData) => {
+  // options.rebuildSchedule: refaz TODAS as parcelas do contrato pelo plano novo (entrada, parcelas já pagas)
+  const updateContract = (id, contractData, options = {}) => {
     const strId = String(id);
     const updatedContract = patchRecord('contracts', setContracts, strId, c => ({ ...c, ...contractData, escritorio_id: c.escritorio_id || currentEscritorioId }));
 
@@ -1060,7 +1075,40 @@ export function CRMProvider({ children }) {
       const rebuildPlan = existingInsts.length > 0 && (isRecurring(updatedContract) || isRecurring(previous))
         && planKey(previous) !== planKey(updatedContract);
 
-      if (rebuildPlan) {
+      if (options.rebuildSchedule && contractValue > 0) {
+        // Contrato antigo reorganizado: entrada + parcelas, marcando o que já foi pago.
+        // As datas reais de pagamento que já existiam passam, em ordem, para as novas parcelas pagas.
+        const oldPaid = existingInsts
+          .filter(i => i.status === 'paid')
+          .sort((a, b) => String(a.dueDate || a.due_date || '').localeCompare(String(b.dueDate || b.due_date || '')));
+        const rows = buildSchedule(updatedContract, { baseDate: updatedContract.signedDate || updatedContract.createdDate });
+        let k = 0;
+        const fresh = scheduleToInstallments(updatedContract, rows, `${now}_r`).map((inst) => {
+          if (inst.status !== 'paid' || !oldPaid[k]) return inst;
+          const source = oldPaid[k++];
+          const paidOn = String(source.paymentDate || source.payment_date || source.paidDate || source.paid_date || inst.paidDate).split('T')[0];
+          return {
+            ...inst,
+            paidDate: paidOn, paid_date: paidOn, paymentDate: paidOn, payment_date: paidOn,
+            paymentMethod: source.paymentMethod || source.payment_method || inst.paymentMethod,
+          };
+        });
+        const oldIds = new Set(existingInsts.map(i => String(i.id)));
+        setInstallments(prev => {
+          const next = [...fresh, ...prev.filter(i => !oldIds.has(String(i.id)))];
+          storageService.saveData('installments', next);
+          return next;
+        });
+        // Grava as novas antes de apagar as antigas: se a internet cair no meio, nada se perde
+        storageService.saveToSupabase('installments', fresh).then((ok) => {
+          if (ok) existingInsts.forEach(i => storageService.deleteFromSupabase('installments', i.id));
+        });
+        const oldPaidSum = oldPaid.reduce((acc, i) => acc + (Number(i.amount || i.value) || 0), 0);
+        const newPaidSum = fresh.filter(i => i.status === 'paid').reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
+        if (newPaidSum !== oldPaidSum) addToClientPaid(updatedContract, newPaidSum - oldPaidSum);
+        logActivity('Parcelas Reorganizadas', updatedContract.title || strId,
+          `${fresh.length} parcela(s), ${fresh.filter(i => i.status === 'paid').length} paga(s).`);
+      } else if (rebuildPlan) {
         const paidInsts = existingInsts.filter(i => i.status === 'paid');
         const openInsts = existingInsts.filter(i => i.status !== 'paid');
         const lastPaidDue = paidInsts.map(i => String(i.dueDate || i.due_date || '').split('T')[0]).sort().pop();
@@ -1195,11 +1243,12 @@ export function CRMProvider({ children }) {
     });
     storageService.deleteFromSupabase('contracts', strId);
 
-    // Limpar anexos do contrato do IndexedDB
+    // Limpar anexos do contrato (IndexedDB deste navegador e Storage)
     if (contractToDelete && Array.isArray(contractToDelete.attachments)) {
       contractToDelete.attachments.forEach(att => {
         if (att?.id) deleteFileFromIndexedDB(att.id);
       });
+      removeStoredFiles(contractToDelete.attachments.map(att => att?.storagePath));
     }
 
     // Remover documentos do GED vinculados a este contrato
@@ -1259,6 +1308,10 @@ export function CRMProvider({ children }) {
         recurringMonths: leadIdOrPayload.recurringMonths,
         autoRenew: leadIdOrPayload.autoRenew,
         firstDueDate: leadIdOrPayload.firstDueDate,
+        downPayment: leadIdOrPayload.downPayment,
+        downPaymentDate: leadIdOrPayload.downPaymentDate,
+        downPaymentPaid: leadIdOrPayload.downPaymentPaid,
+        paidCount: leadIdOrPayload.paidCount,
         responsibleLawyerId: leadIdOrPayload.responsibleLawyerId || currentUser?.id || null,
         signedDate: leadIdOrPayload.signedDate || new Date().toISOString().split('T')[0],
         observations: leadIdOrPayload.observations || '',
@@ -1272,6 +1325,11 @@ export function CRMProvider({ children }) {
       contractData = maybeContractData || {};
       customInstallments = maybeInstallmentsList || [];
     }
+
+    // O que entra já pago no lançamento (entrada paga, parcelas antigas)
+    const plannedPaid = customInstallments.length > 0 || !(Number(contractData.value) > 0)
+      ? 0
+      : paidTotalOf(buildSchedule({ ...contractData, value: Number(contractData.value) || 0 }));
 
     // 1. Criar ou buscar cliente
     let client = clients.find(c => (contractData.clientId && c.id === contractData.clientId) || (leadId && c.leadId === leadId) || (clientData?.name && c.name === clientData.name));
@@ -1291,7 +1349,7 @@ export function CRMProvider({ children }) {
         legalArea: clientData?.legalArea || lead?.legalArea || contractData.legalArea || 'civil',
         status: 'active',
         totalContracted: Number(contractData.value) || 0,
-        totalPaid: 0,
+        totalPaid: plannedPaid,
         createdAt: new Date().toISOString().split('T')[0],
       };
       setClients(prev => {
@@ -1300,6 +1358,8 @@ export function CRMProvider({ children }) {
         return next;
       });
       storageService.saveToSupabase('clients', [client]);
+    } else if (plannedPaid > 0) {
+      addToClientPaid({ clientId: client.id }, plannedPaid);
     }
 
     // 2. Criar contrato
@@ -1856,8 +1916,9 @@ export function CRMProvider({ children }) {
       return next;
     });
 
-    // Exclui do IndexedDB
+    // Exclui do IndexedDB e o arquivo do Storage
     deleteFileFromIndexedDB(cleanId);
+    if (docToRemove?.storagePath) removeStoredFiles([docToRemove.storagePath]);
 
     // Exclui do Supabase
     storageService.deleteFromSupabase('documents', cleanId);

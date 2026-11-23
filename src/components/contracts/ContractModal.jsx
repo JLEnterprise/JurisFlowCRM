@@ -8,11 +8,15 @@ import { UploadCloud, FileText, X, Download, Eye, Paperclip, Sparkles, ShieldChe
 import { Select } from '../common/Select';
 import { PaymentPlanPicker } from './PaymentPlanPicker';
 import { TemplatePicker } from '../templates/TemplatePicker';
+import { ConfirmModal } from '../common/ConfirmModal';
 import { DateField } from '../common/DateField';
 import { normalizePlan } from '../../utils/paymentPlan';
 
 export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillData = null }) {
-  const { contracts = [], addContract, updateContract, clients = [], legalAreas = [], showToast } = useCRM();
+  const { contracts = [], addContract, updateContract, clients = [], legalAreas = [], installments = [], showToast } = useCRM();
+  // Edição: refazer as parcelas do contrato (entrada, parcelas já pagas)
+  const [reorganize, setReorganize] = useState(false);
+  const [confirmReorganize, setConfirmReorganize] = useState(null);
   const { users = [], permissions, currentUser } = useAuth();
   const fileInputRef = useRef(null);
 
@@ -41,6 +45,27 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
     contractToEdit && contractToEdit.id && contracts.some(c => c.id === contractToEdit.id)
   );
   const effectivePrefill = prefillData || (!isExistingContract && contractToEdit ? contractToEdit : null);
+
+  const currentInsts = isExistingContract
+    ? installments.filter(i => String(i.contractId || i.contract_id) === String(contractToEdit.id))
+    : [];
+  const currentPaid = currentInsts.filter(i => i.status === 'paid');
+  const currentPaidSum = currentPaid.reduce((acc, i) => acc + (Number(i.amount ?? i.value) || 0), 0);
+
+  useEffect(() => { setReorganize(false); setConfirmReorganize(null); }, [isOpen, contractToEdit]);
+
+  const toggleReorganize = (on) => {
+    setReorganize(on);
+    if (on) {
+      // Ponto de partida: o que já está pago hoje
+      const paidDown = currentPaid.some(i => i.isDownPayment);
+      setFormData(prev => ({
+        ...prev,
+        paidCount: currentPaid.filter(i => !i.isDownPayment).length,
+        downPaymentPaid: prev.downPaymentPaid ?? paidDown,
+      }));
+    }
+  };
 
   useEffect(() => {
     if (isExistingContract && contractToEdit) {
@@ -186,6 +211,10 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
       attachments: Array.isArray(formData.attachments) ? formData.attachments : [],
     };
 
+    if (isExistingContract && contractToEdit?.id && reorganize) {
+      setConfirmReorganize(finalData);
+      return;
+    }
     if (isExistingContract && contractToEdit?.id) {
       updateContract(contractToEdit.id, finalData);
     } else {
@@ -285,9 +314,39 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
           </div>
         </div>
 
+        {/* Contrato já lançado: refazer as parcelas (entrada, parcelas já pagas) */}
+        {isExistingContract && (
+          <div className={`rounded-2xl border px-4 py-3 ${reorganize ? 'border-gold-500/50 bg-gold-500/[0.06]' : 'border-slate-200 dark:border-white/[0.08]'}`}>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-current"
+                checked={reorganize}
+                onChange={(e) => toggleReorganize(e.target.checked)}
+              />
+              <span>
+                <span className="block text-xs font-semibold text-slate-800 dark:text-slate-100">
+                  Refazer as parcelas deste contrato
+                </span>
+                <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+                  Para informar entrada, mudar o nº de parcelas ou marcar as que já foram pagas.
+                  Hoje: {currentInsts.length} parcela(s), {currentPaid.length} paga(s) · {currentPaidSum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} recebido.
+                </span>
+              </span>
+            </label>
+            {reorganize && (
+              <p className="mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                Ao salvar, as parcelas atuais são substituídas pelas da prévia abaixo. As datas de pagamento já registradas continuam valendo, na ordem.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Row 3: Plano de pagamento (parcelado ou mensal recorrente) & forma */}
         <PaymentPlanPicker
           plan={formData}
+          isNew={!isExistingContract || reorganize}
+          baseDate={reorganize ? (formData.signedDate || formData.createdDate) : undefined}
           onChange={(partial) => setFormData(prev => ({ ...prev, ...partial }))}
           paymentMethodField={(
             <div className="sm:w-1/3">
@@ -465,6 +524,19 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
           </button>
         </div>
       </form>
+
+      <ConfirmModal
+        isOpen={Boolean(confirmReorganize)}
+        onClose={() => setConfirmReorganize(null)}
+        onConfirm={() => {
+          updateContract(contractToEdit.id, confirmReorganize, { rebuildSchedule: true });
+          setConfirmReorganize(null);
+          onClose();
+        }}
+        title="Refazer as parcelas"
+        message={`As ${currentInsts.length} parcela(s) atuais deste contrato serão substituídas pelas da prévia. As ${currentPaid.length} paga(s) mantêm a data de pagamento registrada. Confirma?`}
+        confirmLabel="Sim, refazer"
+      />
     </Modal>
   );
 }

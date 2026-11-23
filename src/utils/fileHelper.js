@@ -1,7 +1,70 @@
 /**
  * Utilitários para manuseio de arquivos anexados (PDF, Word, etc.)
- * Com suporte a IndexedDB para arquivos grandes, evitando estourar cota do LocalStorage e Supabase.
+ * O arquivo vai para o Storage (bucket privado jurisflow-docs); o registro guarda só o caminho
+ * (storagePath). Anexos antigos ainda podem trazer o arquivo embutido (dataUrl) ou só no IndexedDB
+ * do navegador de quem enviou: a leitura continua aceitando os três.
  */
+import { supabase } from '../lib/supabase';
+
+const BUCKET = 'jurisflow-docs';
+const MIME_BY_EXT = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  odt: 'application/vnd.oasis.opendocument.text',
+  rtf: 'application/rtf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+};
+const extensionOf = (name = '') => (String(name).includes('.') ? String(name).split('.').pop().toLowerCase() : '');
+
+export function mimeOf(name, type) {
+  return MIME_BY_EXT[extensionOf(name)] || type || 'application/octet-stream';
+}
+
+export function dataUrlToBlob(dataUrl) {
+  const [head, body] = String(dataUrl).split(',');
+  const mime = head.match(/:(.*?);/)?.[1] || 'application/octet-stream';
+  const bin = atob(body || '');
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+const currentOfficeId = () => {
+  try {
+    const stored = localStorage.getItem('jurisflow_current_escritorio_id');
+    return stored ? stored.replace(/^"|"$/g, '').trim() : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+// Sobe o arquivo e devolve o caminho. A 1ª pasta (escritório) decide quem pode abrir.
+export async function uploadAttachmentBlob(blob, { name, type, escritorioId } = {}) {
+  const officeId = escritorioId || currentOfficeId();
+  if (!officeId) throw new Error('Escritório não identificado');
+  const mime = mimeOf(name, type || blob.type);
+  const ext = extensionOf(name) || (mime === 'application/pdf' ? 'pdf' : 'bin');
+  const path = `${officeId}/anexos/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: mime, upsert: false });
+  if (error) throw error;
+  return path;
+}
+
+export async function downloadStoredFile(path) {
+  const { data, error } = await supabase.storage.from(BUCKET).download(path);
+  if (error) throw error;
+  return data;
+}
+
+export async function removeStoredFiles(paths) {
+  const list = (paths || []).filter(Boolean);
+  if (list.length === 0) return;
+  const { error } = await supabase.storage.from(BUCKET).remove(list);
+  if (error) console.warn('[anexos] arquivo não removido do Storage:', error.message);
+}
 
 const DB_NAME = 'JurisFlowFilesDB';
 const DB_VERSION = 1;
@@ -141,13 +204,31 @@ export function getFileTypeInfo(fileName = '', mimeType = '') {
 }
 
 /**
- * Sanitiza um anexo para persistência leve no Supabase/LocalStorage.
- * Se o dataUrl for maior que 200KB (~270.000 chars), salva no IndexedDB e retorna o anexo sem dataUrl gigante.
+ * Prepara um anexo para gravar: o arquivo sobe para o Storage e o anexo guarda só o caminho.
+ * Sem conexão com o Storage, cai no modo antigo (arquivo embutido) para nada se perder.
  */
 export async function sanitizeAttachmentForStorage(att) {
   if (!att) return null;
   const id = att.id || `att_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   const dataUrl = att.dataUrl || '';
+  const category = att.category || (att.name?.toLowerCase().includes('procur') ? 'Procuração' : 'Contratos');
+
+  if (dataUrl.startsWith('data:')) {
+    try {
+      const storagePath = await uploadAttachmentBlob(dataUrlToBlob(dataUrl), { name: att.name, type: att.type });
+      return {
+        id,
+        name: att.name,
+        size: att.size,
+        type: mimeOf(att.name, att.type),
+        uploadedAt: att.uploadedAt || new Date().toISOString(),
+        category,
+        storagePath,
+      };
+    } catch (err) {
+      console.warn('[anexos] envio ao Storage falhou, guardando no modo antigo:', err.message);
+    }
+  }
 
   if (dataUrl && dataUrl.length > 250000) {
     // Salva no IndexedDB local
@@ -192,9 +273,17 @@ function findContractAttachment(doc, contracts) {
   return null;
 }
 
-// Procura no próprio registro, no anexo do contrato e, por último, no IndexedDB deste navegador
+// Procura no Storage, no próprio registro, no anexo do contrato e, por último, no IndexedDB deste navegador
 async function resolveDataUrl(attachment, contracts) {
   const linked = findContractAttachment(attachment, contracts);
+  const storagePath = attachment.storagePath || linked?.storagePath;
+  if (storagePath) {
+    try {
+      return URL.createObjectURL(await downloadStoredFile(storagePath));
+    } catch (err) {
+      console.warn('[anexos] erro ao baixar do Storage:', err.message);
+    }
+  }
   const dataUrl = attachment.dataUrl || attachment.fileData || linked?.dataUrl;
   if (dataUrl) return dataUrl;
 
@@ -252,7 +341,7 @@ export async function downloadAttachment(attachment, contracts = []) {
         const link = document.createElement('a');
         link.href = dataUrl;
         link.download = fileName;
-        link.target = '_blank';
+        if (!String(dataUrl).startsWith('blob:')) link.target = '_blank';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -274,12 +363,22 @@ export async function openAttachment(attachment, contracts = []) {
   }
 
   const fileName = attachment.fileName || attachment.name || attachment.title || 'documento';
+  const linked = findContractAttachment(attachment, contracts);
+  const looksPdf = attachment.type?.includes('pdf') || String(fileName).toLowerCase().endsWith('.pdf');
+  const pendingTab = (attachment.storagePath || linked?.storagePath) && looksPdf ? window.open('', '_blank') : null;
   const dataUrl = await resolveDataUrl(attachment, contracts);
 
   if (!dataUrl) {
+    if (pendingTab) pendingTab.close();
     alertFileUnavailable(fileName);
     return;
   }
+
+  if (pendingTab && String(dataUrl).startsWith('blob:')) {
+    pendingTab.location.href = dataUrl;
+    return;
+  }
+  if (pendingTab) pendingTab.close();
 
   const isPdf = attachment.type?.includes('pdf') ||
     String(fileName).toLowerCase().endsWith('.pdf') ||

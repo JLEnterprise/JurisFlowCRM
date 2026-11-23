@@ -422,7 +422,7 @@ export function ClientPaymentHistory({ clientKey, onBack, onOpenWhatsApp, onOpen
                           <span className="text-sm font-semibold text-slate-900 dark:text-white">
                             {inst.recurring
                               ? `Mensalidade ${instNumber(inst)}${inst.totalInstallments ? ` de ${inst.totalInstallments}` : ''}`
-                              : `Parcela ${instNumber(inst)} de ${instTotal(inst)}`}
+                              : inst.isDownPayment ? 'Entrada' : `Parcela ${instNumber(inst)} de ${instTotal(inst)}`}
                           </span>
                           <span className="text-xs text-slate-400">venc. {fmtDay(due)}</span>
                         </div>
