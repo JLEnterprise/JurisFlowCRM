@@ -495,7 +495,9 @@ export function FinancialOverview({ onOpenWhatsApp, onSelectClient, onSelectCont
         {nested ? (
           <td className="py-2.5 pl-16 pr-5">
             <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              {state === 'overdue' ? 'Parcela em atraso' : state === 'paid' ? 'Parcela paga' : 'Parcela a vencer'}
+              {inst.isDownPayment
+                ? (state === 'overdue' ? 'Entrada em atraso' : state === 'paid' ? 'Entrada paga' : 'Entrada a vencer')
+                : (state === 'overdue' ? 'Parcela em atraso' : state === 'paid' ? 'Parcela paga' : 'Parcela a vencer')}
             </span>
             {state === 'overdue' && reason && (
               <span className="block max-w-[14rem] truncate text-[11px] text-rose-600 dark:text-rose-400">{reason}</span>

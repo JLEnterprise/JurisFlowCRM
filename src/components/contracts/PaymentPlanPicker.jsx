@@ -2,7 +2,7 @@ import React from 'react';
 import { Layers, Repeat, CalendarClock, Infinity as InfinityIcon, Check } from 'lucide-react';
 import { DateField } from '../common/DateField';
 import { formatCurrency } from '../../utils/formatters';
-import { normalizePlan, buildSchedule, parseDay } from '../../utils/paymentPlan';
+import { normalizePlan, buildSchedule, parseDay, dayStr } from '../../utils/paymentPlan';
 
 const INPUT = 'w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-gold-500 focus:outline-none';
 const LABEL = 'block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1';
@@ -46,11 +46,18 @@ function Chip({ active, onClick, children }) {
  * monthlyValue, billingDay, recurringMonths, autoRenew); `onChange(parcial)` devolve só o que mudou.
  * `valueKey` permite usar outro nome para o valor total (ex.: contractValue no fechamento).
  */
-export function PaymentPlanPicker({ plan, onChange, valueKey = 'value', paymentMethodField = null }) {
+export function PaymentPlanPicker({ plan, onChange, valueKey = 'value', paymentMethodField = null, isNew = true }) {
   const type = plan.paymentType === 'recorrente' ? 'recorrente' : 'parcelado';
   const normalized = normalizePlan({ ...plan, value: plan[valueKey] });
   const schedule = (Number(plan[valueKey]) > 0 || Number(plan.monthlyValue) > 0) ? buildSchedule({ ...plan, value: plan[valueKey] }) : [];
   const preview = schedule.slice(0, 12);
+
+  // Contrato antigo lançado agora: quantas parcelas já venceram até hoje (sem contar a entrada)
+  const today = dayStr(new Date());
+  const regularRows = schedule.filter(r => !r.downPayment);
+  const dueUntilToday = regularRows.filter(r => r.dueDate <= today).length;
+  const paidRows = schedule.filter(r => r.paid);
+  const paidTotal = paidRows.reduce((acc, r) => acc + (Number(r.value) || 0), 0);
 
   const setType = (next) => {
     if (next === type) return;
@@ -144,6 +151,41 @@ export function PaymentPlanPicker({ plan, onChange, valueKey = 'value', paymentM
               </Chip>
             ))}
           </div>
+
+          {/* Entrada: sai do total; o restante é dividido nas parcelas */}
+          {isNew && (
+            <>
+              <div>
+                <label className={LABEL}>Entrada (R$) <span className="font-normal text-slate-400">(opcional)</span></label>
+                <input
+                  type="number" step="0.01" min="0"
+                  value={plan.downPayment ?? ''}
+                  onChange={(e) => onChange({ downPayment: e.target.value })}
+                  placeholder="0,00"
+                  className={INPUT}
+                />
+              </div>
+              <div>
+                <label className={LABEL}>Data da entrada</label>
+                <DateField
+                  type="date"
+                  value={plan.downPaymentDate || ''}
+                  onChange={(e) => onChange({ downPaymentDate: e.target.value })}
+                  className={INPUT}
+                />
+              </div>
+              <label className={`flex items-center gap-2 self-end pb-2 text-xs font-semibold ${normalized.downPayment > 0 ? 'cursor-pointer text-slate-700 dark:text-slate-200' : 'text-slate-400'}`}>
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-current"
+                  checked={!!plan.downPaymentPaid && normalized.downPayment > 0}
+                  disabled={!(normalized.downPayment > 0)}
+                  onChange={(e) => onChange({ downPaymentPaid: e.target.checked })}
+                />
+                A entrada já foi paga
+              </label>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -201,6 +243,34 @@ export function PaymentPlanPicker({ plan, onChange, valueKey = 'value', paymentM
         </div>
       )}
 
+      {/* Contrato que já vinha sendo pago: as primeiras parcelas entram como pagas */}
+      {isNew && regularRows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2.5 dark:border-white/[0.08]">
+          <label htmlFor="plan-paid-count" className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+            {type === 'recorrente' ? 'Mensalidades já pagas' : 'Parcelas já pagas'}
+          </label>
+          <input
+            id="plan-paid-count"
+            type="number" min="0" max={regularRows.length}
+            value={plan.paidCount ?? 0}
+            onChange={(e) => onChange({ paidCount: e.target.value })}
+            className="w-16 rounded-lg border border-slate-300 bg-white px-2 py-1 text-right font-numeric text-xs text-slate-800 focus:border-gold-500 focus:outline-none dark:border-slate-700 dark:bg-navy-950 dark:text-slate-100"
+          />
+          <span className="text-[11px] text-slate-400">de {regularRows.length}</span>
+          {dueUntilToday > 0 && (
+            <Chip active={Number(plan.paidCount) === dueUntilToday} onClick={() => onChange({ paidCount: dueUntilToday })}>
+              Todas as vencidas até hoje ({dueUntilToday})
+            </Chip>
+          )}
+          {Number(plan.paidCount) > 0 && (
+            <Chip active={false} onClick={() => onChange({ paidCount: 0 })}>Nenhuma</Chip>
+          )}
+          <span className="w-full text-[11px] text-slate-500 dark:text-slate-400">
+            Use ao lançar um contrato que já vinha sendo pago: essas entram como pagas, sem precisar dar baixa uma a uma.
+          </span>
+        </div>
+      )}
+
       {paymentMethodField}
 
       {/* Resumo com a linha do tempo dos próximos vencimentos */}
@@ -216,7 +286,12 @@ export function PaymentPlanPicker({ plan, onChange, valueKey = 'value', paymentM
                 </>
               ) : (
                 <>
-                  <span className="font-numeric text-sm font-semibold text-slate-900 dark:text-white">{normalized.installmentsCount}× {formatCurrency(normalized.installmentValue)}</span>
+                  {normalized.downPayment > 0 && (
+                    <><span className="font-numeric text-sm font-semibold text-slate-900 dark:text-white">Entrada {formatCurrency(normalized.downPayment)}</span>{regularRows.length > 0 ? ' + ' : ''}</>
+                  )}
+                  {regularRows.length > 0 && (
+                    <span className="font-numeric text-sm font-semibold text-slate-900 dark:text-white">{normalized.installmentsCount}× {formatCurrency(normalized.installmentValue)}</span>
+                  )}
                   {' · '}de {fmtDay(schedule[0]?.dueDate)} a {fmtDay(schedule[schedule.length - 1]?.dueDate)}
                 </>
               )}
@@ -231,8 +306,9 @@ export function PaymentPlanPicker({ plan, onChange, valueKey = 'value', paymentM
             {preview.map((r, i) => (
               <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1">
                 <div
-                  className="w-full rounded-t-[3px] bg-gradient-to-t from-gold-600/70 to-gold-400/80"
-                  style={{ height: type === 'recorrente' ? 16 : 10 + Math.min(10, 120 / normalized.installmentsCount) }}
+                  className={`w-full rounded-t-[3px] bg-gradient-to-t ${r.paid ? 'from-emerald-600/70 to-emerald-400/80' : 'from-gold-600/70 to-gold-400/80'}`}
+                  style={{ height: r.downPayment ? 22 : type === 'recorrente' ? 16 : 10 + Math.min(10, 120 / normalized.installmentsCount) }}
+                  title={`${r.downPayment ? 'Entrada' : `Parcela ${r.installmentNumber}`} · ${fmtDay(r.dueDate)}${r.paid ? ' · paga' : ''}`}
                 />
                 <span className="text-[9px] uppercase text-slate-400">{monthShort(r.dueDate)}</span>
               </div>
@@ -249,6 +325,12 @@ export function PaymentPlanPicker({ plan, onChange, valueKey = 'value', paymentM
                 : 'As mensalidades vão para Contas & honorários; ao fim da vigência o contrato encerra.'
               : 'As parcelas vão para Contas & honorários com esses vencimentos.'}
           </p>
+          {paidRows.length > 0 && (
+            <p className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+              <Check className="h-3.5 w-3.5" />
+              {paidRows.length} já {paidRows.length === 1 ? 'entra' : 'entram'} como {paidRows.length === 1 ? 'paga' : 'pagas'} ({formatCurrency(paidTotal)}), em verde na linha acima.
+            </p>
+          )}
         </div>
       )}
     </div>

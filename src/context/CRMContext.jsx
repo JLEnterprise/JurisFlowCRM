@@ -910,6 +910,15 @@ export function CRMProvider({ children }) {
   // --- CONTRACTS ACTIONS ---
 
   // Transforma o cronograma do plano de pagamento (parcelado ou mensal recorrente) em parcelas do financeiro
+  // Parcela marcada como "já paga" no lançamento: baixa na data do vencimento (ou hoje, se ainda não venceu)
+  const paidFields = (r) => {
+    if (!r.paid) return { status: 'pending' };
+    const today = new Date().toISOString().split('T')[0];
+    const paidOn = r.dueDate && r.dueDate < today ? r.dueDate : today;
+    return { status: 'paid', paidDate: paidOn, paid_date: paidOn, paymentDate: paidOn, payment_date: paidOn };
+  };
+  const paidTotalOf = (rows) => rows.filter(r => r.paid).reduce((acc, r) => acc + (Number(r.value) || 0), 0);
+
   const scheduleToInstallments = (contract, rows, idTag) => rows.map((r, i) => ({
     id: `inst_${idTag}_${r.cycle ? `c${r.cycle}_` : ''}${r.installmentNumber || i + 1}`,
     escritorio_id: contract.escritorio_id || currentEscritorioId,
@@ -921,8 +930,9 @@ export function CRMProvider({ children }) {
     value: r.value,
     amount: r.value,
     dueDate: r.dueDate,
-    status: 'pending',
+    ...paidFields(r),
     paymentMethod: contract.paymentMethod || contract.payment_method || 'PIX',
+    ...(r.downPayment ? { isDownPayment: true } : {}),
     ...(r.recurring ? { recurring: true, cycle: r.cycle } : {}),
   }));
 
@@ -984,8 +994,11 @@ export function CRMProvider({ children }) {
 
     // Gerar parcelas automaticamente se o contrato tiver valor e número de parcelas
     const contractValue = Number(newContract.value) || 0;
+    let alreadyPaid = 0;
     if (contractValue > 0) {
-      const generatedInstallments = scheduleToInstallments(newContract, buildSchedule(newContract), now);
+      const rows = buildSchedule(newContract);
+      alreadyPaid = paidTotalOf(rows);
+      const generatedInstallments = scheduleToInstallments(newContract, rows, now);
       if (generatedInstallments.length > 0) {
         setInstallments(prev => {
           const next = [...generatedInstallments, ...prev];
@@ -1000,7 +1013,8 @@ export function CRMProvider({ children }) {
     if (finalClientId) {
       patchClientOf({ clientId: finalClientId }, (cl) => {
         const newTotal = (Number(cl.totalContracted || cl.total_contracted) || 0) + contractValue;
-        return { ...cl, totalContracted: newTotal, total_contracted: newTotal };
+        const newPaid = (Number(cl.totalPaid || cl.total_paid) || 0) + alreadyPaid;
+        return { ...cl, totalContracted: newTotal, total_contracted: newTotal, totalPaid: newPaid, total_paid: newPaid };
       });
     }
 
@@ -1259,6 +1273,10 @@ export function CRMProvider({ children }) {
         recurringMonths: leadIdOrPayload.recurringMonths,
         autoRenew: leadIdOrPayload.autoRenew,
         firstDueDate: leadIdOrPayload.firstDueDate,
+        downPayment: leadIdOrPayload.downPayment,
+        downPaymentDate: leadIdOrPayload.downPaymentDate,
+        downPaymentPaid: leadIdOrPayload.downPaymentPaid,
+        paidCount: leadIdOrPayload.paidCount,
         responsibleLawyerId: leadIdOrPayload.responsibleLawyerId || currentUser?.id || null,
         signedDate: leadIdOrPayload.signedDate || new Date().toISOString().split('T')[0],
         observations: leadIdOrPayload.observations || '',
@@ -1272,6 +1290,11 @@ export function CRMProvider({ children }) {
       contractData = maybeContractData || {};
       customInstallments = maybeInstallmentsList || [];
     }
+
+    // O que entra já pago no lançamento (entrada paga, parcelas antigas)
+    const plannedPaid = customInstallments.length > 0 || !(Number(contractData.value) > 0)
+      ? 0
+      : paidTotalOf(buildSchedule({ ...contractData, value: Number(contractData.value) || 0 }));
 
     // 1. Criar ou buscar cliente
     let client = clients.find(c => (contractData.clientId && c.id === contractData.clientId) || (leadId && c.leadId === leadId) || (clientData?.name && c.name === clientData.name));
@@ -1291,7 +1314,7 @@ export function CRMProvider({ children }) {
         legalArea: clientData?.legalArea || lead?.legalArea || contractData.legalArea || 'civil',
         status: 'active',
         totalContracted: Number(contractData.value) || 0,
-        totalPaid: 0,
+        totalPaid: plannedPaid,
         createdAt: new Date().toISOString().split('T')[0],
       };
       setClients(prev => {
@@ -1300,6 +1323,8 @@ export function CRMProvider({ children }) {
         return next;
       });
       storageService.saveToSupabase('clients', [client]);
+    } else if (plannedPaid > 0) {
+      addToClientPaid({ clientId: client.id }, plannedPaid);
     }
 
     // 2. Criar contrato

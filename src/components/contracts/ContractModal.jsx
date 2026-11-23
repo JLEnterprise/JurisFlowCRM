@@ -288,6 +288,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
         {/* Row 3: Plano de pagamento (parcelado ou mensal recorrente) & forma */}
         <PaymentPlanPicker
           plan={formData}
+          isNew={!isExistingContract}
           onChange={(partial) => setFormData(prev => ({ ...prev, ...partial }))}
           paymentMethodField={(
             <div className="sm:w-1/3">

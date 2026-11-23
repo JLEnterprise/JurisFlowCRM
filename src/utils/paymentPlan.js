@@ -9,6 +9,10 @@
 //   billingDay       dia do vencimento todo mês (recorrente)
 //   recurringMonths  meses por ciclo; 0 = sem prazo (gera 12 por vez e renova)
 //   autoRenew        renova sozinho ao fim do ciclo (sempre true quando sem prazo)
+//   downPayment      entrada (parcelado): sai do total; o restante é dividido nas parcelas
+//   downPaymentDate  'AAAA-MM-DD' da entrada (padrão: o 1º vencimento)
+//   downPaymentPaid  a entrada já foi paga ao lançar o contrato
+//   paidCount        quantas parcelas/mensalidades já foram pagas ao lançar (contrato antigo)
 
 export const RECURRING_WINDOW = 12; // meses gerados por ciclo quando o contrato é "sem prazo"
 export const RENEW_AHEAD_DAYS = 45; // renova quando a última mensalidade vence em até 45 dias
@@ -55,6 +59,7 @@ export function normalizePlan(c = {}) {
       billingDay,
       recurringMonths: months,
       autoRenew: months === 0 ? true : !!c.autoRenew,
+      paidCount: Math.min(Math.max(Math.floor(Number(c.paidCount) || 0), 0), cycle),
       installmentsCount: cycle,
       firstDueDate: c.firstDueDate || nextBillingDate(billingDay),
       value: monthly * cycle,
@@ -63,12 +68,18 @@ export function normalizePlan(c = {}) {
   }
   const count = Math.max(1, Number(c.installmentsCount || c.installments_count) || 1);
   const total = Number(c.value) || 0;
+  const downPayment = Math.min(Math.max(Number(c.downPayment) || 0, 0), total);
+  const rest = total - downPayment;
   return {
     paymentType: 'parcelado',
     installmentsCount: count,
     firstDueDate: c.firstDueDate || '',
     value: total,
-    installmentValue: count ? total / count : total,
+    downPayment,
+    downPaymentDate: downPayment > 0 ? (c.downPaymentDate || '') : '',
+    downPaymentPaid: downPayment > 0 && !!c.downPaymentPaid,
+    paidCount: rest > 0 ? Math.min(Math.max(Math.floor(Number(c.paidCount) || 0), 0), count) : 0,
+    installmentValue: count ? rest / count : rest,
   };
 }
 
@@ -89,19 +100,41 @@ export function buildSchedule(contract, { baseDate, cycle = 1, afterDate, startN
         dueDate: addMonths(first, i, plan.billingDay),
         recurring: true,
         cycle,
+        // Só no lançamento: as primeiras mensalidades que já tinham sido pagas
+        paid: !afterDate && cycle === 1 && i < plan.paidCount,
       });
     }
     return rows;
   }
 
-  const first = plan.firstDueDate || (baseDate ? String(baseDate).split('T')[0] : dayStr(new Date()));
-  for (let i = 0; i < count; i++) {
+  const start = baseDate ? String(baseDate).split('T')[0] : dayStr(new Date());
+  const hasDown = plan.downPayment > 0;
+  const hasRest = plan.value - plan.downPayment > 0;
+  const downDate = plan.downPaymentDate || plan.firstDueDate || start;
+  // Com entrada e sem 1º vencimento escolhido, as parcelas começam um mês depois da entrada
+  const first = plan.firstDueDate || (hasDown ? addMonths(downDate, 1) : start);
+  const totalRows = (hasDown ? 1 : 0) + (hasRest ? count : 0);
+  let number = 1;
+  if (hasDown) {
     rows.push({
-      installmentNumber: i + 1,
-      totalInstallments: count,
-      value: plan.installmentValue,
-      dueDate: addMonths(first, i),
+      installmentNumber: number++,
+      totalInstallments: totalRows,
+      value: plan.downPayment,
+      dueDate: downDate,
+      downPayment: true,
+      paid: plan.downPaymentPaid,
     });
+  }
+  if (hasRest) {
+    for (let i = 0; i < count; i++) {
+      rows.push({
+        installmentNumber: number++,
+        totalInstallments: totalRows,
+        value: plan.installmentValue,
+        dueDate: addMonths(first, i),
+        paid: i < plan.paidCount,
+      });
+    }
   }
   return rows;
 }
@@ -113,5 +146,7 @@ export function planSummary(contract, fmt = (v) => `R$ ${Number(v || 0).toFixed(
     const term = p.recurringMonths ? `${p.recurringMonths} meses` : 'sem prazo';
     return `${fmt(p.monthlyValue)}/mês · dia ${p.billingDay} · ${term}${p.autoRenew ? ' · renova sozinho' : ''}`;
   }
-  return `${p.installmentsCount}× ${fmt(p.installmentValue)}`;
+  const parcels = `${p.installmentsCount}× ${fmt(p.installmentValue)}`;
+  if (!(p.downPayment > 0)) return parcels;
+  return p.installmentValue > 0 ? `Entrada ${fmt(p.downPayment)} + ${parcels}` : `Entrada ${fmt(p.downPayment)}`;
 }
