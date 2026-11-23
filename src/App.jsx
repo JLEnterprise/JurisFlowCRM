@@ -44,6 +44,7 @@ import { TaskModal } from './components/tasks/TaskModal';
 import { DocumentManager } from './components/documents/DocumentManager';
 import { TemplatesView } from './components/templates/TemplatesView';
 import { FinancialOverview } from './components/financial/FinancialOverview';
+import { MyPayoutCard } from './components/financial/TeamPayoutPanel';
 import { ReportsView } from './components/reports/ReportsView';
 import { TeamView } from './components/team/TeamView';
 import { ActivityLogsView } from './components/security/ActivityLogsView';
@@ -370,6 +371,8 @@ export function App() {
         return (
           <div className="space-y-6">
             <DashboardStats onNavigate={handleNavigate} />
+            {/* Quem não acessa o financeiro vê o próprio repasse aqui (só aparece se tiver percentual) */}
+            {!permissions?.canAccessFinancial && <MyPayoutCard />}
             <DashboardCharts onNavigate={handleNavigate} />
           </div>
         );

@@ -1,15 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Crown, Percent, Save, Settings2, Users, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCRM } from '../../context/CRMContext';
+import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/formatters';
 import { Avatar } from '../common/Avatar';
 import { instAmount, instPaidOn } from './financeUtils';
 
 // Repasses da equipe: cada colaborador (fora o titular) recebe um percentual do valor BRUTO
 // que entrou no mês (parcelas pagas, pela data de pagamento). O titular fica com o restante.
-// Os percentuais ficam em office_settings.payoutShares = { [userId]: número } — só a tela lê isso,
-// nenhuma parcela é alterada.
+// Os percentuais são sigilosos e ficam na tabela team_payout_shares: o dono (e quem tem
+// "Configurações do escritório") vê e edita todos; cada colaborador lê só a própria linha.
+// Nenhuma parcela é alterada.
 
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const pad = (n) => String(n).padStart(2, '0');
@@ -17,38 +19,140 @@ const pad = (n) => String(n).padStart(2, '0');
 const rolesOf = (u) => (Array.isArray(u?.roles) && u.roles.length ? u.roles : [u?.role]).filter(Boolean);
 const isOwner = (u) => rolesOf(u).includes('admin');
 
+function useMonth() {
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return { y: d.getFullYear(), m: d.getMonth() };
+  });
+  const shiftMonth = (delta) => setMonth(({ y, m }) => {
+    const d = new Date(y, m + delta, 1);
+    return { y: d.getFullYear(), m: d.getMonth() };
+  });
+  return { month, shiftMonth, monthKey: `${month.y}-${pad(month.m + 1)}` };
+}
+
+function MonthPicker({ month, shiftMonth }) {
+  return (
+    <div className="inline-flex items-center rounded-full border border-slate-200 dark:border-white/[0.08]">
+      <button type="button" onClick={() => shiftMonth(-1)} className="rounded-l-full p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white" aria-label="Mês anterior">
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span className="min-w-[8.5rem] text-center text-xs font-semibold text-slate-700 dark:text-slate-200">
+        {MONTHS[month.m].charAt(0).toUpperCase() + MONTHS[month.m].slice(1)} de {month.y}
+      </span>
+      <button type="button" onClick={() => shiftMonth(1)} className="rounded-r-full p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white" aria-label="Próximo mês">
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+// "Meu repasse": para quem tem percentual. O bruto vem do banco (a pessoa pode não ter acesso às parcelas).
+export function MyPayoutCard() {
+  const { month, shiftMonth, monthKey } = useMonth();
+  const [data, setData] = useState(undefined); // undefined = carregando, null = sem repasse
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.rpc('my_team_payout', { p_month: monthKey }).then(({ data: rows, error }) => {
+      if (cancelled) return;
+      if (error) {
+        console.warn('[repasse] erro ao carregar:', error.message);
+        setData(null);
+        return;
+      }
+      setData(rows?.[0] || null);
+    });
+    return () => { cancelled = true; };
+  }, [monthKey]);
+
+  if (!data) return null;
+  const gross = Number(data.gross) || 0;
+  const percent = Number(data.percent) || 0;
+
+  return (
+    <div className="dash-panel">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-slate-900 dark:text-white">
+            <Users className="h-4 w-4 text-gold-600 dark:text-gold-400" /> Meu repasse
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {percent}% sobre o valor bruto recebido no mês ({data.payments} pagamento{data.payments === 1 ? '' : 's'})
+          </p>
+        </div>
+        <MonthPicker month={month} shiftMonth={shiftMonth} />
+      </div>
+      <div className="mt-4 flex flex-wrap items-baseline gap-x-8 gap-y-2">
+        <div>
+          <div className="font-label text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Meu valor no mês</div>
+          <div className="font-numeric text-2xl font-semibold text-emerald-700 dark:text-emerald-300">{formatCurrency((gross * percent) / 100)}</div>
+        </div>
+        <div>
+          <div className="font-label text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Recebido no mês (bruto)</div>
+          <div className="font-numeric text-base font-semibold text-slate-700 dark:text-slate-200">{formatCurrency(gross)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TeamPayoutPanel() {
   const { users: allUsers = [], currentUser, permissions } = useAuth();
-  const { installments = [], officeSettings = {}, updateOfficeSettings, showToast, logActivity } = useCRM();
+  const { installments = [], currentEscritorioId, ownEscritorioId, isConsolidated, showToast, logActivity } = useCRM();
+  const canManage = !!permissions?.canAccessSettings || isOwner(currentUser) || currentUser?.role === 'dev';
+  const officeId = isConsolidated ? ownEscritorioId : (currentEscritorioId || ownEscritorioId);
 
   const users = useMemo(
     () => allUsers.filter((u) => !u.fromMatriz && (u.status || 'active') === 'active'),
     [allUsers]
   );
-  const savedShares = officeSettings.payoutShares || {};
-  const canManage = !!permissions?.canAccessSettings || isOwner(currentUser) || currentUser?.role === 'dev';
+  const { month, shiftMonth, monthKey } = useMonth();
 
-  const [month, setMonth] = useState(() => {
-    const d = new Date();
-    return { y: d.getFullYear(), m: d.getMonth() };
-  });
+  // Percentuais salvos: { [userId]: { percent, is_owner } }
+  const [saved, setSaved] = useState({});
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!officeId || !canManage) return;
+    const { data, error } = await supabase
+      .from('team_payout_shares')
+      .select('user_id, percent, is_owner')
+      .eq('escritorio_id', officeId);
+    if (error) {
+      console.warn('[repasse] erro ao carregar:', error.message);
+      return;
+    }
+    setSaved(Object.fromEntries((data || []).map((r) => [String(r.user_id), { percent: Number(r.percent) || 0, isOwner: !!r.is_owner }])));
+    setLoaded(true);
+  }, [officeId, canManage]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Outro computador alterou os percentuais: atualiza aqui também
+  useEffect(() => {
+    if (!canManage) return undefined;
+    const channel = supabase.channel(`realtime_repasses_${officeId || 'x'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_payout_shares' }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [canManage, officeId, load]);
+
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
   const [draftOwnerId, setDraftOwnerId] = useState('');
 
   // Titular = quem fica com o restante. Escolhido no editor; padrão: o sócio-administrador que não é da TI
   const defaultOwner = users.find((u) => isOwner(u) && !rolesOf(u).includes('dev')) || users.find(isOwner) || users[0] || null;
-  const savedOwnerId = officeSettings.payoutOwnerId && users.some((u) => String(u.id) === String(officeSettings.payoutOwnerId))
-    ? String(officeSettings.payoutOwnerId)
-    : String(defaultOwner?.id || '');
+  const savedOwnerEntry = Object.entries(saved).find(([id, v]) => v.isOwner && users.some((u) => String(u.id) === id));
+  const savedOwnerId = savedOwnerEntry ? savedOwnerEntry[0] : String(defaultOwner?.id || '');
   const ownerId = editing ? draftOwnerId : savedOwnerId;
   const owner = users.find((u) => String(u.id) === ownerId) || null;
   const members = users.filter((u) => String(u.id) !== ownerId);
 
-  const shares = editing ? draft : savedShares;
-  const shareOf = (u) => Math.max(0, Number(shares[String(u.id)]) || 0);
+  const shareOf = (u) => Math.max(0, Number(editing ? draft[String(u.id)] : saved[String(u.id)]?.percent) || 0);
 
-  const monthKey = `${month.y}-${pad(month.m + 1)}`;
   const monthPaid = useMemo(
     () => (installments || []).filter((i) => i.status === 'paid' && instPaidOn(i).startsWith(monthKey)),
     [installments, monthKey]
@@ -56,42 +160,44 @@ export function TeamPayoutPanel() {
   const gross = monthPaid.reduce((acc, i) => acc + instAmount(i), 0);
 
   const sharedMembers = members.filter((u) => shareOf(u) > 0);
-  const sharedPercent = sharedMembers.reduce((acc, u) => acc + shareOf(u), 0);
-  const ownerPercent = Math.max(0, 100 - sharedPercent);
+  const sharedPercent = Math.round(sharedMembers.reduce((acc, u) => acc + shareOf(u), 0) * 100) / 100;
+  const ownerPercent = Math.max(0, Math.round((100 - sharedPercent) * 100) / 100);
   const overLimit = sharedPercent > 100;
 
-  // Quem não administra só vê a própria parte (e só se tiver repasse)
-  const myShare = currentUser ? shareOf(currentUser) : 0;
-  if (!canManage && myShare <= 0) return null;
-  const visibleMembers = canManage
-    ? sharedMembers
-    : sharedMembers.filter((u) => String(u.id) === String(currentUser?.id));
-
-  const shiftMonth = (delta) => setMonth(({ y, m }) => {
-    const d = new Date(y, m + delta, 1);
-    return { y: d.getFullYear(), m: d.getMonth() };
-  });
+  // Quem não administra vê só o próprio repasse (calculado no banco)
+  if (!canManage) return <MyPayoutCard />;
 
   const startEdit = () => {
-    setDraft(Object.fromEntries(users.map((u) => [String(u.id), Number(savedShares[String(u.id)]) || 0])));
+    setDraft(Object.fromEntries(users.map((u) => [String(u.id), Number(saved[String(u.id)]?.percent) || 0])));
     setDraftOwnerId(savedOwnerId);
     setEditing(true);
   };
 
-  const handleSave = () => {
-    if (overLimit) return;
-    const clean = Object.fromEntries(
-      Object.entries(draft)
-        .filter(([id]) => id !== draftOwnerId)
-        .map(([id, v]) => [id, Math.round((Number(v) || 0) * 100) / 100])
-        .filter(([, v]) => v > 0)
-    );
-    updateOfficeSettings({ payoutShares: clean, payoutOwnerId: draftOwnerId || null });
-    const resumo = members
-      .filter((u) => clean[String(u.id)])
-      .map((u) => `${u.name}: ${clean[String(u.id)]}%`)
-      .join(', ') || 'nenhum repasse';
-    logActivity && logActivity('Repasses da Equipe', 'Percentuais de repasse', resumo);
+  const handleSave = async () => {
+    if (overLimit || !officeId) return;
+    setSaving(true);
+    const rows = users.map((u) => {
+      const id = String(u.id);
+      const isTitular = id === draftOwnerId;
+      return {
+        escritorio_id: officeId,
+        user_id: id,
+        percent: isTitular ? 0 : Math.round((Number(draft[id]) || 0) * 100) / 100,
+        is_owner: isTitular,
+        updated_at: new Date().toISOString(),
+        updated_by: currentUser?.id || null,
+      };
+    });
+    const { error } = await supabase.from('team_payout_shares').upsert(rows, { onConflict: 'escritorio_id,user_id' });
+    setSaving(false);
+    if (error) {
+      console.warn('[repasse] erro ao salvar:', error.message);
+      showToast && showToast('Não foi possível salvar os percentuais. Nada foi alterado.', 'danger', 6000);
+      return;
+    }
+    await load();
+    // O histórico registra que houve alteração, sem os percentuais (são sigilosos)
+    logActivity && logActivity('Repasses da Equipe', 'Percentuais de repasse', 'Percentuais da equipe atualizados.');
     showToast && showToast('Percentuais de repasse salvos.', 'success');
     setEditing(false);
   };
@@ -104,29 +210,20 @@ export function TeamPayoutPanel() {
         <div>
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-slate-900 dark:text-white">
             <Users className="h-4 w-4 text-gold-600 dark:text-gold-400" />
-            {canManage ? 'Repasses da equipe' : 'Meu repasse'}
+            Repasses da equipe
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Percentual sobre o valor bruto recebido no mês (parcelas pagas, pela data do pagamento)
+            Percentual sobre o valor bruto recebido no mês (parcelas pagas, pela data do pagamento). Cada colaborador vê só o próprio.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="inline-flex items-center rounded-full border border-slate-200 dark:border-white/[0.08]">
-            <button type="button" onClick={() => shiftMonth(-1)} className="rounded-l-full p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white" aria-label="Mês anterior">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="min-w-[8.5rem] text-center text-xs font-semibold text-slate-700 dark:text-slate-200">
-              {MONTHS[month.m].charAt(0).toUpperCase() + MONTHS[month.m].slice(1)} de {month.y}
-            </span>
-            <button type="button" onClick={() => shiftMonth(1)} className="rounded-r-full p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white" aria-label="Próximo mês">
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-          {canManage && !editing && (
+          <MonthPicker month={month} shiftMonth={shiftMonth} />
+          {!editing && (
             <button
               type="button"
               onClick={startEdit}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-gold-500/40 hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:text-white"
+              disabled={!loaded}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-gold-500/40 hover:text-slate-900 disabled:opacity-40 dark:border-white/[0.08] dark:text-slate-300 dark:hover:text-white"
             >
               <Settings2 className="h-3.5 w-3.5" /> Configurar
             </button>
@@ -143,7 +240,7 @@ export function TeamPayoutPanel() {
         <div className="text-[11px] text-slate-400">{monthPaid.length} pagamento(s)</div>
       </div>
 
-      {/* Editor de percentuais (só quem administra) */}
+      {/* Editor de percentuais */}
       {editing && (
         <div className="mx-5 mt-4 rounded-2xl border border-gold-500/25 bg-gold-500/[0.04] p-4">
           <div className="mb-3 text-xs text-slate-600 dark:text-slate-300">
@@ -195,6 +292,7 @@ export function TeamPayoutPanel() {
               <button
                 type="button"
                 onClick={() => setEditing(false)}
+                disabled={saving}
                 className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white"
               >
                 <X className="h-3.5 w-3.5" /> Cancelar
@@ -202,10 +300,10 @@ export function TeamPayoutPanel() {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={overLimit}
+                disabled={overLimit || saving}
                 className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:brightness-110 disabled:opacity-40"
               >
-                <Save className="h-3.5 w-3.5" /> Salvar percentuais
+                <Save className="h-3.5 w-3.5" /> {saving ? 'Salvando...' : 'Salvar percentuais'}
               </button>
             </div>
           </div>
@@ -214,13 +312,13 @@ export function TeamPayoutPanel() {
 
       {/* Divisão do mês */}
       <div className="px-5 py-4">
-        {canManage && sharedMembers.length === 0 && !editing ? (
+        {sharedMembers.length === 0 && !editing ? (
           <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-500 dark:border-white/[0.08] dark:text-slate-400">
             Nenhum repasse configurado: hoje todo o valor fica com o titular. Clique em <b>Configurar</b> para definir o percentual de cada colaborador.
           </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-white/[0.05]">
-            {visibleMembers.map((u) => {
+            {sharedMembers.map((u) => {
               const pct = shareOf(u);
               return (
                 <div key={u.id} className="flex items-center justify-between gap-3 py-2.5">
@@ -237,7 +335,7 @@ export function TeamPayoutPanel() {
                 </div>
               );
             })}
-            {canManage && !overLimit && (
+            {!overLimit && (
               <div className="flex items-center justify-between gap-3 py-2.5">
                 <span className="flex min-w-0 items-center gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-500/10 text-gold-600 dark:text-gold-400">
