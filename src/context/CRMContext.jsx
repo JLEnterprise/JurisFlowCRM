@@ -1023,7 +1023,8 @@ export function CRMProvider({ children }) {
     return newContract;
   };
 
-  const updateContract = (id, contractData) => {
+  // options.rebuildSchedule: refaz TODAS as parcelas do contrato pelo plano novo (entrada, parcelas já pagas)
+  const updateContract = (id, contractData, options = {}) => {
     const strId = String(id);
     const updatedContract = patchRecord('contracts', setContracts, strId, c => ({ ...c, ...contractData, escritorio_id: c.escritorio_id || currentEscritorioId }));
 
@@ -1074,7 +1075,40 @@ export function CRMProvider({ children }) {
       const rebuildPlan = existingInsts.length > 0 && (isRecurring(updatedContract) || isRecurring(previous))
         && planKey(previous) !== planKey(updatedContract);
 
-      if (rebuildPlan) {
+      if (options.rebuildSchedule && contractValue > 0) {
+        // Contrato antigo reorganizado: entrada + parcelas, marcando o que já foi pago.
+        // As datas reais de pagamento que já existiam passam, em ordem, para as novas parcelas pagas.
+        const oldPaid = existingInsts
+          .filter(i => i.status === 'paid')
+          .sort((a, b) => String(a.dueDate || a.due_date || '').localeCompare(String(b.dueDate || b.due_date || '')));
+        const rows = buildSchedule(updatedContract, { baseDate: updatedContract.signedDate || updatedContract.createdDate });
+        let k = 0;
+        const fresh = scheduleToInstallments(updatedContract, rows, `${now}_r`).map((inst) => {
+          if (inst.status !== 'paid' || !oldPaid[k]) return inst;
+          const source = oldPaid[k++];
+          const paidOn = String(source.paymentDate || source.payment_date || source.paidDate || source.paid_date || inst.paidDate).split('T')[0];
+          return {
+            ...inst,
+            paidDate: paidOn, paid_date: paidOn, paymentDate: paidOn, payment_date: paidOn,
+            paymentMethod: source.paymentMethod || source.payment_method || inst.paymentMethod,
+          };
+        });
+        const oldIds = new Set(existingInsts.map(i => String(i.id)));
+        setInstallments(prev => {
+          const next = [...fresh, ...prev.filter(i => !oldIds.has(String(i.id)))];
+          storageService.saveData('installments', next);
+          return next;
+        });
+        // Grava as novas antes de apagar as antigas: se a internet cair no meio, nada se perde
+        storageService.saveToSupabase('installments', fresh).then((ok) => {
+          if (ok) existingInsts.forEach(i => storageService.deleteFromSupabase('installments', i.id));
+        });
+        const oldPaidSum = oldPaid.reduce((acc, i) => acc + (Number(i.amount || i.value) || 0), 0);
+        const newPaidSum = fresh.filter(i => i.status === 'paid').reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
+        if (newPaidSum !== oldPaidSum) addToClientPaid(updatedContract, newPaidSum - oldPaidSum);
+        logActivity('Parcelas Reorganizadas', updatedContract.title || strId,
+          `${fresh.length} parcela(s), ${fresh.filter(i => i.status === 'paid').length} paga(s).`);
+      } else if (rebuildPlan) {
         const paidInsts = existingInsts.filter(i => i.status === 'paid');
         const openInsts = existingInsts.filter(i => i.status !== 'paid');
         const lastPaidDue = paidInsts.map(i => String(i.dueDate || i.due_date || '').split('T')[0]).sort().pop();

@@ -46,10 +46,12 @@ function Chip({ active, onClick, children }) {
  * monthlyValue, billingDay, recurringMonths, autoRenew); `onChange(parcial)` devolve só o que mudou.
  * `valueKey` permite usar outro nome para o valor total (ex.: contractValue no fechamento).
  */
-export function PaymentPlanPicker({ plan, onChange, valueKey = 'value', paymentMethodField = null, isNew = true }) {
+export function PaymentPlanPicker({ plan, onChange, valueKey = 'value', paymentMethodField = null, isNew = true, baseDate }) {
   const type = plan.paymentType === 'recorrente' ? 'recorrente' : 'parcelado';
   const normalized = normalizePlan({ ...plan, value: plan[valueKey] });
-  const schedule = (Number(plan[valueKey]) > 0 || Number(plan.monthlyValue) > 0) ? buildSchedule({ ...plan, value: plan[valueKey] }) : [];
+  const schedule = (Number(plan[valueKey]) > 0 || Number(plan.monthlyValue) > 0)
+    ? buildSchedule({ ...plan, value: plan[valueKey] }, baseDate ? { baseDate } : {})
+    : [];
   const preview = schedule.slice(0, 12);
 
   // Contrato antigo lançado agora: quantas parcelas já venceram até hoje (sem contar a entrada)

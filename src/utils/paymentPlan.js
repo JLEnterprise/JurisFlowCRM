@@ -110,7 +110,8 @@ export function buildSchedule(contract, { baseDate, cycle = 1, afterDate, startN
   const start = baseDate ? String(baseDate).split('T')[0] : dayStr(new Date());
   const hasDown = plan.downPayment > 0;
   const hasRest = plan.value - plan.downPayment > 0;
-  const downDate = plan.downPaymentDate || plan.firstDueDate || start;
+  // Entrada sem data: no início do contrato (assinatura, ou hoje no lançamento)
+  const downDate = plan.downPaymentDate || start;
   // Com entrada e sem 1º vencimento escolhido, as parcelas começam um mês depois da entrada
   const first = plan.firstDueDate || (hasDown ? addMonths(downDate, 1) : start);
   const totalRows = (hasDown ? 1 : 0) + (hasRest ? count : 0);
