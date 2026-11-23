@@ -1791,17 +1791,27 @@ export function CRMProvider({ children }) {
   };
 
   // --- FINANCIAL ACTIONS ---
-  const markInstallmentPaid = (installmentId) => {
+  // Baixa de parcela que venceu em mês anterior: pergunta quando o dinheiro entrou de fato.
+  // Sem isso, baixar em lote parcelas antigas jogava tudo como "recebido no mês" (e no repasse).
+  const [paidDatePrompt, setPaidDatePrompt] = useState(null);
+
+  const markInstallmentPaid = (installmentId, paidOn = null) => {
     const today = new Date().toISOString().split('T')[0];
     const before = (listsRef.current.installments || []).find(inst => String(inst.id) === String(installmentId));
     const wasPaid = before?.status === 'paid';
+    const due = String(before?.dueDate || before?.due_date || '').split('T')[0];
+    if (!paidOn && !wasPaid && due && due.slice(0, 7) < today.slice(0, 7)) {
+      setPaidDatePrompt({ installment: before, dueDate: due });
+      return;
+    }
+    const paidDay = paidOn || today;
     const paidInst = patchRecord('installments', setInstallments, installmentId, inst => ({
       ...inst,
       status: 'paid',
-      paidDate: today,
-      paid_date: today,
-      paymentDate: today,
-      payment_date: today,
+      paidDate: paidDay,
+      paid_date: paidDay,
+      paymentDate: paidDay,
+      payment_date: paidDay,
       escritorio_id: inst.escritorio_id || currentEscritorioId,
     }));
 
@@ -2121,6 +2131,8 @@ export function CRMProvider({ children }) {
         updateAttendance,
         deleteAttendance,
         markInstallmentPaid,
+        paidDatePrompt,
+        closePaidDatePrompt: () => setPaidDatePrompt(null),
         unmarkInstallmentPaid,
         deleteInstallment,
         updateInstallment,
