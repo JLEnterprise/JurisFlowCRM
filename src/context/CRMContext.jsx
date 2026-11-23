@@ -19,7 +19,7 @@ import {
 } from '../data/initialData';
 import { INITIAL_LEGAL_AREAS, INITIAL_LEAD_SOURCES, mergeLegalAreas } from '../data/legalAreas';
 import { useAuth } from './AuthContext';
-import { deleteFileFromIndexedDB, formatFileSize } from '../utils/fileHelper';
+import { deleteFileFromIndexedDB, formatFileSize, removeStoredFiles } from '../utils/fileHelper';
 import { buildSchedule, normalizePlan, isRecurring, dayStr, RENEW_AHEAD_DAYS } from '../utils/paymentPlan';
 
 const CRMContext = createContext();
@@ -1243,11 +1243,12 @@ export function CRMProvider({ children }) {
     });
     storageService.deleteFromSupabase('contracts', strId);
 
-    // Limpar anexos do contrato do IndexedDB
+    // Limpar anexos do contrato (IndexedDB deste navegador e Storage)
     if (contractToDelete && Array.isArray(contractToDelete.attachments)) {
       contractToDelete.attachments.forEach(att => {
         if (att?.id) deleteFileFromIndexedDB(att.id);
       });
+      removeStoredFiles(contractToDelete.attachments.map(att => att?.storagePath));
     }
 
     // Remover documentos do GED vinculados a este contrato
@@ -1915,8 +1916,9 @@ export function CRMProvider({ children }) {
       return next;
     });
 
-    // Exclui do IndexedDB
+    // Exclui do IndexedDB e o arquivo do Storage
     deleteFileFromIndexedDB(cleanId);
+    if (docToRemove?.storagePath) removeStoredFiles([docToRemove.storagePath]);
 
     // Exclui do Supabase
     storageService.deleteFromSupabase('documents', cleanId);

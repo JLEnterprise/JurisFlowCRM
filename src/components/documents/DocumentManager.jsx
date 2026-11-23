@@ -234,6 +234,8 @@ export function DocumentManager() {
           fileSize: formatFileSize(file.size),
           uploadedAt: new Date().toISOString(),
           dataUrl: safeAtt?.dataUrl || undefined,
+          storagePath: safeAtt?.storagePath || undefined,
+          type: safeAtt?.type || file.type,
         };
 
         addDocument(newDoc);

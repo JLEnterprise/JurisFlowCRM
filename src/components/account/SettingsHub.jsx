@@ -33,6 +33,7 @@ import { TeamView } from '../team/TeamView';
 import { ActivityLogsView } from '../security/ActivityLogsView';
 import { AccessLevelsPanel } from './AccessLevelsPanel';
 import { BranchesPanel } from './BranchesPanel';
+import { AttachmentMigrationPanel } from './AttachmentMigrationPanel';
 
 // Integrações que cada escritório configura com a própria estrutura (número, e-mail, contas).
 // Só dados não secretos ficam aqui; tokens e senhas vão para o cofre seguro do servidor (próxima etapa).
@@ -98,6 +99,7 @@ export function SettingsHub({ onOpenProfile }) {
     ...(permissions?.canAccessTeam ? [{ id: 'colaboradores', label: 'Colaboradores', icon: Users }] : []),
     ...(permissions?.canAccessSettings ? [{ id: 'acessos', label: 'Níveis de acesso', icon: KeyRound }] : []),
     ...(permissions?.isAdmin ? [{ id: 'filiais', label: 'Filiais', icon: Building2 }] : []),
+    ...(permissions?.isAdmin ? [{ id: 'arquivos', label: 'Arquivos', icon: Database }] : []),
     ...(permissions?.canAccessSettings ? [{ id: 'integracoes', label: 'Integrações do escritório', icon: Plug }] : []),
   ];
   const platformTabs = [
@@ -163,6 +165,7 @@ export function SettingsHub({ onOpenProfile }) {
           {tab === 'colaboradores' && <TeamView />}
           {tab === 'acessos' && <AccessLevelsPanel />}
           {tab === 'filiais' && <BranchesPanel />}
+          {tab === 'arquivos' && <AttachmentMigrationPanel />}
           {tab === 'integracoes' && <OfficeIntegrations />}
           {tab === 'infra' && isPlatformAdmin && <PlatformInfra />}
           {tab === 'auditoria' && isPlatformAdmin && <ActivityLogsView />}

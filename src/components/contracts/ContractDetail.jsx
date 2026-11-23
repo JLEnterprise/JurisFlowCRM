@@ -28,7 +28,7 @@ import { useCRM } from '../../context/CRMContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { getFileTypeInfo, readFileAsDataUrl, sanitizeAttachmentForStorage, downloadAttachment, openAttachment, deleteFileFromIndexedDB } from '../../utils/fileHelper';
+import { getFileTypeInfo, readFileAsDataUrl, sanitizeAttachmentForStorage, downloadAttachment, openAttachment, deleteFileFromIndexedDB, removeStoredFiles } from '../../utils/fileHelper';
 import { analyzeContractWithAdvJuris } from '../../services/aiService';
 
 export function ContractDetail({
@@ -126,6 +126,7 @@ export function ContractDetail({
     if (attachmentId) {
       deleteFileFromIndexedDB(attachmentId);
     }
+    if (attToDelete?.storagePath) removeStoredFiles([attToDelete.storagePath]);
 
     if (attToDelete) {
       const sourceIds = [attachmentId, `doc_${contract.id}_${attachmentId}`, `doc_${contract.id}_${attToDelete.name}`];
