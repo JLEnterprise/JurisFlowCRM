@@ -37,6 +37,14 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
   const [selectedLawyer, setSelectedLawyer] = useState('');
+  const [selectedSignature, setSelectedSignature] = useState('');
+
+  // Situação da assinatura: status "Assinado" só vale com o documento anexado ao contrato
+  const signatureOf = (c) => {
+    const status = String(c?.status || '').toLowerCase();
+    if (status !== 'assinado' && status !== 'active') return 'aguardando';
+    return (Array.isArray(c.attachments) ? c.attachments : []).length > 0 ? 'com_arquivo' : 'sem_arquivo';
+  };
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -64,8 +72,9 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
     const matchesStatus = !selectedStatus || (c.status || 'draft') === selectedStatus;
     const matchesArea = !selectedArea || (c.legalArea || c.legal_area) === selectedArea;
     const matchesLawyer = !selectedLawyer || (c.responsibleLawyerId || c.responsible_lawyer_id) === selectedLawyer;
+    const matchesSignature = !selectedSignature || signatureOf(c) === selectedSignature;
 
-    return matchesSearch && matchesStatus && matchesArea && matchesLawyer;
+    return matchesSearch && matchesStatus && matchesArea && matchesLawyer && matchesSignature;
   }).sort((a, b) => {
     // 1. Mais recente primeiro por data de criação / assinatura
     const dateA = new Date(a.createdDate || a.created_date || a.signedDate || a.createdAt || a.created_at || 0).getTime();
@@ -191,9 +200,22 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
           ))}
         </Select>
 
-        {(selectedStatus || selectedArea || selectedLawyer || search) && (
+        <Select
+          value={selectedSignature}
+          onChange={(e) => setSelectedSignature(e.target.value)}
+          aria-label="Filtrar por assinatura"
+          className="rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] px-3 py-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
+        >
+          <option value="">Assinatura: todos</option>
+          <option value="com_arquivo">Assinado, com documento</option>
+          <option value="sem_arquivo">Assinado, sem documento anexado</option>
+          <option value="aguardando">Aguardando assinatura</option>
+        </Select>
+
+        {(selectedStatus || selectedArea || selectedLawyer || selectedSignature || search) && (
           <button
             onClick={() => {
+              setSelectedSignature('');
               setSelectedStatus('');
               setSelectedArea('');
               setSelectedLawyer('');
@@ -319,8 +341,16 @@ export function ContractList({ onOpenNewContract, onEditContract, onSelectContra
                       {/* Status */}
                       <td className="px-4 py-3.5">
                         <Badge variant={getStatusBadgeVariant(contract.status)}>
-                          {String(contract.status || 'rascunho').replace(/_/g, ' ')}
+                          {CONTRACT_STATUSES.find(s => s.id === contract.status)?.label || String(contract.status || 'rascunho').replace(/_/g, ' ')}
                         </Badge>
+                        {signatureOf(contract) === 'sem_arquivo' && (
+                          <span className="mt-1 block text-[10px] font-semibold text-amber-600 dark:text-amber-400" title="Marcado como assinado, mas sem o documento assinado anexado">
+                            sem documento anexado
+                          </span>
+                        )}
+                        {signatureOf(contract) === 'com_arquivo' && (
+                          <span className="mt-1 block text-[10px] text-emerald-600 dark:text-emerald-400">com documento</span>
+                        )}
                       </td>
 
                       {/* Data de assinatura */}

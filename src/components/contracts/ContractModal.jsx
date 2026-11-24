@@ -17,6 +17,7 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
   // Edição: refazer as parcelas do contrato (entrada, parcelas já pagas)
   const [reorganize, setReorganize] = useState(false);
   const [confirmReorganize, setConfirmReorganize] = useState(null);
+  const [duplicateOf, setDuplicateOf] = useState(null); // { existing, data }
   const { users = [], permissions, currentUser } = useAuth();
   const fileInputRef = useRef(null);
 
@@ -29,14 +30,14 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
     legalArea: 'civil',
     responsibleLawyerId: currentUser?.id || '',
     serviceDescription: '',
-    status: 'assinado',
+    status: 'aguardando_assinatura',
     value: '',
     paymentMethod: 'Parcelado (Boleto / PIX)',
     installmentsCount: 1,
     installmentValue: '',
     createdDate: new Date().toISOString().split('T')[0],
     sentDate: '',
-    signedDate: new Date().toISOString().split('T')[0],
+    signedDate: '',
     observations: '',
     attachments: [],
   });
@@ -87,14 +88,14 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
         legalArea: effectivePrefill.legalArea || 'civil',
         responsibleLawyerId: effectivePrefill.responsibleLawyerId || effectivePrefill.responsibleId || currentUser?.id || '',
         serviceDescription: effectivePrefill.serviceDescription || effectivePrefill.description || 'Patrocínio de causa e consultoria jurídica especializada.',
-        status: effectivePrefill.status || 'assinado',
+        status: effectivePrefill.status || (effectivePrefill.signedDate ? 'assinado' : 'aguardando_assinatura'),
         value: prefVal,
         paymentMethod: effectivePrefill.paymentMethod || 'Parcelado (Boleto / PIX)',
         installmentsCount: prefInstCount,
         installmentValue: numericVal > 0 ? (numericVal / prefInstCount).toFixed(2) : '',
         createdDate: effectivePrefill.createdDate || new Date().toISOString().split('T')[0],
         sentDate: effectivePrefill.sentDate || new Date().toISOString().split('T')[0],
-        signedDate: effectivePrefill.signedDate || new Date().toISOString().split('T')[0],
+        signedDate: effectivePrefill.signedDate || '',
         observations: effectivePrefill.observations || '',
         attachments: Array.isArray(effectivePrefill.attachments) ? effectivePrefill.attachments : [],
       });
@@ -192,8 +193,18 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  // Mesmo cliente com contrato criado hoje: provável cadastro em dobro
+  const findDuplicate = (data) => {
+    const today = new Date().toISOString().split('T')[0];
+    const name = String(data.clientName || '').trim().toLowerCase();
+    return contracts.find(c => c && c.status !== 'cancelado'
+      && ((data.clientId && String(c.clientId || c.client_id) === String(data.clientId))
+        || (name && String(c.clientName || c.client_name || '').trim().toLowerCase() === name))
+      && String(c.createdDate || c.created_date || '').slice(0, 10) === today) || null;
+  };
+
+  const handleSubmit = (e, options = {}) => {
+    if (e?.preventDefault) e.preventDefault();
     // Valor, nº de parcelas e 1º vencimento saem do plano (no mensal: mensalidade × meses do ciclo)
     const plan = normalizePlan(formData);
     if (!formData.clientName || !plan.value) {
@@ -217,6 +228,9 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
     }
     if (isExistingContract && contractToEdit?.id) {
       updateContract(contractToEdit.id, finalData);
+    } else if (!options.skipDuplicateCheck && findDuplicate(finalData)) {
+      setDuplicateOf({ existing: findDuplicate(finalData), data: finalData });
+      return;
     } else {
       addContract(finalData);
     }
@@ -379,7 +393,14 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
             <DateField
               type="date"
               value={formData.signedDate || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, signedDate: e.target.value }))}
+              onChange={(e) => {
+                const day = e.target.value;
+                setFormData(prev => ({
+                  ...prev,
+                  signedDate: day,
+                  status: day && ['aguardando_assinatura', 'rascunho', 'enviado', 'em_revisao'].includes(prev.status) ? 'assinado' : prev.status,
+                }));
+              }}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 focus:border-brand-500 focus:outline-none"
             />
           </div>
@@ -524,6 +545,20 @@ export function ContractModal({ isOpen, onClose, contractToEdit = null, prefillD
           </button>
         </div>
       </form>
+
+      <ConfirmModal
+        isOpen={Boolean(duplicateOf)}
+        onClose={() => setDuplicateOf(null)}
+        onConfirm={() => {
+          const data = duplicateOf.data;
+          setDuplicateOf(null);
+          addContract(data);
+          onClose();
+        }}
+        title="Contrato em dobro?"
+        message={`${duplicateOf?.data?.clientName || 'Este cliente'} já tem um contrato criado hoje (${duplicateOf?.existing?.contractNumber || duplicateOf?.existing?.title || 'contrato'}, ${Number(duplicateOf?.existing?.value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}). Criar outro contrato mesmo assim? Se for o mesmo, cancele e edite o que já existe.`}
+        confirmLabel="Criar mesmo assim"
+      />
 
       <ConfirmModal
         isOpen={Boolean(confirmReorganize)}
