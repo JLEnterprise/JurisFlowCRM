@@ -1,4 +1,5 @@
 // Utilitários de formatação de dados em português do Brasil
+import { parseDateValue } from './period';
 
 export function formatCurrency(value) {
   const num = typeof value === 'number' ? value : parseCurrencyNumber(value);
@@ -51,9 +52,10 @@ export function formatPhone(phone) {
 export function formatDate(dateString, includeTime = false) {
   if (!dateString) return '-';
   try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
-    
+    // "AAAA-MM-DD" vira data local: new Date() a leria como UTC e mostraria 1 dia a menos no Brasil
+    const date = parseDateValue(dateString);
+    if (!date || isNaN(date.getTime())) return dateString;
+
     if (includeTime) {
       return new Intl.DateTimeFormat('pt-BR', {
         day: '2-digit',
@@ -99,7 +101,8 @@ export function formatRelativeTime(dateString) {
 
 export function getInitials(name) {
   if (!name) return 'EX';
-  const parts = name.trim().split(' ');
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'EX';
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }

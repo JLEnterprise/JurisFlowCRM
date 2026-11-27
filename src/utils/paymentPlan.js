@@ -127,11 +127,15 @@ export function buildSchedule(contract, { baseDate, cycle = 1, afterDate, startN
     });
   }
   if (hasRest) {
+    // Valores em centavos: a última parcela absorve a sobra (R$ 1000 / 3 = 333,33 + 333,33 + 333,34)
+    const restCents = Math.round((plan.value - plan.downPayment) * 100);
+    const baseCents = Math.floor(restCents / count);
     for (let i = 0; i < count; i++) {
+      const cents = i === count - 1 ? restCents - baseCents * (count - 1) : baseCents;
       rows.push({
         installmentNumber: number++,
         totalInstallments: totalRows,
-        value: plan.installmentValue,
+        value: cents / 100,
         dueDate: addMonths(first, i),
         paid: i < plan.paidCount,
       });
